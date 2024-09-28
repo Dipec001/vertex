@@ -14,7 +14,7 @@ from pathlib import Path
 from datetime import timedelta
 import os
 from dotenv import load_dotenv
-# import dj_database_url
+import dj_database_url
 
 load_dotenv()
 
@@ -56,6 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -113,7 +114,8 @@ WSGI_APPLICATION = "vertex.wsgi.application"
 #     }
 # }
 
-DATABASES = {
+if DEBUG:
+    DATABASES = {
     "default": {
         "ENGINE": os.getenv("DB_ENGINE"),
         "NAME": os.getenv("DB_NAME"),
@@ -124,6 +126,10 @@ DATABASES = {
         "CONN_MAX_AGE": 300,  # Maximum connection age in seconds (e.g., 5 minutes)
         'CONN_MAX_NUM': 20,   # Maximum number of connections in the pool
     }
+} 
+else:
+    DATABASES = {
+    'default': dj_database_url.config(conn_max_age=600, conn_health_checks=True, ssl_require=True)
 }
 
 # Password validation
@@ -161,6 +167,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    # ...
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
