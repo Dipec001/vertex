@@ -20,6 +20,7 @@ from .google_validate import validate_google_token
 from .apple_validate import validate_apple_token
 from .facebook_validate import validate_facebook_token
 import requests
+from allauth.socialaccount.models import SocialAccount
 # Create your views here.
 
 class ValidateEmailPasswordView(APIView):
@@ -256,25 +257,33 @@ class GoogleSignInView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        id_token = request.data.get('id_token')
+        google_token = request.data.get('id_token')
 
-        if not id_token:
-            return Response({"error": "ID token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not google_token:
+            return Response({'error': 'Google token is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate the Google ID token
-        token_info = validate_google_token(id_token)
-        print(token_info)
+        decoded_token = validate_google_token(google_token)
+        if not decoded_token:
+            return Response({'error': 'Invalid Google ID token'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not token_info:
-            return Response({"error": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+        # Get Google's unique user ID (sub)
+        google_uid = decoded_token.get('sub')
+        if not google_uid:
+            return Response({'error': 'Invalid token format'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Extract user information from token_info
-        email = token_info.get('email')
-        name = token_info.get('name')
-        picture = token_info.get('picture', '')
-        user = CustomUser.objects.filter(email=email).first()
+        # Get the user's email
+        email = decoded_token.get('email')
+        if not email:
+            return Response({'error': 'User does not have an email address'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        picture = decoded_token.get('picture', '')
 
-        if user:
+
+        # Check if the user already exists based on Google UID
+        try:
+            social_account = SocialAccount.objects.get(uid=google_uid, provider__iexact='google')
+            user = social_account.user
+
             # User exists, return access and refresh tokens
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -284,34 +293,55 @@ class GoogleSignInView(APIView):
                 "message": "User logged in successfully."
             }, status=status.HTTP_200_OK)
 
-        # Return email for company association step
-        return Response({
-            "is_new_user": True,
-            "message": "User validated successfully.",
-            "email": email,
-            "name": name,
-            "picture": picture
-        }, status=status.HTTP_200_OK)
+        except SocialAccount.DoesNotExist:
+            # If user doesn't exist, handle it accordingly
+            existing_user = CustomUser.objects.filter(email=email).first()
+            if existing_user:
+                return Response({
+                    'error': 'User with this email already exists',
+                    'suggestion': 'Please log in with this email or use a different method to sign up.',
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            # No existing user found with this Google UID or email
+            return Response({
+                "is_new_user": True,
+                "message": "New user detected. Please verify your invite code.",
+                "google_uid": google_uid,
+                "email": email,  # Email is always provided by Google
+                "picture": picture
+            }, status=status.HTTP_200_OK)
 
 
 class AppleSignInView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        id_token = request.data.get('id_token')
+        # Step 1: Validate the Apple ID token
+        apple_token = request.data.get('id_token')
+        if not apple_token:
+            return Response({'error': 'Apple token is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not id_token:
-            return Response({"error": "ID token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        decoded_token = validate_apple_token(apple_token)
+        if not decoded_token:
+            return Response({'error': 'Invalid Apple ID token'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Step 2: Extract relevant information from token
+        apple_id = decoded_token.get('sub')
+        email = decoded_token.get('email')
+
+        if not apple_id:
+            return Response({'error': 'Apple ID not found in token'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # if not email:
+        #     return Response({'error': 'Email not found in token'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            token_info = validate_apple_token(id_token)
+            # Step 3: Check if the user already exists with SocialAccount
+            social_account = SocialAccount.objects.get(uid=apple_id, provider='apple')
+            user = social_account.user
 
-            # Process token_info, e.g., extract email or user info
-            email = token_info.get('email')
-            user = CustomUser.objects.filter(email=email).first()
-
+            # Step 4: Existing user, return access and refresh tokens
             if user:
-                # User exists, return access and refresh tokens
                 refresh = RefreshToken.for_user(user)
                 return Response({
                     "access_token": str(refresh.access_token),
@@ -320,14 +350,24 @@ class AppleSignInView(APIView):
                     "message": "User logged in successfully."
                 }, status=status.HTTP_200_OK)
 
+        except SocialAccount.DoesNotExist:
+            # Step 5: New User Detected, no account created yet
+            if email:
+                existing_user = CustomUser.objects.filter(email=email).first()
+                if existing_user:
+                    return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Step 6: Indicate new user, prompt for further steps like invite code verification
             return Response({
                 "is_new_user": True,
-                "message": "User validated successfully.",
-                "email": email
+                "message": "New user detected. Please verify your invite code.",
+                "email": email,
+                "apple_id": apple_id
             }, status=status.HTTP_200_OK)
 
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        # # Fallback error
+        # return Response({"error": "Unexpected error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         
 
 class FacebookSignInView(APIView):
