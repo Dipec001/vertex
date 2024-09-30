@@ -1,22 +1,26 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Company, Invitation
+from .models import Company, Invitation, Membership
 import random
 import string
 from django.core.mail import send_mail, BadHeaderError
 from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
-from django.db import IntegrityError
+from allauth.socialaccount.models import SocialAccount
 import logging
+from rest_framework.validators import UniqueValidator
+
 
 logger = logging.getLogger(__name__)
 
 CustomUser = get_user_model()
 
-
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(required=True)  # Explicitly defining email field
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(queryset=CustomUser.objects.all())],  # Ensure email is unique at the serializer level
+    )
     company_name = serializers.CharField(max_length=255, required=True)
     domain = serializers.URLField(max_length=512, required=False)
 
@@ -58,40 +62,44 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
         # Create the company and associate it with the owner
         company = Company.objects.create(name=company_name, owner=user, domain=domain)
 
+         # Add the owner as a member of the company
+        Membership.objects.create(user=user, company=company, role="owner")
+
+
         return user, company
 
 
-class NormalUserSignupSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(required=True)  # Explicitly defining email field
-    profile_picture = serializers.ImageField(required=False, allow_null=True)  # Optional profile picture field
+# class NormalUserSignupSerializer(serializers.ModelSerializer):
+#     email = serializers.EmailField(required=True)  # Explicitly defining email field
+#     profile_picture = serializers.ImageField(required=False, allow_null=True)  # Optional profile picture field
 
-    class Meta:
-        model = CustomUser
-        fields = ['email', 'password', 'username', 'profile_picture']
-        extra_kwargs = {'password': {'write_only': True}}
+#     class Meta:
+#         model = CustomUser
+#         fields = ['email', 'password', 'username', 'profile_picture']
+#         extra_kwargs = {'password': {'write_only': True}}
 
-    def validate(self, data):
-        if CustomUser.objects.filter(email=data['email']).exists():
-            raise serializers.ValidationError("Email already exists.")
-        if CustomUser.objects.filter(username=data['username']).exists():
-            raise serializers.ValidationError("Username already exists.")
-        return data
+#     def validate(self, data):
+#         if CustomUser.objects.filter(email=data['email']).exists():
+#             raise serializers.ValidationError("Email already exists.")
+#         if CustomUser.objects.filter(username=data['username']).exists():
+#             raise serializers.ValidationError("Username already exists.")
+#         return data
 
-    def create(self, validated_data):
-        # Extract the profile picture if it exists
-        profile_picture = validated_data.pop('profile_picture', None)
+#     def create(self, validated_data):
+#         # Extract the profile picture if it exists
+#         profile_picture = validated_data.pop('profile_picture', None)
         
-        user = CustomUser.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            username=validated_data['username']
-        )
-         # If a profile picture was provided, assign it to the user
-        if profile_picture:
-            user.profile_picture = profile_picture
-            user.save()
+#         user = CustomUser.objects.create_user(
+#             email=validated_data['email'],
+#             password=validated_data['password'],
+#             username=validated_data['username']
+#         )
+#          # If a profile picture was provided, assign it to the user
+#         if profile_picture:
+#             user.profile_picture = profile_picture
+#             user.save()
 
-        return user
+#         return user
 
 
 class InvitationSerializer(serializers.ModelSerializer):
@@ -189,3 +197,105 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['username', 'bio', 'profile_picture'] 
+
+
+
+class NormalUserSignupSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    profile_picture = serializers.URLField(required=False, allow_null=True)
+    invitation_id = serializers.IntegerField(required=True)  # Include invitation_id for validation
+    password = serializers.CharField(write_only=True, required=False, allow_null=True)  # Make password optional
+    login_type = serializers.ChoiceField(choices=CustomUser.LOGIN_TYPE_CHOICES, required=True)
+    uid = serializers.CharField(required=False, allow_null=True)  # UID for social logins
+
+
+
+    class Meta:
+        model = CustomUser
+        fields = ['email', 'password', 'username', 'profile_picture', 'invitation_id', 'login_type', 'uid']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def validate(self, data):
+        # Check if email already exists
+        if CustomUser.objects.filter(email=data['email']).exists():
+            raise serializers.ValidationError("Email already exists.")
+        
+        # Check if username is unique
+        if CustomUser.objects.filter(username=data['username']).exists():
+            raise serializers.ValidationError("Username already exists.")
+        
+
+        # Check login type to validate password
+         # Validate login_type and corresponding fields
+        login_type = data.get('login_type')
+        
+        # If it's an email signup, password is required
+        if login_type == 'email':
+            if not data.get('password'):
+                raise serializers.ValidationError("Password is required for email signups.")
+        
+        # For social logins, UID is required
+        elif login_type in ['google', 'facebook', 'apple']:
+            if not data.get('uid'):
+                raise serializers.ValidationError(f"UID is required for {login_type} signups.")
+            
+        return data
+
+    def create(self, validated_data):
+        profile_picture = validated_data.pop('profile_picture', None)
+        invitation_id = validated_data.pop('invitation_id')  # Get the invitation ID
+        login_type = validated_data.pop('login_type')
+        uid = validated_data.pop('uid', None)  # UID might be None for email signup
+
+        # Get UID and login type from session
+        # request = self.context['request']
+        # uid = request.session.get('uid')
+        # login_type = request.session.get('login_type')
+
+        # Create user based on login type
+        if login_type in ['google', 'facebook', 'apple']:
+            # social sign up
+            user = CustomUser.objects.create_user(
+                email=validated_data['email'],
+                password=None,  # Social users don't need a password
+                username=validated_data['username'],
+                login_type=login_type,
+            )
+            
+            # Create the SocialAccount entry
+            SocialAccount.objects.create(
+                user=user,
+                uid=uid,
+                provider=login_type,  # Use the correct provider
+                extra_data={'email': validated_data['email'], 'picture': profile_picture or ''}
+            )
+            
+            # Clear session data after creating the account
+            # del request.session['uid']
+            # del request.session['login_type']
+        else:
+            user = CustomUser.objects.create_user(
+                email=validated_data['email'],
+                password=validated_data['password'],
+                username=validated_data['username']
+            )
+
+        if profile_picture:
+            user.profile_picture_url = profile_picture
+            user.save()
+
+        # Now, associate the user with the company and mark the invitation as accepted
+        try:
+            invitation = Invitation.objects.get(id=invitation_id, status='pending')  # Fetch the invitation
+            # Mark the invitation as accepted
+            invitation.status = 'accepted'
+            invitation.save()
+
+            # Add the user to the company's members
+            company = invitation.company
+            company.members.add(user)  # This will automatically create the Membership entry
+            company.save()  # Save the company (though not strictly necessary after .add())
+        except Invitation.DoesNotExist:
+            raise serializers.ValidationError("Invalid invitation ID.")
+
+        return user

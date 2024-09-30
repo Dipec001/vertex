@@ -200,11 +200,11 @@ REST_FRAMEWORK = {
 }
 
 # SMTP authentication settings
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587  # Specify the SMTP server's port (587 for TLS or 465 for SSL)
-EMAIL_USE_TLS = True  # Use TLS for secure email transmission
-EMAIL_USE_SSL = False  # Use SSL (set to True if your SMTP server requires it)
+EMAIL_PORT = 465  # Specify the SMTP server's port (587 for TLS or 465 for SSL)
+EMAIL_USE_TLS = False  # Use TLS for secure email transmission
+EMAIL_USE_SSL = True  # Use SSL (set to True if your SMTP server requires it)
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 # Default sender address for emails sent by Django

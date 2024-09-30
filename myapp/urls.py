@@ -12,6 +12,5 @@ urlpatterns = [
     path('google-signin/', views.GoogleSignInView.as_view(), name='google_sign_in'),
     path('apple-signin/', views.AppleSignInView.as_view(), name='apple_sign_in'),
     path('facebook-signin/', views.FacebookSignInView.as_view(), name='facebook_sign_in'),
-    path('get-profile/', views.UserProfileView.as_view(), name='get_user_profile')
-
+    path('profile/', views.UserProfileView.as_view(), name='user_profile')
 ]

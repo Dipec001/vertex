@@ -10,6 +10,7 @@ class CustomUser(AbstractUser):
         ('facebook', 'Facebook'),
         ('apple', 'Apple'),
     ]
+    email = models.EmailField(unique=True)
     is_company_owner = models.BooleanField(default=False)
     streak = models.IntegerField(default=0)
     login_type = models.CharField(max_length=50, choices=LOGIN_TYPE_CHOICES, default='email')
@@ -22,6 +23,9 @@ class CustomUser(AbstractUser):
     date_joined = models.DateTimeField(auto_now_add=True)  # Automatically set when the user is created
     tickets = models.PositiveIntegerField(default=0)
     xp = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.email
 
 
 class Company(models.Model):
