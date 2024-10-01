@@ -165,6 +165,7 @@ class InvitationSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     profile_picture_url = serializers.SerializerMethodField()
+    companies = serializers.SerializerMethodField()  # Custom field to return companie
 
     class Meta:
         model = CustomUser
@@ -177,7 +178,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'bio', 
             'date_joined', 
             'tickets', 
-            'profile_picture_url'  # Custom field with logic
+            'profile_picture_url',  # Custom field with logic
+            'companies'
         ]
 
     def get_profile_picture_url(self, obj):
@@ -191,6 +193,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         
         # Fallback to a default image if neither is set
         # return '/static/images/default_avatar.png'
+
+    def get_companies(self, obj):
+        # Get the companies the user is a member of via the Membership model
+        memberships = Membership.objects.filter(user=obj)
+        # Return the names of all companies the user belongs to
+        return [membership.company.name for membership in memberships]
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
