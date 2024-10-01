@@ -218,6 +218,7 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
             
         return data
 
+    @transaction.atomic  # Wrap the method in an atomic transaction
     def create(self, validated_data):
         profile_picture = validated_data.pop('profile_picture', None)
         invitation_id = validated_data.pop('invitation_id')  # Get the invitation ID
