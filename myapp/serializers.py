@@ -3,14 +3,11 @@ from django.contrib.auth import get_user_model
 from .models import Company, Invitation, Membership
 import random
 import string
-from django.core.mail import send_mail, BadHeaderError
-from django.conf import settings
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from allauth.socialaccount.models import SocialAccount
 import logging
 from rest_framework.validators import UniqueValidator
 from django.db import transaction
+from .tasks import send_invitation_email_task
 
 
 logger = logging.getLogger(__name__)
@@ -92,43 +89,40 @@ class InvitationSerializer(serializers.ModelSerializer):
         # Prevent inviting an existing user who already belongs to a company
         if CustomUser.objects.filter(email=email, company__isnull=False).exists():
             raise serializers.ValidationError({"error": "The user is already a member of a company."})
+        
+        # Check if the user has already been invited to this company
+        existing_invitation = Invitation.objects.filter(email=email, company=company).first()
 
-        # Generate a unique invite code
-        invite_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        if existing_invitation:
+            # Send a reminder email asynchronously
+            send_invitation_email_task.delay_on_commit(
+                invite_code=existing_invitation.invite_code,
+                company_name=company.name,
+                inviter_name=user.username,
+                to_email=email
+            )
+            return existing_invitation  # Return the existing invitation object
+        else:
+            # Generate a 6-digit numeric code
+            invite_code = ''.join(random.choices(string.digits, k=6))
 
-        # Prepare the email content
-        subject = "You're Invited to Join Our Company"
-        html_message = render_to_string('invitation_email.html', {
-            'invite_code': invite_code,
-            'company_name': company.name,
-            'inviter_name': user.username,
-        })
-        plain_message = strip_tags(html_message)
-        from_email = settings.DEFAULT_FROM_EMAIL
-        to_email = email
+            # Send the invitation email asynchronously
+            send_invitation_email_task.delay_on_commit(
+                invite_code=invite_code,
+                company_name=company.name,
+                inviter_name=user.username,
+                to_email=email
+            )
 
-        # Send the email
-        # Send the email with error handling
-        try:
-            send_mail(subject, plain_message, from_email, [to_email], html_message=html_message)
-        except TimeoutError:
-            logger.error(f"TimeoutError while sending email to {email}.")
-            raise serializers.ValidationError({"error": "Failed to send invitation email. Please try again later."})
-        except BadHeaderError:
-            logger.error(f"BadHeaderError while sending email to {email}.")
-            raise serializers.ValidationError({"error": "Invalid header found."})
-        except Exception as e:
-            logger.error(f"An error occurred while sending email to {email}: {e}")
-            raise serializers.ValidationError({"error": "An unexpected error occurred while sending the email."})
+            # Create the invitation
+            invitation = Invitation.objects.create(
+                email=email,
+                company=company,
+                invite_code=invite_code,
+                invited_by=self.context['request'].user
+            )
 
-        # Create the invitation
-        invitation = Invitation.objects.create(
-            email=email,
-            company=company,
-            invite_code=invite_code,
-            invited_by=self.context['request'].user  # The user sending the invitation
-        )
-        return invitation
+            return invitation
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
