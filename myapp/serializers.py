@@ -10,6 +10,7 @@ from django.utils.html import strip_tags
 from allauth.socialaccount.models import SocialAccount
 import logging
 from rest_framework.validators import UniqueValidator
+from django.db import transaction
 
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
 
         return username
 
+    @transaction.atomic
     def create(self, validated_data):
         email = validated_data['email']
         password = validated_data['password']
@@ -54,53 +56,21 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
 
         # Create the user and set `is_company_owner` to True
         user = CustomUser.objects.create_user(email=email, username=username, password=password, is_company_owner=True)
+        
+        # Create the company and associate it with the owner
+        company = Company.objects.create(name=company_name, owner=user, domain=domain)
 
+        # Now, assign the company to the user
+        user.company = company
         # Set the username as the email prefix
         user.username = username
         user.save()
-
-        # Create the company and associate it with the owner
-        company = Company.objects.create(name=company_name, owner=user, domain=domain)
 
          # Add the owner as a member of the company
         Membership.objects.create(user=user, company=company, role="owner")
 
 
         return user, company
-
-
-# class NormalUserSignupSerializer(serializers.ModelSerializer):
-#     email = serializers.EmailField(required=True)  # Explicitly defining email field
-#     profile_picture = serializers.ImageField(required=False, allow_null=True)  # Optional profile picture field
-
-#     class Meta:
-#         model = CustomUser
-#         fields = ['email', 'password', 'username', 'profile_picture']
-#         extra_kwargs = {'password': {'write_only': True}}
-
-#     def validate(self, data):
-#         if CustomUser.objects.filter(email=data['email']).exists():
-#             raise serializers.ValidationError("Email already exists.")
-#         if CustomUser.objects.filter(username=data['username']).exists():
-#             raise serializers.ValidationError("Username already exists.")
-#         return data
-
-#     def create(self, validated_data):
-#         # Extract the profile picture if it exists
-#         profile_picture = validated_data.pop('profile_picture', None)
-        
-#         user = CustomUser.objects.create_user(
-#             email=validated_data['email'],
-#             password=validated_data['password'],
-#             username=validated_data['username']
-#         )
-#          # If a profile picture was provided, assign it to the user
-#         if profile_picture:
-#             user.profile_picture = profile_picture
-#             user.save()
-
-#         return user
-
 
 class InvitationSerializer(serializers.ModelSerializer):
     invited_by = serializers.StringRelatedField(read_only=True)  # Make this field read-only
@@ -119,11 +89,9 @@ class InvitationSerializer(serializers.ModelSerializer):
         if email.lower() == user.email.lower():
             raise serializers.ValidationError({"error": "You cannot invite yourself."})
         
-        # Check if the email already belongs to a member of the company
-        existing_member = company.members.filter(email=email).exists()
-
-        if existing_member:
-            raise serializers.ValidationError({"error": f"{email} is already a member of {company.name}."})
+        # Prevent inviting an existing user who already belongs to a company
+        if CustomUser.objects.filter(email=email, company__isnull=False).exists():
+            raise serializers.ValidationError({"error": "The user is already a member of a company."})
 
         # Generate a unique invite code
         invite_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -165,21 +133,26 @@ class InvitationSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     profile_picture_url = serializers.SerializerMethodField()
-    companies = serializers.SerializerMethodField()  # Custom field to return companie
+    company = serializers.CharField(source='company.name', read_only=True)
+    first_name = serializers.CharField(read_only=True)
+    last_name = serializers.CharField(read_only=True)
+
 
     class Meta:
         model = CustomUser
         # Include all fields except the raw profile_picture and profile_picture_url
         fields = [
             'email', 
-            'username', 
+            'username',
+            'first_name',
+            'last_name',
             'is_company_owner', 
             'streak', 
             'bio', 
             'date_joined', 
             'tickets', 
             'profile_picture_url',  # Custom field with logic
-            'companies'
+            'company',
         ]
 
     def get_profile_picture_url(self, obj):
@@ -193,12 +166,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         
         # Fallback to a default image if neither is set
         # return '/static/images/default_avatar.png'
-
-    def get_companies(self, obj):
-        # Get the companies the user is a member of via the Membership model
-        memberships = Membership.objects.filter(user=obj)
-        # Return the names of all companies the user belongs to
-        return [membership.company.name for membership in memberships]
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
@@ -215,12 +182,14 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_null=True)  # Make password optional
     login_type = serializers.ChoiceField(choices=CustomUser.LOGIN_TYPE_CHOICES, required=True)
     uid = serializers.CharField(required=False, allow_null=True)  # UID for social logins
+    first_name = serializers.CharField(required=False, allow_null=True)
+    last_name = serializers.CharField(required=False, allow_null=True)
 
 
 
     class Meta:
         model = CustomUser
-        fields = ['email', 'password', 'username', 'profile_picture', 'invitation_id', 'login_type', 'uid']
+        fields = ['email', 'password', 'username', 'profile_picture', 'invitation_id', 'login_type', 'uid', 'first_name', 'last_name']
         extra_kwargs = {'password': {'write_only': True}}
 
     def validate(self, data):
@@ -254,6 +223,8 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
         invitation_id = validated_data.pop('invitation_id')  # Get the invitation ID
         login_type = validated_data.pop('login_type')
         uid = validated_data.pop('uid', None)  # UID might be None for email signup
+        first_name = validated_data.pop('first_name', '')
+        last_name = validated_data.pop('last_name', '')
 
         # Get UID and login type from session
         # request = self.context['request']
@@ -268,6 +239,8 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
                 password=None,  # Social users don't need a password
                 username=validated_data['username'],
                 login_type=login_type,
+                first_name=first_name,
+                last_name=last_name
             )
             
             # Create the SocialAccount entry
@@ -299,10 +272,9 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
             invitation.status = 'accepted'
             invitation.save()
 
-            # Add the user to the company's members
-            company = invitation.company
-            company.members.add(user)  # This will automatically create the Membership entry
-            company.save()  # Save the company (though not strictly necessary after .add())
+            # Set the user's company to the invited company
+            user.company = invitation.company  # Directly associate the user with the company
+            user.save()  # Save the user to update their company
         except Invitation.DoesNotExist:
             raise serializers.ValidationError("Invalid invitation ID.")
 

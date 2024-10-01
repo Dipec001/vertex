@@ -23,7 +23,14 @@ class CustomUser(AbstractUser):
     date_joined = models.DateTimeField(auto_now_add=True)  # Automatically set when the user is created
     tickets = models.PositiveIntegerField(default=0)
     xp = models.PositiveIntegerField(default=0)
-
+    # Add a foreign key to the company (a user can only belong to one company)
+    company = models.ForeignKey(
+        'Company', 
+        on_delete=models.CASCADE,  # Delete the user if the company is deleted
+        related_name='members',  # Reverse lookup for company.members
+        null=True,  # Company is not required
+        blank=True  # Company must not be selected
+    )
     def __str__(self):
         return self.email
 
@@ -31,9 +38,8 @@ class CustomUser(AbstractUser):
 class Company(models.Model):
     # This is the company model
     name = models.CharField(max_length=255)
-    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='owned_companies')
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='owned_company')
     domain = models.URLField(max_length=512)
-    members = models.ManyToManyField(CustomUser, through="Membership")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

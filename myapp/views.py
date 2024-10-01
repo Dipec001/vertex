@@ -286,6 +286,8 @@ class GoogleSignInView(APIView):
         decoded_token = validate_google_token(google_token)
         if not decoded_token:
             return Response({'error': 'Invalid Google ID token'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        print(decoded_token)
 
         # Get Google's unique user ID (sub)
         google_uid = decoded_token.get('sub')
@@ -298,6 +300,8 @@ class GoogleSignInView(APIView):
             return Response({'error': 'User does not have an email address'}, status=status.HTTP_400_BAD_REQUEST)
         
         picture = decoded_token.get('picture', '')
+        first_name = decoded_token.get('given_name')
+        last_name = decoded_token.get('family_name')
 
 
         # Check if the user already exists based on Google UID
@@ -334,7 +338,9 @@ class GoogleSignInView(APIView):
                 "google_uid": google_uid,
                 "email": email,  # Email is always provided by Google
                 "login_type": "google",
-                "picture": picture
+                "picture": picture,
+                "first_name": first_name,
+                "last_name": last_name
             }, status=status.HTTP_200_OK)
 
 
@@ -354,6 +360,10 @@ class AppleSignInView(APIView):
         # Step 2: Extract relevant information from token
         apple_id = decoded_token.get('sub')
         email = decoded_token.get('email') # ONly returned on first login
+         # Extract the name from the decoded token if it's the first sign-in
+        name_info = decoded_token.get('name', {})
+        first_name = name_info.get('firstName')
+        last_name = name_info.get('lastName')
 
         if not apple_id:
             return Response({'error': 'Apple ID not found in token'}, status=status.HTTP_400_BAD_REQUEST)
@@ -378,8 +388,8 @@ class AppleSignInView(APIView):
 
         except SocialAccount.DoesNotExist:
             # This is a new user, handle first-time login
-            if email is None:
-                return Response({'error': 'Email is required on first sign-in'}, status=status.HTTP_400_BAD_REQUEST)
+            # if email is None:
+            #     return Response({'error': 'Email is required on first sign-in'}, status=status.HTTP_400_BAD_REQUEST)
         
             # Step 5: New User Detected, no account created yet
             existing_user = CustomUser.objects.filter(email=email).first()
@@ -392,7 +402,9 @@ class AppleSignInView(APIView):
                 "message": "New user detected. Please verify your invite code.",
                 "email": email,
                 "apple_id": apple_id,
-                "login_type": "apple"
+                "login_type": "apple",
+                "first_name": first_name,
+                "last_name": last_name
             }, status=status.HTTP_200_OK)
 
         
