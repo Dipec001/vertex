@@ -227,6 +227,12 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
         first_name = validated_data.pop('first_name', '')
         last_name = validated_data.pop('last_name', '')
 
+        # Create user based on login type
+        if login_type in ['google', 'facebook', 'apple']:
+            # Check if a SocialAccount with this provider and UID already exists
+            if SocialAccount.objects.filter(provider=login_type, uid=uid).exists():
+                raise serializers.ValidationError(f"A user with this {login_type} UID already exists.")
+
         # Get UID and login type from session
         # request = self.context['request']
         # uid = request.session.get('uid')
