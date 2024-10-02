@@ -180,7 +180,6 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(required=False, allow_null=True)
 
 
-
     class Meta:
         model = CustomUser
         fields = ['email', 'password', 'username', 'profile_picture', 'invitation_id', 'login_type', 'uid', 'first_name', 'last_name']

@@ -19,7 +19,7 @@ class CustomUser(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
 
     # URLField for external profile picture URLs (from Google, etc.)
-    profile_picture_url = models.URLField(blank=True, null=True)
+    profile_picture_url = models.URLField(max_length=2000, blank=True, null=True)
     date_joined = models.DateTimeField(auto_now_add=True)  # Automatically set when the user is created
     tickets = models.PositiveIntegerField(default=0)
     xp = models.PositiveIntegerField(default=0)

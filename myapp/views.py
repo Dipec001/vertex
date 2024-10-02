@@ -407,147 +407,75 @@ class AppleSignInView(APIView):
                 "last_name": last_name
             }, status=status.HTTP_200_OK)
 
-        
 
 class FacebookSignInView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        access_token = request.data.get('access_token')
+        facebook_token = request.data.get('access_token')
 
-        if not access_token:
-            return Response({"error": "Access token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not facebook_token:
+            return Response({'error': 'Facebook access token is required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validate Facebook token
         try:
-            user_id = validate_facebook_token(access_token)
+            user_id = validate_facebook_token(facebook_token)  # Assuming this checks the validity of the token
+        except ValueError:
+            return Response({'error': 'Invalid Facebook access token'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Retrieve user information from Facebook
-            user_info_url = f"https://graph.facebook.com/v10.0/{user_id}?fields=id,name,email&access_token={access_token}"
-            user_info_response = requests.get(user_info_url)
-            user_info = user_info_response.json()
+        # Verify Facebook token and get user info
+        user_info_url = f'https://graph.facebook.com/me?access_token={facebook_token}&fields=id,name,email,picture'
+        response = requests.get(user_info_url)
 
-            # Extract user details
-            email = user_info.get('email')
-            name = user_info.get('name')
-            user = CustomUser.objects.filter(email=email).first()
+        if response.status_code != 200:
+            return Response({'error': 'Failed to retrieve user information from Facebook'}, status=status.HTTP_400_BAD_REQUEST)
 
-            if user:
-                # User exists, return access and refresh tokens
-                refresh = RefreshToken.for_user(user)
+        user_info = response.json()
+        facebook_uid = user_info.get('id')
+        email = user_info.get('email')
+        name = user_info.get('name')
+        picture = user_info.get('picture', {}).get('data', {}).get('url', '')
+
+        if not facebook_uid:
+            return Response({'error': 'Failed to retrieve user ID from Facebook'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Split the name into first and last names
+        first_name = name.split(' ')[0]
+        last_name = ' '.join(name.split(' ')[1:])
+
+        # Check if a social account or user already exists
+        try:
+            social_account = SocialAccount.objects.get(uid=facebook_uid, provider='facebook')
+            user = social_account.user
+
+            # User exists, return access and refresh tokens
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh),
+                "is_new_user": False,
+                "message": "User logged in successfully."
+            }, status=status.HTTP_200_OK)
+
+        except SocialAccount.DoesNotExist:
+            # If user doesn't exist, check for existing user by email
+            existing_user = CustomUser.objects.filter(email=email).first()
+            if existing_user:
                 return Response({
-                    "access_token": str(refresh.access_token),
-                    "refresh_token": str(refresh),
-                    "is_new_user": False,
-                    "message": "User logged in successfully."
-                }, status=status.HTTP_200_OK)
+                    'error': 'User with this email already exists',
+                    'suggestion': 'Please log in with this email or use a different method to sign up.',
+                }, status=status.HTTP_400_BAD_REQUEST)
 
+            # Return user details for new user sign-up
             return Response({
                 "is_new_user": True,
                 "message": "User validated successfully.",
+                "uid": facebook_uid,
                 "email": email,
-                "name": name
+                "first_name": first_name,
+                "last_name": last_name,
+                "profile_picture": picture
             }, status=status.HTTP_200_OK)
-
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-# class FacebookSignInView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request):
-#         facebook_token = request.data.get('access_token')
-
-#         if not facebook_token:
-#             return Response({'error': 'Facebook access token is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Verify Facebook token and get user info
-#         user_info_url = f'https://graph.facebook.com/me?access_token={facebook_token}&fields=id,name,email'
-#         response = requests.get(user_info_url)
-
-#         if response.status_code != 200:
-#             return Response({'error': 'Invalid Facebook token or request failed'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         user_info = response.json()
-#         facebook_uid = user_info.get('id')
-#         email = user_info.get('email')
-
-#         if not facebook_uid:
-#             return Response({'error': 'Failed to retrieve user information from Facebook'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Check if a social account or user already exists
-#         try:
-#             social_account = SocialAccount.objects.get(uid=facebook_uid, provider='facebook')
-#             user = social_account.user
-
-#             # User exists, return access and refresh tokens
-#             refresh = RefreshToken.for_user(user)
-#             return Response({
-#                 "access_token": str(refresh.access_token),
-#                 "refresh_token": str(refresh),
-#                 "is_new_user": False,
-#                 "message": "User logged in successfully."
-#             }, status=status.HTTP_200_OK)
-
-#         except SocialAccount.DoesNotExist:
-#             # If user doesn't exist, handle accordingly
-#             existing_user = CustomUser.objects.filter(email=email).first()
-#             if existing_user:
-#                 return Response({
-#                     'error': 'User with this email already exists',
-#                     'suggestion': 'Please log in with this email or use a different method to sign up.',
-#                 }, status=status.HTTP_400_BAD_REQUEST)
-
-#             # Create new user and social account
-#             new_user = CustomUser.objects.create(email=email, username=user_info.get('name'))
-#             SocialAccount.objects.create(user=new_user, uid=facebook_uid, provider='facebook')
-
-#             # Return access and refresh tokens for new user
-#             refresh = RefreshToken.for_user(new_user)
-#             return Response({
-#                 "access_token": str(refresh.access_token),
-#                 "refresh_token": str(refresh),
-#                 "is_new_user": True,
-#                 "message": "User signed up and logged in successfully."
-#             }, status=status.HTTP_200_OK)
-
-
-class SocialUserSignupView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        email = request.data.get('email')
-        invitation_id = request.data.get('invitation_id')
-        login_type = request.data.get('login_type')
-        uid = request.data.get('uid', '')
-        username = request.data.get('uid')
-
-        if not email or not invitation_id:
-            return Response({"error": "email and invitation ID are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Get the invitation to associate the user with the company
-        try:
-            invitation = Invitation.objects.get(id=invitation_id, status='pending')
-        except Invitation.DoesNotExist:
-            return Response({"error": "Invalid invitation."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if email is already taken
-        if CustomUser.objects.filter(email=email).exists():
-            return Response({"error": "email already exists."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Create the user
-        user = CustomUser.objects.create_user(
-            email=invitation.email,
-            username=email.split("@")[0],
-            password=None  # No password needed since they're signing in with Google
-        )
-
-        # Update the invitation status
-        invitation.status = 'accepted'
-        invitation.save()
-
-        # Return success
-        return Response({"success": "User created successfully"}, status=status.HTTP_201_CREATED)
 
 
 class UserProfileView(APIView):
