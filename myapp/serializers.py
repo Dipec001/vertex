@@ -74,11 +74,13 @@ class InvitationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Invitation
-        fields = ['email', 'invite_code', 'status', 'date_sent','invited_by']
+        fields = ['email','first_name','last_name', 'invite_code', 'status', 'date_sent','invited_by']
         read_only_fields = ['invite_code', 'status', 'date_sent', 'invited_by']  # Mark these as read-only for creatio
 
     def create(self, validated_data):
         email = validated_data['email']
+        first_name = validated_data['first_name']
+        last_name = validated_data['last_name']
         user = self.context['request'].user  # The user sending the invitation
         company = self.context['company']  # Pass the company from the view
 
@@ -117,6 +119,8 @@ class InvitationSerializer(serializers.ModelSerializer):
             # Create the invitation
             invitation = Invitation.objects.create(
                 email=email,
+                first_name=first_name,
+                last_name=last_name,
                 company=company,
                 invite_code=invite_code,
                 invited_by=self.context['request'].user

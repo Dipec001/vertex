@@ -71,6 +71,8 @@ class Invitation(models.Model):
         ("accepted", "Accepted"),
     ]
     email = models.EmailField()
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
     invite_code = models.CharField(max_length=6, unique=True)  # 6-digit invite code
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='pending')
