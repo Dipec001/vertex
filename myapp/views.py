@@ -21,6 +21,8 @@ from .apple_validate import validate_apple_token
 from .facebook_validate import validate_facebook_token
 import requests
 from allauth.socialaccount.models import SocialAccount
+from django.db import transaction
+
 # Create your views here.
 
 class ValidateEmailPasswordView(APIView):
@@ -496,3 +498,79 @@ class UserProfileView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+    def delete(self, request):
+        user = request.user
+
+        # Prevent company owners from deleting their account without transferring ownership
+        if user.is_company_owner:  # Check if the user owns a company
+            return Response({"error": "You cannot delete your account while owning a company. Please transfer ownership first."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Step 1: Revert invitation status to "pending" if it was accepted
+        try:
+            invitation = Invitation.objects.get(email=user.email, status="accepted")
+            invitation.status = "pending"
+            invitation.save()
+        except Invitation.DoesNotExist:
+            pass  # No invitation found, or it's still pending; nothing to do here
+
+        # Step 2: Delete any associated social accounts (e.g., from django-allauth or custom social accounts)
+        user.socialaccount_set.all().delete()
+
+        # Step 3: Delete the user and all related records
+        user.delete()
+
+        return Response({"success": "Profile deleted successfully"}, status=status.HTTP_200_OK)
+
+
+class TransferOwnershipView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        new_owner_email = request.data.get('new_owner_email')
+
+        # Check if the current user is indeed the owner
+        try:
+            company = Company.objects.get(owner=user)
+        except Company.DoesNotExist:
+            return Response({"error": "You are not the owner of any company."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if the new owner exists
+        try:
+            new_owner = CustomUser.objects.get(email=new_owner_email)
+        except CustomUser.DoesNotExist:
+            return Response({"error": "New owner email does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Begin transaction block to ensure atomicity
+        with transaction.atomic():
+            # Update the company owner
+            company.owner = new_owner
+            company.save()
+
+            # Update the roles in the Membership model
+            try:
+                # Update the old owner's role to employee
+                old_owner_membership = Membership.objects.get(user=user, company=company)
+                old_owner_membership.role = 'employee'
+                old_owner_membership.save()
+
+                # Update the new owner's role to owner
+                new_owner_membership, created = Membership.objects.get_or_create(user=new_owner, company=company)
+                new_owner_membership.role = 'owner'
+                new_owner_membership.save()
+
+            except Membership.DoesNotExist:
+                return Response({"error": "Membership not found for either user."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update ownership fields in CustomUser
+            new_owner.is_company_owner = True
+            new_owner.save()
+            user.is_company_owner = False
+            user.save()
+
+            # # Optionally update invitations invited by the old owner to the new owner
+            # # (This depends on whether you want to keep the historical invitation info)
+            Invitation.objects.filter(invited_by=user, company=company).update(invited_by=new_owner)
+
+        return Response({"success": "Company ownership transferred successfully."}, status=status.HTTP_200_OK)
