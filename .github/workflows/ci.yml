@@ -42,6 +42,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Setup Database
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
         run: |
           python manage.py migrate
 

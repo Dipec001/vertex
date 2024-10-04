@@ -92,44 +92,6 @@ class NormalUserSignupView(APIView):
             return Response({"message": "User created successfully"}, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# class NormalUserSignupView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request):
-#         serializer = NormalUserSignupSerializer(data=request.data)
-        
-#         # Check if data is valid
-#         if serializer.is_valid():
-
-#             # Associate user with company based on invitation
-#             company_email_or_code = request.data.get('company_email_or_code')
-#             if not company_email_or_code:
-#                 return Response({"error": "Company email or invite code is required."}, status=status.HTTP_400_BAD_REQUEST)
-#             try:
-#                 if '@' in company_email_or_code:
-#                     invitation = Invitation.objects.get(email=company_email_or_code, status='pending')
-#                 else:
-#                     invitation = Invitation.objects.get(invite_code=company_email_or_code, status='pending')
-#             except Invitation.DoesNotExist:
-#                 return Response({"error": "Invalid company email or invite code"}, status=status.HTTP_400_BAD_REQUEST)
-
-#             # Update invitation status and associate the user with the company
-#             invitation.status = 'accepted'
-#             invitation.save()
-#             company = invitation.company
-#             user = serializer.save()
-
-#             # Check if the user is already a member of the company
-#             if company.members.filter(id=user.id).exists():
-#                 return Response({"error": "User is already a member of this company."}, status=status.HTTP_400_BAD_REQUEST)
-            
-#             company.members.add(user)
-
-#             return Response({"success": "User created successfully"}, status=status.HTTP_201_CREATED)
-        
-#         # Return validation errors
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
 class CompanyOwnerSignupView(APIView):
