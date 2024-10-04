@@ -64,6 +64,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Add the account middleware:
+    "vertex.middleware.CustomResponseMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
 
