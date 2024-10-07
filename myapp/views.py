@@ -22,6 +22,7 @@ from .facebook_validate import validate_facebook_token
 import requests
 from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
+from .s3_utils import save_image_to_s3
 
 # Create your views here.
 
@@ -450,16 +451,36 @@ class UserProfileView(APIView):
         serializer = UserProfileSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # def put(self, request):
+    #     from django.core.files.storage import default_storage
+    #     print(f"Using storage backend: {default_storage.__class__}")
+        
+    #     user = request.user
+    #     serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
+        
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response({"success": "Profile updated successfully"}, status=status.HTTP_200_OK)
+
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     def put(self, request):
         user = request.user
         serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
-        
+
         if serializer.is_valid():
-            serializer.save()
+            profile_picture = request.FILES.get('profile_picture')
+            if profile_picture:
+                image_url = save_image_to_s3(profile_picture, 'profile_pictures')
+                if image_url:
+                    serializer.save(profile_picture=image_url)  # Save the URL instead
+                else:
+                    return Response({"error": "Failed to upload image to S3"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                serializer.save()  # Save without updating the profile picture
+
             return Response({"success": "Profile updated successfully"}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
     def delete(self, request):
         user = request.user

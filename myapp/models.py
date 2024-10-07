@@ -16,7 +16,7 @@ class CustomUser(AbstractUser):
     login_type = models.CharField(max_length=50, choices=LOGIN_TYPE_CHOICES, default='email')
     bio = models.TextField(blank=True, null=True)
     # ImageField for file uploads (if user manually uploads a picture)
-    profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
 
     # URLField for external profile picture URLs (from Google, etc.)
     profile_picture_url = models.URLField(max_length=2000, blank=True, null=True)
