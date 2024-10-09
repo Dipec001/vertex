@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Company, Membership, Invitation
+from .models import CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity
 # Register your models here.
 
 # Customizing the display and functionality of the CustomUser model in the admin interface
@@ -40,3 +40,8 @@ class InvitationAdmin(admin.ModelAdmin):
     list_filter = ('status', 'date_sent')  # Filter options in the sidebar
     ordering = ('date_sent', 'email')  # Ordering of the list
     list_per_page = 20  # Pagination to limit results per page
+
+
+admin.site.register(Xp)
+admin.site.register(Streak)
+admin.site.register(WorkoutActivity)

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'allauth.socialaccount.providers.facebook',
     'allauth.socialaccount.providers.apple',
+    'timezone_field',
 ]
 
 MIDDLEWARE = [
@@ -269,3 +270,16 @@ FACEBOOK_APP_SECRET = os.getenv('FACEBOOK_APP_SECRET')
 # Example Apple credentials
 APPLE_CLIENT_ID = os.getenv('APPLE_CLIENT_ID')
 APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
+
+
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE ='UTC'
+
+CELERY_BEAT_SCHEDULE = {
+    'reset-daily-streaks-every-hour': {
+        'task': 'myapp.tasks.reset_daily_streaks',
+        'schedule': timedelta(hours=1),  # Run the task every hour
+    },
+}

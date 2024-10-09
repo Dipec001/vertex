@@ -18,6 +18,7 @@ Django==5.1.1
 django-allauth==64.2.1
 django-filter==24.3
 django-storages==1.14.4
+django-timezone-field==7.0
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.3.1
 gunicorn==23.0.0
@@ -34,6 +35,7 @@ pycparser==2.22
 PyJWT==2.9.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
+pytz==2024.2
 redis==5.1.0
 requests==2.32.3
 requests-oauthlib==2.0.0

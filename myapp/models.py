@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from timezone_field import TimeZoneField
 # Create your models here.
 
 class CustomUser(AbstractUser):
@@ -31,6 +32,8 @@ class CustomUser(AbstractUser):
         null=True,  # Company is not required
         blank=True  # Company must not be selected
     )
+    timezone = TimeZoneField(default='UTC')
+    
     def __str__(self):
         return self.email
 
@@ -82,3 +85,58 @@ class Invitation(models.Model):
     def __str__(self):
         return f" Invite for {self.email} to {self.company}"
 
+
+class Xp(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='xp_records')
+    timeStamp = models.DateTimeField(auto_now_add=True)  # Timestamp for when XP is earned
+    totalXpToday = models.FloatField(default=0.0)  # XP earned today
+    totalXpAllTime = models.FloatField(default=0.0)  # Total XP earned across all time
+    currentXpRemaining = models.FloatField(default=0.0)  # XP remaining after conversion to tickets
+
+    def __str__(self):
+        return f'{self.user.email} - XP: {self.totalXpToday}'
+    
+
+class Streak(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='streak_records')
+    timeStamp = models.DateTimeField(auto_now_add=True)  # Timestamp for the streak update
+    currentStreak = models.IntegerField(default=0)  # Current active streak days
+    highestStreak = models.IntegerField(default=0)  # Highest streak ever achieved
+    currentStreakSaver = models.IntegerField(default=0)  # Optional field for streak savers
+
+    def __str__(self):
+        return f'{self.user.email} - Streak: {self.currentStreak}'
+
+
+
+class DailySteps(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='daily_steps')
+    xp = models.FloatField()  # XP earned from the activity
+    step_count = models.IntegerField()  # Steps recorded
+    timestamp = models.DateTimeField(auto_now_add=True)  # When the steps were recorded
+    date = models.DateField(auto_now_add=True)  # The day these steps are logged
+
+    def __str__(self):
+        return f'{self.user.email} - Steps: {self.step_count} on {self.date}'
+
+
+class WorkoutActivity(models.Model):
+    ACTIVITY_TYPE = [
+        ("mindfulness", "Mindfulness"),
+        ("movement", "Movement"),
+    ]
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='workout_activity')
+    duration = models.IntegerField()  # Duration in minutes
+    xp = models.FloatField()  # XP earned from the activity
+    activity_type = models.CharField(max_length=50)  # Type of activity: "Mindfulness" or "Movement"
+    activity_name = models.CharField(max_length=100)  # Name of the activity (e.g., Running, Yoga)
+    distance = models.FloatField(null=True, blank=True, default=0.0)  # Distance for movement activities
+    average_heart_rate = models.FloatField(null=True, blank=True, default=0.0)  # Average heart rate
+    metadata = models.TextField(null=True, blank=True)  # Optional metadata
+    start_datetime = models.DateTimeField()  # Start of the activity
+    end_datetime = models.DateTimeField()  # End of the activity
+    current_date = models.DateField(auto_now_add=True)  # The day this activity is logged
+    deviceType = models.CharField(max_length=100, null=True, blank=True) # Optional: to store device model it is recorded in
+
+    def __str__(self):
+        return f'{self.user.email} - Activity: {self.activity_name} on {self.current_date}'

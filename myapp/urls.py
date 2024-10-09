@@ -13,5 +13,9 @@ urlpatterns = [
     path('apple-signin/', views.AppleSignInView.as_view(), name='apple_sign_in'),
     path('facebook-signin/', views.FacebookSignInView.as_view(), name='facebook_sign_in'),
     path('profile/', views.UserProfileView.as_view(), name='user_profile'),
-    path('transfer-company/', views.TransferOwnershipView.as_view(), name='transfer_company_ownership')
+    path('transfer-company/', views.TransferOwnershipView.as_view(), name='transfer_company_ownership'),
+    path('daily-steps/', views.DailyStepsView.as_view(), name='daily-steps'),
+    path('workout/', views.WorkoutActivityView.as_view(), name='workout'),
+    path('xp/', views.XpRecordsView.as_view(), name='xp-records'),
+    path('streak/', views.StreakRecordsView.as_view(), name='streak-records'),
 ]

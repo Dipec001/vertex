@@ -2,8 +2,8 @@ from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import CompanyOwnerSignupSerializer, NormalUserSignupSerializer, InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer
-from .models import CustomUser, Invitation, Company, Membership
+from .serializers import CompanyOwnerSignupSerializer, NormalUserSignupSerializer, InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, DailyStepsSerializer, WorkoutActivitySerializer
+from .models import CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,Streak
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from django.shortcuts import render, redirect
@@ -23,6 +23,9 @@ import requests
 from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
 from .s3_utils import save_image_to_s3
+from django.utils import timezone
+from django.db.models import Sum
+from .timezone_converter import convert_from_utc, convert_to_utc
 
 # Create your views here.
 
@@ -557,3 +560,135 @@ class TransferOwnershipView(APIView):
             Invitation.objects.filter(invited_by=user, company=company).update(invited_by=new_owner)
 
         return Response({"success": "Company ownership transferred successfully."}, status=status.HTTP_200_OK)
+
+
+
+class DailyStepsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date', timezone.now().date())
+
+        if not start_date:
+            return Response({"error": "Please provide a start date."}, status=400)
+
+        # Query steps in the date range for the user and aggregate by date
+        steps_in_range = DailySteps.objects.filter(
+            user=request.user,
+            date__range=[start_date, end_date]
+        ).values('date').annotate(total_steps=Sum('step_count')).order_by('date')
+
+        # Prepare the data
+        steps_data = [{'date': step['date'], 'total_steps': step['total_steps']} for step in steps_in_range]
+         # Query total steps for the user from the beginning
+        total_steps_count = DailySteps.objects.filter(user=request.user).aggregate(total_steps=Sum('step_count'))['total_steps'] or 0
+
+
+        return Response({
+            'steps_per_day': steps_data,
+            'total_steps': total_steps_count
+        })
+
+    def post(self, request, *args, **kwargs):
+        serializer = DailyStepsSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            daily_steps = serializer.save()  # The save method handles step count & XP logic
+            user_xp = Xp.objects.get(user=request.user)
+
+            return Response({
+                'data': serializer.data,
+                'xp': {
+                    'totalXpToday': user_xp.totalXpToday,
+                    'totalXpAllTime': user_xp.totalXpAllTime,
+                    'currentXpRemaining': user_xp.currentXpRemaining,
+                }
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class WorkoutActivityView(APIView):
+
+    def get(self, request):
+        user = request.user
+        activities = WorkoutActivity.objects.filter(user=user)
+        serializer = WorkoutActivitySerializer(activities, many=True)
+
+        # Convert timestamps back to the user's timezone
+        # for activity in serializer.data:
+        #     activity['start_datetime'] = convert_from_utc(user, activity['start_datetime'])
+        #     activity['end_datetime'] = convert_from_utc(user, activity['end_datetime'])
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    def post(self, request):
+        serializer = WorkoutActivitySerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class StreakRecordsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date', timezone.now().date())
+
+        if not start_date:
+            return Response({"error": "Please provide a start date."}, status=400)
+
+        # Query streak records in the date range for the user
+        streak_in_range = Streak.objects.filter(
+            user=user,
+            timeStamp__date__range=[start_date, end_date]
+        ).values('timeStamp__date').annotate(current_streak=Sum('currentStreak')).order_by('timeStamp__date')
+
+        # Prepare the data
+        streak_data = [{'date': streak['timeStamp__date'], 'current_streak': streak['current_streak']} for streak in streak_in_range]
+
+        current_date = timezone.now().date()
+        previous_date = current_date - timezone.timedelta(days=1)
+
+        # Retrieve yesterday's streak record
+        previous_streak_record = Streak.objects.filter(user=user, timeStamp__date=previous_date).first()
+
+        if previous_streak_record:
+            current_streak = previous_streak_record.currentStreak
+        else:
+            current_streak = 0  # If no streak from yesterday, the streak resets to 0
+
+        return Response({
+            'streak_per_day': streak_data,
+            'overall_current_streak': current_streak
+        })
+    
+
+class XpRecordsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date', timezone.now().date())
+
+        if not start_date:
+            return Response({"error": "Please provide a start date."}, status=400)
+
+        # Query XP records in the date range for the user
+        xp_in_range = Xp.objects.filter(
+            user=request.user,
+            timeStamp__date__range=[start_date, end_date]
+        ).values('timeStamp__date').annotate(total_xp=Sum('totalXpToday')).order_by('timeStamp__date')
+
+        # Prepare the data
+        xp_data = [{'date': xp['timeStamp__date'], 'total_xp': xp['total_xp']} for xp in xp_in_range]
+        total_xp_gained = Xp.objects.filter(user=request.user).last().currentXpRemaining
+
+        return Response({
+            'xp_per_day': xp_data,
+            'total_xp_gained': total_xp_gained
+        })
