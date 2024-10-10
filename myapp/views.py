@@ -573,17 +573,24 @@ class DailyStepsView(APIView):
         if not start_date:
             return Response({"error": "Please provide a start date."}, status=400)
 
-        # Query steps in the date range for the user and aggregate by date
+        # Query steps and XP in the date range for the user, aggregate by date
         steps_in_range = DailySteps.objects.filter(
             user=request.user,
             date__range=[start_date, end_date]
-        ).values('date').annotate(total_steps=Sum('step_count')).order_by('date')
+        ).values('date').annotate(
+            total_steps=Sum('step_count'),
+            total_xp=Sum('xp')
+        ).order_by('date')
 
-        # Prepare the data
-        steps_data = [{'date': step['date'], 'total_steps': step['total_steps']} for step in steps_in_range]
-         # Query total steps for the user from the beginning
+        # Prepare the data to include both steps and XP for each day
+        steps_data = [{
+            'date': step['date'],
+            'total_steps': step['total_steps'],
+            'total_xp': step['total_xp']
+        } for step in steps_in_range]
+
+        # Query total steps for the user across all time
         total_steps_count = DailySteps.objects.filter(user=request.user).aggregate(total_steps=Sum('step_count'))['total_steps'] or 0
-
 
         return Response({
             'steps_per_day': steps_data,
@@ -594,7 +601,9 @@ class DailyStepsView(APIView):
         serializer = DailyStepsSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             daily_steps = serializer.save()  # The save method handles step count & XP logic
-            user_xp = Xp.objects.get(user=request.user)
+            # Get the XP for the current day (if you're tracking XP per day)
+            today = timezone.now().date()
+            user_xp = Xp.objects.filter(user=request.user, timeStamp__date=today).first()
 
             return Response({
                 'data': serializer.data,

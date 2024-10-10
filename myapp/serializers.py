@@ -294,9 +294,10 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
         return user
 
 class DailyStepsSerializer(serializers.ModelSerializer):
+    xp = serializers.FloatField(read_only=True)  # XP is calculated and read-only
     class Meta:
         model = DailySteps
-        fields = ['step_count', 'timestamp', 'date']  # Include 'date' for validation
+        fields = ['step_count', 'timestamp', 'date', 'xp']  # Include 'date' for validation
         extra_kwargs = {
             'timestamp': {'read_only': True},  # Set timestamp as read-only if needed
             'date': {'required': False}  # Make date optional
@@ -343,11 +344,20 @@ class DailyStepsSerializer(serializers.ModelSerializer):
 
         daily_steps.timestamp = timezone.now()  # Update timestamp
         daily_steps.save()
+        
+        # Update the user's XP record for today
+        user_xp, created_xp = Xp.objects.get_or_create(
+            user=user,
+            timeStamp__date=date,  # Ensure it's tied to today
+            defaults={
+                'totalXpToday': new_xp,
+                'totalXpAllTime': new_xp,
+                'currentXpRemaining': new_xp
+            }
+        )
 
-        # Update the user's XP record
-        user_xp, _ = Xp.objects.get_or_create(user=user)
-
-        if created or new_xp > 0:
+        # Only update XP fields if the record already exists, or if new XP is added
+        if not created_xp and new_xp > 0:
             user_xp.totalXpToday += new_xp
             user_xp.totalXpAllTime += new_xp
             user_xp.currentXpRemaining += new_xp
@@ -356,10 +366,12 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         return daily_steps
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):
+    xp = serializers.FloatField(read_only=True)  # Mark xp as read-only
     class Meta:
         model = WorkoutActivity
         fields = [
             'duration',
+            'xp',
             'activity_type',
             'activity_name',
             'distance',

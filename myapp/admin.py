@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity
+from .models import CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity, DailySteps
 # Register your models here.
 
 # Customizing the display and functionality of the CustomUser model in the admin interface
@@ -45,3 +45,4 @@ class InvitationAdmin(admin.ModelAdmin):
 admin.site.register(Xp)
 admin.site.register(Streak)
 admin.site.register(WorkoutActivity)
+admin.site.register(DailySteps) 
