@@ -1,8 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from timezone_field import TimeZoneField
+import pytz
 # Create your models here.
 
+TIMEZONES = tuple(zip(pytz.all_timezones, pytz.all_timezones))
 class CustomUser(AbstractUser):
     # Adding extra fields without changing the creation process
     LOGIN_TYPE_CHOICES = [
@@ -32,7 +34,7 @@ class CustomUser(AbstractUser):
         null=True,  # Company is not required
         blank=True  # Company must not be selected
     )
-    timezone = TimeZoneField(default='UTC')
+    timezone = TimeZoneField(default='UTC', use_pytz=False)
     
     def __str__(self):
         return self.email

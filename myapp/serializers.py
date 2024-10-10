@@ -11,6 +11,8 @@ from .tasks import send_invitation_email_task
 from django.utils import timezone
 from .timezone_converter import convert_to_utc
 import pytz
+from zoneinfo import ZoneInfo
+from timezone_field.rest_framework import TimeZoneSerializerField
 
 
 logger = logging.getLogger(__name__)
@@ -170,15 +172,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
+    timezone = TimeZoneSerializerField(use_pytz=False)  # Change to False if you want `zoneinfo` objects
     class Meta:
         model = CustomUser
         fields = ['username', 'bio', 'profile_picture', 'timezone'] 
-
-    def validate_timezone(self, value):
-        # This method will be automatically called for the timezone field
-        if value not in pytz.all_timezones:  # Alternatively, use `self.fields['timezone'].choices`
-            raise serializers.ValidationError("Invalid time zone: %(value)s", params={'value': value})
-        return value
 
 
 
@@ -370,6 +367,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutActivity
         fields = [
+            'id',
             'duration',
             'xp',
             'activity_type',
@@ -386,7 +384,15 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
 
-        # Convert times to UTC
+        # Check for existing workout activities that conflict with the new one
+        if (WorkoutActivity.objects.filter(
+                user=user,
+                start_datetime=validated_data['start_datetime'],
+                end_datetime=validated_data['end_datetime']
+            ).exists()):
+            raise serializers.ValidationError("A workout with the same start and end times already exists.")
+
+        # Convert times to UTC (optional depending on your timezone logic)
         # validated_data['start_datetime'] = convert_to_utc(user.timezone, validated_data['start_datetime'])
         # validated_data['end_datetime'] = convert_to_utc(user.timezone, validated_data['end_datetime'])
 
