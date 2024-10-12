@@ -751,7 +751,8 @@ class XpRecordsView(APIView):
         total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('totalXpToday'))['total_xp'] or 0
 
         # Fetch the last XP record for the remaining XP gained (after weekly reset)
-        remaining_xp_gained = Xp.objects.filter(user=request.user).last().currentXpRemaining
+        remaining_xp_record = Xp.objects.filter(user=request.user).last()
+        remaining_xp_gained = remaining_xp_record.currentXpRemaining if remaining_xp_record else 0
 
         # Return response with the breakdown per day, total XP gained, and remaining XP gained
         return Response({
