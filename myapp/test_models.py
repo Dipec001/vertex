@@ -1,5 +1,5 @@
 from django.test import TestCase
-from .models import CustomUser, Company, Membership, Invitation
+from .models import CustomUser, Company, Membership, Invitation, DailySteps, WorkoutActivity, Xp, Streak
 from django.core.exceptions import ValidationError
 
 # Create your tests here.
@@ -179,4 +179,138 @@ class InvitationModelTest(TestCase):
         self.assertEqual(str(self.invitation), " Invite for newuser@example.com to Test Company")
 
 
+# class XpModelTest(TestCase):
 
+#     def setUp(self):
+#         self.user = CustomUser.objects.create_user(username='xptestuser', email='testuser@example.com', password='password123')
+    
+#     def test_xp_creation(self):
+#         xp = Xp.objects.create(user=self.user, totalXpToday=100.5, totalXpAllTime=1000.0, currentXpRemaining=50.0)
+#         self.assertIsInstance(xp, Xp)
+#         self.assertEqual(xp.totalXpToday, 100.5)
+#         self.assertEqual(xp.totalXpAllTime, 1000.0)
+#         self.assertEqual(xp.currentXpRemaining, 50.0)
+
+#     def test_default_values(self):
+#         xp = Xp.objects.create(user=self.user)
+#         self.assertEqual(xp.totalXpToday, 0.0)
+#         self.assertEqual(xp.totalXpAllTime, 0.0)
+#         self.assertEqual(xp.currentXpRemaining, 0.0)
+
+#     def test_xp_string_representation(self):
+#         xp = Xp.objects.create(user=self.user, totalXpToday=150.0)
+#         self.assertEqual(str(xp), f'{self.user.email} - XP: 150.0')
+    
+#     def test_xp_relationship_to_user(self):
+#         xp = Xp.objects.create(user=self.user, totalXpToday=100)
+#         self.assertEqual(xp.user.email, 'testuser@example.com')
+
+
+# class StreakModelTest(TestCase):
+
+#     def setUp(self):
+#         self.user = CustomUser.objects.create_user(username='streaktestuser', email='streakuser@example.com', password='password123')
+    
+#     def test_streak_creation(self):
+#         streak = Streak.objects.create(user=self.user, currentStreak=5, highestStreak=10, currentStreakSaver=1)
+#         self.assertIsInstance(streak, Streak)
+#         self.assertEqual(streak.currentStreak, 5)
+#         self.assertEqual(streak.highestStreak, 10)
+#         self.assertEqual(streak.currentStreakSaver, 1)
+
+#     def test_default_values(self):
+#         streak = Streak.objects.create(user=self.user)
+#         self.assertEqual(streak.currentStreak, 0)
+#         self.assertEqual(streak.highestStreak, 0)
+#         self.assertEqual(streak.currentStreakSaver, 0)
+
+#     def test_streak_string_representation(self):
+#         streak = Streak.objects.create(user=self.user, currentStreak=7)
+#         self.assertEqual(str(streak), f'{self.user.email} - Streak: 7')
+
+#     def test_streak_relationship_to_user(self):
+#         streak = Streak.objects.create(user=self.user)
+#         self.assertEqual(streak.user.email, 'streakuser@example.com')
+
+
+# class DailyStepsModelTest(TestCase):
+
+#     def setUp(self):
+#         self.user = CustomUser.objects.create_user(username='dailystepuser', email='stepsuser@example.com', password='password123')
+
+#     def test_daily_steps_creation(self):
+#         daily_steps = DailySteps.objects.create(user=self.user, xp=100.0, step_count=1000)
+#         self.assertIsInstance(daily_steps, DailySteps)
+#         self.assertEqual(daily_steps.xp, 100.0)
+#         self.assertEqual(daily_steps.step_count, 1000)
+
+#     def test_string_representation(self):
+#         daily_steps = DailySteps.objects.create(user=self.user,xp=80.0, step_count=800)
+#         self.assertIn(f'Steps: 800', str(daily_steps))
+
+#     def test_default_fields(self):
+#         daily_steps = DailySteps.objects.create(user=self.user, xp=200.0, step_count=2000)
+#         self.assertIsNotNone(daily_steps.date)
+#         self.assertIsNotNone(daily_steps.timestamp)
+
+#     def test_daily_steps_relationship_to_user(self):
+#         daily_steps = DailySteps.objects.create(user=self.user, xp=50.0, step_count=500)
+#         self.assertEqual(daily_steps.user.email, 'stepsuser@example.com')
+
+
+# class WorkoutActivityModelTest(TestCase):
+
+#     def setUp(self):
+#         self.user = CustomUser.objects.create_user(username='workouttestuser', email='workoutuser@example.com', password='password123')
+
+#     def test_workout_creation(self):
+#         workout = WorkoutActivity.objects.create(
+#             user=self.user,
+#             duration=60,
+#             xp=120.0,
+#             activity_type="movement",
+#             activity_name="Running",
+#             distance=5.0,
+#             start_datetime='2024-10-10 08:00:00',
+#             end_datetime='2024-10-10 09:00:00',
+#         )
+#         self.assertIsInstance(workout, WorkoutActivity)
+#         self.assertEqual(workout.duration, 60)
+#         self.assertEqual(workout.xp, 120.0)
+#         self.assertEqual(workout.activity_name, "Running")
+
+#     def test_default_values(self):
+#         workout = WorkoutActivity.objects.create(
+#             user=self.user,
+#             duration=30,
+#             xp=60.0,
+#             activity_type="mindfulness",
+#             activity_name="Yoga",
+#             start_datetime='2024-10-10 08:00:00',
+#             end_datetime='2024-10-10 08:30:00'
+#         )
+#         self.assertEqual(workout.distance, 0.0)
+#         self.assertEqual(workout.average_heart_rate, 0.0)
+
+#     def test_string_representation(self):
+#         workout = WorkoutActivity.objects.create(
+#             user=self.user,
+#             activity_name="Swimming",
+#             duration=45,
+#             xp=100.0,
+#             start_datetime='2024-10-10 06:00:00',
+#             end_datetime='2024-10-10 06:45:00',
+#         )
+#         self.assertIn(f'Activity: Swimming', str(workout))
+
+#     def test_workout_relationship_to_user(self):
+#         workout = WorkoutActivity.objects.create(
+#             user=self.user,
+#             duration=30,
+#             xp=80.0,
+#             activity_type="movement",
+#             activity_name="Cycling",
+#             start_datetime='2024-10-10 07:00:00',
+#             end_datetime='2024-10-10 07:30:00'
+#         )
+#         self.assertEqual(workout.user.email, 'workoutuser@example.com')

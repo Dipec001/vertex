@@ -308,6 +308,7 @@ class DailyStepsSerializer(serializers.ModelSerializer):
 
     def validate_date(self, value):
         """Ensure the date is not in the future."""
+        
         if value > timezone.now().date():
             raise serializers.ValidationError("Date cannot be in the future.")
         return value
