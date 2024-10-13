@@ -13,6 +13,7 @@ from .timezone_converter import convert_to_utc
 import pytz
 from zoneinfo import ZoneInfo
 from timezone_field.rest_framework import TimeZoneSerializerField
+from django.utils.timezone import timedelta
 
 
 logger = logging.getLogger(__name__)
@@ -290,8 +291,11 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
 
         return user
 
+
+
 class DailyStepsSerializer(serializers.ModelSerializer):
     xp = serializers.FloatField(read_only=True)  # XP is calculated and read-only
+    
     class Meta:
         model = DailySteps
         fields = ['step_count', 'timestamp', 'date', 'xp']  # Include 'date' for validation
@@ -299,7 +303,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             'timestamp': {'read_only': True},  # Set timestamp as read-only if needed
             'date': {'required': False}  # Make date optional
         }
-
     
     def validate_step_count(self, value):
         if value < 0:
@@ -308,7 +311,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
 
     def validate_date(self, value):
         """Ensure the date is not in the future."""
-        
         if value > timezone.now().date():
             raise serializers.ValidationError("Date cannot be in the future.")
         return value
@@ -319,19 +321,20 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         step_count = validated_data.get('step_count')
         date = validated_data.get('date', timezone.now().date())  # Use today's date if not provided
 
-        # Get or create the daily steps record
+        # Get or create the daily steps record (only one entry per day)
         daily_steps, created = DailySteps.objects.get_or_create(
             user=user,
             date=date,
             defaults={'step_count': step_count, 'xp': step_count / 10}
         )
 
-        # If the record is newly created
+        # Calculate new XP and update daily step count
         if created:
+            # For the first entry, set the initial XP based on the step count
             new_xp = step_count / 10  # Calculate XP for the new record
             daily_steps.xp = new_xp
         else:
-            # If the record already exists, update it with new step count
+            # Calculate XP based on additional steps
             step_diff = step_count - daily_steps.step_count
             if step_diff > 0:  # Only award XP for additional steps
                 new_xp = step_diff / 10
@@ -342,8 +345,8 @@ class DailyStepsSerializer(serializers.ModelSerializer):
 
         daily_steps.timestamp = timezone.now()  # Update timestamp
         daily_steps.save()
-        
-        # Update the user's XP record for today
+
+        # Update the user's XP record for today (in your XP model)
         user_xp, created_xp = Xp.objects.get_or_create(
             user=user,
             timeStamp__date=date,  # Ensure it's tied to today
@@ -361,10 +364,29 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             user_xp.currentXpRemaining += new_xp
             user_xp.save()
 
+        # Record the additional steps in the WorkoutActivity model (multiple entries per day)
+        if new_xp > 0:  # Only create a new workout entry if there is additional XP
+            WorkoutActivity.objects.create(
+                user=user,
+                activity_type="movement",
+                activity_name="steps",
+                xp=new_xp,  # Only the additional XP
+                duration=0,  # No duration for step counts
+                distance=0,
+                average_heart_rate=0,
+                start_datetime=timezone.now(),
+                end_datetime=timezone.now(),
+                metadata='{}',
+                current_date=date,
+                deviceType=None
+            )
+
         return daily_steps
+
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):
     xp = serializers.FloatField(read_only=True)  # Mark xp as read-only
+
     class Meta:
         model = WorkoutActivity
         fields = [
@@ -382,20 +404,46 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             'deviceType',
         ]
 
+    def validate(self, data):
+        """
+        Custom validation for start/end times and heart rate.
+        """
+        # Check if end_datetime is before start_datetime
+        if data['end_datetime'] <= data['start_datetime']:
+            raise serializers.ValidationError("End time must be after the start time.")
+        
+
+        # Ensure that the `current_date` matches the date part of `start_datetime`
+        if 'current_date' in data and data['current_date'] != data['start_datetime'].date():
+            raise serializers.ValidationError("The current_date must match the date of the start_datetime.")
+
+        # Check for realistic heart rate if provided
+        avg_bpm = data.get('average_heart_rate', 0)
+        if avg_bpm < 30 or avg_bpm > 220:
+            raise serializers.ValidationError("The heart rate seems unrealistic. Please provide a valid average heart rate.")
+
+        return data
+
     def create(self, validated_data):
         user = self.context['request'].user
 
-        # Check for existing workout activities that conflict with the new one
+        # Check if `current_date` is provided, otherwise infer it from `start_datetime`
+        if 'current_date' not in validated_data:
+            validated_data['current_date'] = validated_data['start_datetime'].date()
+
+        # Extract the date from the start_datetime to ensure conflict checking only happens for the same day
+        start_date = validated_data['start_datetime'].date()
+        end_date = validated_data['end_datetime'].date()
+
+        # Check for existing workout activities on the same day only
         if (WorkoutActivity.objects.filter(
                 user=user,
+                start_datetime__date=start_date,
+                end_datetime__date=end_date,
                 start_datetime=validated_data['start_datetime'],
                 end_datetime=validated_data['end_datetime']
             ).exists()):
-            raise serializers.ValidationError("A workout with the same start and end times already exists.")
-
-        # Convert times to UTC (optional depending on your timezone logic)
-        # validated_data['start_datetime'] = convert_to_utc(user.timezone, validated_data['start_datetime'])
-        # validated_data['end_datetime'] = convert_to_utc(user.timezone, validated_data['end_datetime'])
+            raise serializers.ValidationError("A workout with the same start and end times already exists for this day.")
 
         # Calculate XP based on activity and details
         xp_earned = self.calculate_xp(validated_data)
@@ -404,7 +452,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         # Save the activity record
         workout_activity = WorkoutActivity.objects.create(user=user, **validated_data)
 
-        # Update XP and Streak
+        # Update XP for the user
         self.update_xp(workout_activity)
 
         return workout_activity
@@ -414,6 +462,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         activity_type = data.get('activity_type')
         movement_xp = 0
 
+        # XP calculation logic for movement activities
         if activity_type == 'movement':
             if duration >= 30:
                 movement_xp += 100
@@ -430,6 +479,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             elif avg_bpm >= 150:
                 movement_xp += 60
 
+        # XP calculation logic for mindfulness activities
         elif activity_type == 'mindfulness':
             if data['activity_name'] == 'Yoga' and duration >= 30:
                 movement_xp += 100
@@ -441,26 +491,40 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         return movement_xp
 
     def update_xp(self, workout_activity):
-
         user = workout_activity.user
         # Extract the date from the timestamp
-        activity_date = workout_activity.start_datetime.date()  # or workout_activity.end_datetime.date()
+        activity_date = workout_activity.start_datetime.date()
 
         # Update or create an XP record for that user and the current day
-        xp_record, created = Xp.objects.get_or_create(
+        user_xp, created_xp = Xp.objects.get_or_create(
             user=user,
-            timeStamp__date=activity_date,  # Ensure one XP record per day
+            timeStamp__date=activity_date,
             defaults={
                 'totalXpToday': workout_activity.xp,
                 'totalXpAllTime': workout_activity.xp,
+                'currentXpRemaining': workout_activity.xp
             }
         )
 
-        # Update the XP fields
-        xp_record.totalXpToday += workout_activity.xp
-        xp_record.totalXpAllTime += workout_activity.xp
-        xp_record.currentXpRemaining += workout_activity.xp
-        xp_record.save()
+        # Only update XP fields if the record already exists
+        if not created_xp:
+            user_xp.totalXpToday += workout_activity.xp
+
+        # Retrieve the previous XP record (excluding the current day)
+        previous_xp = Xp.objects.filter(user=user).exclude(timeStamp__date=activity_date).order_by('-timeStamp').first()
+
+        if previous_xp:
+            # If there is a previous record, use its values for all-time and remaining XP
+            user_xp.totalXpAllTime = previous_xp.totalXpAllTime + workout_activity.xp
+            user_xp.currentXpRemaining = previous_xp.currentXpRemaining + workout_activity.xp
+        else:
+            # If no previous record exists, use the current workout XP
+            user_xp.totalXpAllTime += workout_activity.xp
+            user_xp.currentXpRemaining += workout_activity.xp
+
+        # Save the XP record
+        user_xp.save()
+
 
 
 class XpSerializer(serializers.ModelSerializer):

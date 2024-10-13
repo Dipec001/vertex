@@ -598,22 +598,30 @@ class DailyStepsView(APIView):
         })
 
     def post(self, request, *args, **kwargs):
+        # Instantiate the serializer with the request data and user context
         serializer = DailyStepsSerializer(data=request.data, context={'request': request})
+        
         if serializer.is_valid():
-            daily_steps = serializer.save()  # The save method handles step count & XP logic
-            # Get the XP for the current day (if you're tracking XP per day)
+            # Save the serializer, which handles step count and XP logic
+            daily_steps = serializer.save()
+            
+            # Retrieve the XP for the current day
             today = timezone.now().date()
             user_xp = Xp.objects.filter(user=request.user, timeStamp__date=today).first()
+            
+            # Prepare the response, handle the case where no XP record exists yet
+            xp_data = {
+                'totalXpToday': user_xp.totalXpToday if user_xp else 0,
+                'totalXpAllTime': user_xp.totalXpAllTime if user_xp else 0,
+                'currentXpRemaining': user_xp.currentXpRemaining if user_xp else 0,
+            }
 
             return Response({
-                'data': serializer.data,
-                'xp': {
-                    'totalXpToday': user_xp.totalXpToday,
-                    'totalXpAllTime': user_xp.totalXpAllTime,
-                    'currentXpRemaining': user_xp.currentXpRemaining,
-                }
+                'data': serializer.data,  # Serialized daily steps data
+                'xp': xp_data  # XP data for the current day
             }, status=status.HTTP_201_CREATED)
 
+        # If the serializer is not valid, return the validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

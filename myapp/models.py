@@ -131,13 +131,13 @@ class WorkoutActivity(models.Model):
     duration = models.IntegerField()  # Duration in minutes
     xp = models.FloatField()  # XP earned from the activity
     activity_type = models.CharField(max_length=50)  # Type of activity: "Mindfulness" or "Movement"
-    activity_name = models.CharField(max_length=100)  # Name of the activity (e.g., Running, Yoga)
+    activity_name = models.CharField(max_length=100)  # Name of the activity (e.g., Running, Yoga, Steps)
     distance = models.FloatField(null=True, blank=True, default=0.0)  # Distance for movement activities
     average_heart_rate = models.FloatField(null=True, blank=True, default=0.0)  # Average heart rate
     metadata = models.TextField(null=True, blank=True)  # Optional metadata
     start_datetime = models.DateTimeField()  # Start of the activity
     end_datetime = models.DateTimeField()  # End of the activity
-    current_date = models.DateField(auto_now_add=True)  # The day this activity is logged
+    current_date = models.DateField()  # The day this activity is logged
     deviceType = models.CharField(max_length=100, null=True, blank=True) # Optional: to store device model it is recorded in
 
     def __str__(self):
