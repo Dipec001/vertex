@@ -417,10 +417,6 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         if 'current_date' in data and data['current_date'] != data['start_datetime'].date():
             raise serializers.ValidationError("The current_date must match the date of the start_datetime.")
 
-        # Check for realistic heart rate if provided
-        avg_bpm = data.get('average_heart_rate', 0)
-        if avg_bpm < 30 or avg_bpm > 220:
-            raise serializers.ValidationError("The heart rate seems unrealistic. Please provide a valid average heart rate.")
 
         return data
 
