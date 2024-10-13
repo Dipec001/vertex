@@ -413,9 +413,9 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("End time must be after the start time.")
         
 
-        # Ensure that the `current_date` matches the date part of `start_datetime`
-        if 'current_date' in data and data['current_date'] != data['start_datetime'].date():
-            raise serializers.ValidationError("The current_date must match the date of the start_datetime.")
+        # # Ensure that the `current_date` matches the date part of `start_datetime`
+        # if 'current_date' in data and data['current_date'] != data['start_datetime'].date():
+        #     raise serializers.ValidationError("The current_date must match the date of the start_datetime.")
 
 
         return data
