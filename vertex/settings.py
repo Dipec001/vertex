@@ -254,9 +254,10 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # Get the Redis URL from the environment variables
 CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')  # Default to local Redis for development
-CELERY_ACCEPT_CONTENT = ['json']
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_SERIALIZER = 'json'
-
+CELERY_TIMEZONE ='UTC'
 
 # Load environment variables
 GOOGLE_WEB_CLIENT_ID = os.getenv('GOOGLE_WEB_CLIENT_ID')
@@ -271,11 +272,6 @@ FACEBOOK_APP_SECRET = os.getenv('FACEBOOK_APP_SECRET')
 APPLE_CLIENT_ID = os.getenv('APPLE_CLIENT_ID')
 APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 
-
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TIMEZONE ='UTC'
 
 CELERY_BEAT_SCHEDULE = {
     'reset-daily-streaks-every-hour': {

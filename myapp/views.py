@@ -27,6 +27,8 @@ from django.utils import timezone
 from django.db.models import Sum
 from .timezone_converter import convert_from_utc, convert_to_utc
 
+from datetime import datetime
+
 # Create your views here.
 
 class ValidateEmailPasswordView(APIView):
@@ -633,19 +635,51 @@ class WorkoutActivityView(APIView):
         serializer = WorkoutActivitySerializer(activities, many=True)
 
         # Convert timestamps back to the user's timezone
-        # for activity in serializer.data:
-        #     activity['start_datetime'] = convert_from_utc(user, activity['start_datetime'])
-        #     activity['end_datetime'] = convert_from_utc(user, activity['end_datetime'])
+        user_timezone_str = str(user.timezone)  # Get user's timezone as a string
+
+        # Convert timestamps back to the user's timezone
+        for activity in serializer.data:
+            # Convert the string back to a datetime object
+            activity['start_datetime'] = datetime.fromisoformat(activity['start_datetime'])
+            activity['end_datetime'] = datetime.fromisoformat(activity['end_datetime'])
+
+            # Now convert from UTC to user's timezone
+            activity['start_datetime'] = convert_from_utc(user_timezone_str, activity['start_datetime'])
+            activity['end_datetime'] = convert_from_utc(user_timezone_str, activity['end_datetime'])
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
     def post(self, request):
-        serializer = WorkoutActivitySerializer(data=request.data, context={'request': request})
+
+        # Convert user timezone to string if necessary
+        user_timezone_str = str(request.user.timezone)
+
+        # Extract and convert datetimes
+        starttime_str = request.data['start_datetime']
+        endtime_str = request.data['end_datetime']
+        
+        # Use fromisoformat to handle ISO datetime strings
+        start_naive_datetime = datetime.fromisoformat(starttime_str)
+        end_naive_datetime = datetime.fromisoformat(endtime_str)
+        
+        # Convert to UTC
+        start_datetime = convert_to_utc(user_timezone_str, start_naive_datetime)
+        end_datetime = convert_to_utc(user_timezone_str, end_naive_datetime)
+
+        # Create a mutable copy of request.data and update the datetime fields
+        updated_data = request.data.copy()
+        updated_data['start_datetime'] = start_datetime.isoformat()  # Ensure it's in ISO format
+        updated_data['end_datetime'] = end_datetime.isoformat()      # Ensure it's in ISO format
+
+        # Pass the updated data to the serializer
+        serializer = WorkoutActivitySerializer(data=updated_data, context={'request': request})
+        
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
 
 class StreakRecordsView(APIView):
@@ -683,33 +717,6 @@ class StreakRecordsView(APIView):
             'streak_per_day': streak_data,
             'overall_current_streak': current_streak
         })
-    
-
-# class XpRecordsView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         start_date = request.query_params.get('start_date')
-#         end_date = request.query_params.get('end_date', timezone.now().date())
-
-#         if not start_date:
-#             return Response({"error": "Please provide a start date."}, status=400)
-
-#         # Query XP records in the date range for the user
-#         xp_in_range = Xp.objects.filter(
-#             user=request.user,
-#             timeStamp__date__range=[start_date, end_date]
-#         ).values('timeStamp__date').annotate(total_xp=Sum('totalXpToday')).order_by('timeStamp__date')
-
-#         # Prepare the data
-#         xp_data = [{'date': xp['timeStamp__date'], 'total_xp': xp['total_xp']} for xp in xp_in_range]
-#         total_xp_gained = Xp.objects.filter(user=request.user).last().currentXpRemaining
-
-#         return Response({
-#             'xp_per_day': xp_data,
-#             'total_xp_gained': total_xp_gained
-#         })
-
 
 
 class XpRecordsView(APIView):
@@ -768,3 +775,50 @@ class XpRecordsView(APIView):
             'total_xp_gained': total_xp_gained,  # Sum of all XP across all time
             'remaining_convertible_xp': remaining_xp_gained  # Most recent XP remaining
         })
+
+
+# class ConvertXPView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     # Define conversion rates
+#     XP_COSTS = {
+#         'streak_saver': 500,
+#         'ticket_global': 250,
+#         'ticket_company': 250,
+#     }
+
+#     def post(self, request):
+#         user = request.user
+#         item_type = request.data.get('item_type')
+
+#         if item_type not in self.XP_COSTS:
+#             return Response({"error": "Invalid item type"}, status=400)
+
+#         # Fetch the user's XP
+#         try:
+#             user_xp = Xp.objects.filter(user=user).order_by('-timeStamp').first()
+#         except Xp.DoesNotExist:
+#             return Response({"error": "No XP record found"}, status=404)
+
+#         xp_cost = self.XP_COSTS[item_type]
+
+#         # Check if user has enough convertible XP remaining
+#         if user_xp.currentXpRemaining < xp_cost:
+#             return Response({"error": "Not enough XP to convert"}, status=400)
+
+#         # Deduct the XP
+#         user_xp.currentXpRemaining -= xp_cost
+#         user_xp.save()
+
+#         # Record the purchase
+#         Purchase.objects.create(
+#             user=user,
+#             item_name=item_type,
+#             xp_used=xp_cost
+#         )
+
+#         return Response({
+#             "success": True,
+#             "message": f"You have successfully converted {xp_cost} XP for {item_type}.",
+#             "remaining_xp": user_xp.currentXpRemaining
+#         })

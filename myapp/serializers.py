@@ -9,11 +9,10 @@ from rest_framework.validators import UniqueValidator
 from django.db import transaction
 from .tasks import send_invitation_email_task
 from django.utils import timezone
-from .timezone_converter import convert_to_utc
-import pytz
-from zoneinfo import ZoneInfo
+from .timezone_converter import convert_to_utc, convert_from_utc
 from timezone_field.rest_framework import TimeZoneSerializerField
-from django.utils.timezone import timedelta
+from pytz import UTC
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -140,6 +139,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     company = serializers.CharField(source='company.name', read_only=True)
     first_name = serializers.CharField(read_only=True)
     last_name = serializers.CharField(read_only=True)
+    streak = serializers.SerializerMethodField()  # Adding a method field for streak
 
 
     class Meta:
@@ -170,6 +170,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         
         # Fallback to a default image if neither is set
         # return '/static/images/default_avatar.png'
+
+    def get_streak(self, obj):
+        # Fetch the latest Streak record for the user
+        latest_streak = obj.streak_records.order_by('-timeStamp').first()
+        return latest_streak.currentStreak if latest_streak else 0  # Return 0 if no streak found
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
@@ -406,16 +411,20 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        Custom validation for start/end times and heart rate.
+        Custom validation for start/end times.
         """
+
+        # Get the converted datetime from the view
+        start_datetime_utc = data.get('start_datetime')
+        end_datetime_utc = data.get('end_datetime') 
+        
+        # Check for conversion failure/ Ensure both datetime values are provided
+        if start_datetime_utc is None or end_datetime_utc is None:
+            raise serializers.ValidationError("Invalid date format for start_datetime or end_datetime.")
+
         # Check if end_datetime is before start_datetime
         if data['end_datetime'] <= data['start_datetime']:
             raise serializers.ValidationError("End time must be after the start time.")
-        
-
-        # # Ensure that the `current_date` matches the date part of `start_datetime`
-        # if 'current_date' in data and data['current_date'] != data['start_datetime'].date():
-        #     raise serializers.ValidationError("The current_date must match the date of the start_datetime.")
 
 
         return data
@@ -430,6 +439,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         # Extract the date from the start_datetime to ensure conflict checking only happens for the same day
         start_date = validated_data['start_datetime'].date()
         end_date = validated_data['end_datetime'].date()
+
 
         # Check for existing workout activities on the same day only
         if (WorkoutActivity.objects.filter(
@@ -492,10 +502,15 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         # Extract the date from the timestamp
         activity_date = workout_activity.start_datetime.date()
 
+        # Get start and end of day in UTC to avoid multiple objects issue
+        start_of_day = timezone.datetime.combine(activity_date, timezone.datetime.min.time()).replace(tzinfo=UTC)
+        end_of_day = timezone.datetime.combine(activity_date, timezone.datetime.max.time()).replace(tzinfo=UTC)
+
         # Update or create an XP record for that user and the current day
         user_xp, created_xp = Xp.objects.get_or_create(
             user=user,
-            timeStamp__date=activity_date,
+            timeStamp__gte=start_of_day,
+            timeStamp__lte=end_of_day,
             defaults={
                 'totalXpToday': workout_activity.xp,
                 'totalXpAllTime': workout_activity.xp,
