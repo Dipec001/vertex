@@ -16,7 +16,6 @@ class CustomUserModelTest(TestCase):
             streak=10,
             login_type='email',
             bio='A test user',
-            tickets=5,
             xp=100
         )
 
@@ -27,7 +26,6 @@ class CustomUserModelTest(TestCase):
         self.assertEqual(self.user.streak, 10)
         self.assertEqual(self.user.login_type, 'email')
         self.assertEqual(self.user.bio, 'A test user')
-        self.assertEqual(self.user.tickets, 5)
         self.assertEqual(self.user.xp, 100)
 
     def test_user_str(self):
@@ -72,11 +70,11 @@ class CustomUserModelTest(TestCase):
         with self.assertRaises(ValidationError):
             user.full_clean()  # Negative xp should raise a ValidationError
 
-    def test_tickets_cannot_be_negative(self):
-        """Test that tickets cannot be a negative value."""
-        user = CustomUser(email="testuser@test.com", username="testuser", tickets=-5)
-        with self.assertRaises(ValidationError):
-            user.full_clean()  # Negative tickets should raise a ValidationError
+    # def test_tickets_cannot_be_negative(self):
+    #     """Test that tickets cannot be a negative value."""
+    #     user = CustomUser(email="testuser@test.com", username="testuser", tickets=-5)
+    #     with self.assertRaises(ValidationError):
+    #         user.full_clean()  # Negative tickets should raise a ValidationError
 
 class CompanyModelTest(TestCase):
 
