@@ -18,5 +18,5 @@ urlpatterns = [
     path('workout/', views.WorkoutActivityView.as_view(), name='workout'),
     path('xp/', views.XpRecordsView.as_view(), name='xp-records'),
     path('streak/', views.StreakRecordsView.as_view(), name='streak-records'),
-    # path('convert-xp/', views.ConvertXPView.as_view(), name='convert-xp'),
+    path('convert-xp/', views.ConvertXPView.as_view(), name='convert-xp'),
 ]

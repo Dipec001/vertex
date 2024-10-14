@@ -2,7 +2,7 @@ from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import CompanyOwnerSignupSerializer, NormalUserSignupSerializer, InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, DailyStepsSerializer, WorkoutActivitySerializer
+from .serializers import CompanyOwnerSignupSerializer, NormalUserSignupSerializer, InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer
 from .models import CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,Streak
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
@@ -777,48 +777,53 @@ class XpRecordsView(APIView):
         })
 
 
-# class ConvertXPView(APIView):
-#     permission_classes = [IsAuthenticated]
+class ConvertXPView(APIView):
+    permission_classes = [IsAuthenticated]
 
-#     # Define conversion rates
-#     XP_COSTS = {
-#         'streak_saver': 500,
-#         'ticket_global': 250,
-#         'ticket_company': 250,
-#     }
+    # Define conversion rates
+    XP_COSTS = {
+        'streak_saver': 500,
+        'ticket_global': 250,
+        'ticket_company': 250,
+    }
 
-#     def post(self, request):
-#         user = request.user
-#         item_type = request.data.get('item_type')
+    def post(self, request):
+        user = request.user
+        item_type = request.data.get('item_type')
 
-#         if item_type not in self.XP_COSTS:
-#             return Response({"error": "Invalid item type"}, status=400)
+        if item_type not in self.XP_COSTS:
+            return Response({"error": "Invalid item type"}, status=status.HTTP_400_BAD_REQUEST)
 
-#         # Fetch the user's XP
-#         try:
-#             user_xp = Xp.objects.filter(user=user).order_by('-timeStamp').first()
-#         except Xp.DoesNotExist:
-#             return Response({"error": "No XP record found"}, status=404)
+        # Fetch the user's XP
+        user_xp = Xp.objects.filter(user=user).order_by('-timeStamp').first()
+        if not user_xp:  # Check if user XP record exists
+            return Response({"error": "No XP record found"}, status=status.HTTP_404_NOT_FOUND)
 
-#         xp_cost = self.XP_COSTS[item_type]
+        xp_cost = self.XP_COSTS[item_type]
 
-#         # Check if user has enough convertible XP remaining
-#         if user_xp.currentXpRemaining < xp_cost:
-#             return Response({"error": "Not enough XP to convert"}, status=400)
+        # Check if user has enough convertible XP remaining
+        if user_xp.currentXpRemaining < xp_cost:
+            return Response({"error": "Not enough XP to convert"}, status=status.HTTP_400_BAD_REQUEST)
 
-#         # Deduct the XP
-#         user_xp.currentXpRemaining -= xp_cost
-#         user_xp.save()
+        # Use a transaction to ensure atomicity
+        with transaction.atomic():
+            # Deduct the XP
+            user_xp.currentXpRemaining -= xp_cost
+            user_xp.save()
 
-#         # Record the purchase
-#         Purchase.objects.create(
-#             user=user,
-#             item_name=item_type,
-#             xp_used=xp_cost
-#         )
+            # Record the purchase
+            purchase_data = {
+                'item_name': item_type,
+                'xp_used': xp_cost
+            }
+            purchase_serializer = PurchaseSerializer(data=purchase_data)
 
-#         return Response({
-#             "success": True,
-#             "message": f"You have successfully converted {xp_cost} XP for {item_type}.",
-#             "remaining_xp": user_xp.currentXpRemaining
-#         })
+            if purchase_serializer.is_valid():
+                purchase_serializer.save(user=user)  # Save the purchase with the user
+            else:
+                return Response(purchase_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            "message": f"You have successfully converted {xp_cost} XP for {item_type}.",
+            "remaining_xp": user_xp.currentXpRemaining
+        }, status=status.HTTP_200_OK)

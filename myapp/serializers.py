@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps
+from .models import Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase
 import random
 import string
 from allauth.socialaccount.models import SocialAccount
@@ -548,3 +548,16 @@ class StreakSerializer(serializers.ModelSerializer):
     class Meta:
         model = Streak
         fields = '__all__'  # Adjust as necessary
+
+
+class PurchaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Purchase
+        fields = ['id', 'user', 'item_name', 'xp_used', 'timestamp']
+        read_only_fields = ['user', 'timestamp']  # User and timestamp should not be set manually
+
+    def validate_item_name(self, value):
+        # Ensure the item_name is one of the predefined choices
+        if value not in dict(Purchase.ITEM_CHOICES).keys():
+            raise serializers.ValidationError("Invalid item choice.")
+        return value

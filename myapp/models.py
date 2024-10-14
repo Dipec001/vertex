@@ -142,3 +142,19 @@ class WorkoutActivity(models.Model):
 
     def __str__(self):
         return f'{self.user.email} - Activity: {self.activity_name} on {self.current_date}'
+
+
+class Purchase(models.Model):
+    ITEM_CHOICES = [
+        ('streak_saver', 'Streak Saver'),
+        ('ticket_global', 'Global Ticket'),
+        ('ticket_company', 'Company Ticket'),
+    ]
+
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='purchases')
+    item_name = models.CharField(max_length=100, choices=ITEM_CHOICES)  # Make this a choice field
+    xp_used = models.FloatField()  # Amount of XP used for the purchase
+    timestamp = models.DateTimeField(auto_now_add=True)  # Timestamp for when the purchase was made
+
+    def __str__(self):
+        return f'{self.user.email} - Purchased: {self.item_name} for {self.xp_used} XP'
