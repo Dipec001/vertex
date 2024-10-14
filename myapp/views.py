@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import CompanyOwnerSignupSerializer, NormalUserSignupSerializer, InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer
-from .models import CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,Streak
+from .models import CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,Streak, Purchase
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from django.shortcuts import render, redirect
@@ -790,31 +790,48 @@ class ConvertXPView(APIView):
     def post(self, request):
         user = request.user
         item_type = request.data.get('item_type')
+        quantity = request.data.get('quantity', 1)  # Default quantity to 1 if not provided
 
         if item_type not in self.XP_COSTS:
             return Response({"error": "Invalid item type"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ensure the quantity is a positive integer
+        if not isinstance(quantity, int) or quantity <= 0:
+            return Response({"error": "Quantity must be a positive integer"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Fetch the user's XP
         user_xp = Xp.objects.filter(user=user).order_by('-timeStamp').first()
         if not user_xp:  # Check if user XP record exists
             return Response({"error": "No XP record found"}, status=status.HTTP_404_NOT_FOUND)
 
-        xp_cost = self.XP_COSTS[item_type]
+        xp_cost_per_item = self.XP_COSTS[item_type]
+        total_xp_cost = xp_cost_per_item * quantity
 
-        # Check if user has enough convertible XP remaining
-        if user_xp.currentXpRemaining < xp_cost:
-            return Response({"error": "Not enough XP to convert"}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if the user has enough convertible XP remaining
+        if user_xp.currentXpRemaining < total_xp_cost:
+            return Response({"error": f"Not enough XP to convert. You need {total_xp_cost} XP for {quantity} {item_type}(s)."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Use a transaction to ensure atomicity
         with transaction.atomic():
-            # Deduct the XP
-            user_xp.currentXpRemaining -= xp_cost
+            # Deduct the total XP cost
+            user_xp.currentXpRemaining -= total_xp_cost
             user_xp.save()
+
+            # Update the user's tickets or streak savers
+            if item_type == 'streak_saver':
+                user.streak_savers += quantity
+            elif item_type == 'ticket_global':  # For tickets
+                user.global_tickets += quantity
+            elif item_type == 'ticket_company':  # For tickets
+                user.company_tickets += quantity
+
+            user.save()
 
             # Record the purchase
             purchase_data = {
                 'item_name': item_type,
-                'xp_used': xp_cost
+                'xp_used': total_xp_cost,
+                'quantity': quantity  # Add the quantity field to track this
             }
             purchase_serializer = PurchaseSerializer(data=purchase_data)
 
@@ -824,6 +841,20 @@ class ConvertXPView(APIView):
                 return Response(purchase_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
-            "message": f"You have successfully converted {xp_cost} XP for {item_type}.",
+            "message": f"You have successfully converted {total_xp_cost} XP for {quantity} {item_type}(s).",
             "remaining_xp": user_xp.currentXpRemaining
         }, status=status.HTTP_200_OK)
+
+class PurchaseHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # Fetch user's purchase history, excluding streak savers
+        purchases = Purchase.objects.filter(user=user).exclude(item_name='streak_saver')
+        
+        # Serialize the purchase data
+        serializer = PurchaseSerializer(purchases, many=True)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)

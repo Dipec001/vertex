@@ -19,4 +19,5 @@ urlpatterns = [
     path('xp/', views.XpRecordsView.as_view(), name='xp-records'),
     path('streak/', views.StreakRecordsView.as_view(), name='streak-records'),
     path('convert-xp/', views.ConvertXPView.as_view(), name='convert-xp'),
+    path('purchase-history/', views.PurchaseHistoryView.as_view(), name='purchase-history'),
 ]

@@ -24,7 +24,9 @@ class CustomUser(AbstractUser):
     # URLField for external profile picture URLs (from Google, etc.)
     profile_picture_url = models.URLField(max_length=2000, blank=True, null=True)
     date_joined = models.DateTimeField(auto_now_add=True)  # Automatically set when the user is created
-    tickets = models.PositiveIntegerField(default=0)
+    company_tickets = models.PositiveIntegerField(default=0)
+    global_tickets = models.PositiveIntegerField(default=0)  # Count of tickets
+    streak_savers = models.PositiveIntegerField(default=0)  # Count of streak savers
     xp = models.PositiveIntegerField(default=0)
     # Add a foreign key to the company (a user can only belong to one company)
     company = models.ForeignKey(
@@ -154,7 +156,8 @@ class Purchase(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='purchases')
     item_name = models.CharField(max_length=100, choices=ITEM_CHOICES)  # Make this a choice field
     xp_used = models.FloatField()  # Amount of XP used for the purchase
+    quantity = models.PositiveIntegerField(default=1)  # New field to store the quantity of items purchased
     timestamp = models.DateTimeField(auto_now_add=True)  # Timestamp for when the purchase was made
 
     def __str__(self):
-        return f'{self.user.email} - Purchased: {self.item_name} for {self.xp_used} XP'
+        return f'{self.user.email} - Purchased: {self.quantity} {self.item_name}(s) for {self.xp_used} XP'

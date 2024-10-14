@@ -140,6 +140,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(read_only=True)
     last_name = serializers.CharField(read_only=True)
     streak = serializers.SerializerMethodField()  # Adding a method field for streak
+    streak_savers = serializers.IntegerField(read_only=True)  # Include streak savers
+    global_tickets = serializers.IntegerField(read_only=True)  # Include tickets
+    company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
 
 
     class Meta:
@@ -152,9 +155,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'last_name',
             'is_company_owner', 
             'streak', 
+            'streak_savers',
+            'global_tickets',
+            'company_tickets',
             'bio', 
             'date_joined', 
-            'tickets', 
             'profile_picture_url',  # Custom field with logic
             'company',
         ]
@@ -553,7 +558,7 @@ class StreakSerializer(serializers.ModelSerializer):
 class PurchaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Purchase
-        fields = ['id', 'user', 'item_name', 'xp_used', 'timestamp']
+        fields = '__all__'
         read_only_fields = ['user', 'timestamp']  # User and timestamp should not be set manually
 
     def validate_item_name(self, value):
