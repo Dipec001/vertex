@@ -15,6 +15,8 @@ from datetime import timedelta
 import os
 from dotenv import load_dotenv
 import dj_database_url
+from celery.schedules import crontab
+
 
 load_dotenv()
 
@@ -276,6 +278,18 @@ APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 CELERY_BEAT_SCHEDULE = {
     'reset-daily-streaks-every-hour': {
         'task': 'myapp.tasks.reset_daily_streaks',
-        'schedule': timedelta(hours=1),  # Run the task every hour
+        'schedule': timedelta(minutes=1),  # Run the task every hour
+    },
+    'run-company-draws-every-month': {
+        'task': 'myapp.tasks.run_company_draws',
+        'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
+    },
+    'run-global-draw-every-quarter': {
+        'task': 'myapp.tasks.run_global_draw',
+        'schedule': crontab(month_of_year='*/3', day_of_month=1, hour=15, minute=0), # every 1st of 3 months at 3pm utc
+    },
+    'run-global-draw-every-day': {
+        'task': 'myapp.tasks.create_global_draw',
+        'schedule': timedelta(days=1),  # Every minute
     },
 }

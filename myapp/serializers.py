@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase
+from .models import Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, DrawEntry, DrawWinner, Prize
 import random
 import string
 from allauth.socialaccount.models import SocialAccount
@@ -139,7 +139,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     company = serializers.CharField(source='company.name', read_only=True)
     first_name = serializers.CharField(read_only=True)
     last_name = serializers.CharField(read_only=True)
-    streak = serializers.SerializerMethodField()  # Adding a method field for streak
+    streak = serializers.IntegerField(read_only=True)
     streak_savers = serializers.IntegerField(read_only=True)  # Include streak savers
     global_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
@@ -174,12 +174,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return obj.profile_picture_url
         
         # Fallback to a default image if neither is set
-        # return '/static/images/default_avatar.png'
-
-    def get_streak(self, obj):
-        # Fetch the latest Streak record for the user
-        latest_streak = obj.streak_records.order_by('-timeStamp').first()
-        return latest_streak.currentStreak if latest_streak else 0  # Return 0 if no streak found
+        # return '/static/images/default_avatar.png
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
@@ -566,3 +561,52 @@ class PurchaseSerializer(serializers.ModelSerializer):
         if value not in dict(Purchase.ITEM_CHOICES).keys():
             raise serializers.ValidationError("Invalid item choice.")
         return value
+    
+
+class DrawSerializer(serializers.ModelSerializer):
+    entry_count = serializers.SerializerMethodField()
+    class Meta:
+        model = Draw
+        fields = ['id', 'name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count']
+        read_only_fields = ['id', 'name', 'draw_type', 'draw_date', 'is_active','entry_count']
+
+    def get_entry_count(self, obj):
+        return obj.entries.count()  # Count the related DrawEntry objects
+    
+    def validate(self, data):
+        read_only_fields = self.Meta.read_only_fields
+        unexpected_fields = set(data.keys()) - set(self.Meta.fields)  # Check for fields not in the serializer
+
+        if unexpected_fields:
+            raise serializers.ValidationError({field: f"{field} is not a valid field." for field in unexpected_fields})
+
+        for field in read_only_fields:
+            if field in data:
+                raise serializers.ValidationError({f"{field} cannot be modified."})
+
+        return data
+
+
+
+class DrawEntrySerializer(serializers.ModelSerializer):
+    draw = serializers.PrimaryKeyRelatedField(queryset=Draw.objects.all())  # Use PrimaryKeyRelatedField
+
+    
+    class Meta:
+        model = DrawEntry
+        fields = ['user', 'draw', 'timestamp']
+
+
+class PrizeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prize
+        fields = ['id', 'name', 'description', 'value', 'quantity']
+
+
+class DrawWinnerSerializer(serializers.ModelSerializer):
+    draw = DrawSerializer()
+    prize = PrizeSerializer()
+
+    class Meta:
+        model = DrawWinner
+        fields = ['draw', 'user', 'prize', 'win_date']

@@ -2,11 +2,14 @@ from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import CompanyOwnerSignupSerializer, NormalUserSignupSerializer, InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer
-from .models import CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,Streak, Purchase
+from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
+                          InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
+                          DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
+                          DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer)
+from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
+                     Streak, Purchase, DrawWinner, DrawEntry,Draw)
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.contrib.auth import authenticate
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.hashers import make_password
 from django.contrib import messages
@@ -15,7 +18,6 @@ from django.core.mail import send_mail
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.urls import reverse
-from django.conf import settings
 from .google_validate import validate_google_token
 from .apple_validate import validate_apple_token
 from .facebook_validate import validate_facebook_token
@@ -26,8 +28,8 @@ from .s3_utils import save_image_to_s3
 from django.utils import timezone
 from django.db.models import Sum
 from .timezone_converter import convert_from_utc, convert_to_utc
-
 from datetime import datetime
+from rest_framework.exceptions import PermissionDenied
 
 # Create your views here.
 
@@ -821,9 +823,20 @@ class ConvertXPView(APIView):
             if item_type == 'streak_saver':
                 user.streak_savers += quantity
             elif item_type == 'ticket_global':  # For tickets
-                user.global_tickets += quantity
+                # user.global_tickets += quantity
+                # Automatically add the user to the active global draw
+                global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
+                if global_draw:
+                    for _ in range(quantity):  # Add as many entries as tickets purchased
+                        DrawEntry.objects.create(user=user, draw=global_draw)
+
             elif item_type == 'ticket_company':  # For tickets
                 user.company_tickets += quantity
+                # # Automatically add the user to the active company draw
+                # company_draw = Draw.objects.filter(is_active=True, draw_type='company', company=user.company).first()
+                # if company_draw:
+                #     for _ in range(quantity):
+                #         DrawEntry.objects.create(user=user, draw=company_draw)
 
             user.save()
 
@@ -858,3 +871,173 @@ class PurchaseHistoryView(APIView):
         serializer = PurchaseSerializer(purchases, many=True)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class DrawHistoryAndWinnersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Draws user participated in
+        participated_draws = DrawEntry.objects.filter(user=user).select_related('draw')
+
+        # Draws user won
+        won_draws = DrawWinner.objects.filter(user=user).select_related('draw', 'prize')
+
+        response_data = {
+            'participated_draws': DrawEntrySerializer(participated_draws, many=True).data,
+            'won_draws': DrawWinnerSerializer(won_draws, many=True).data,
+        }
+
+        return Response(response_data)
+
+
+class GlobalDrawEditView(APIView):
+    """
+    View for editing global draws.
+    Only admin users can access this view.
+    """
+    permission_classes = [permissions.IsAdminUser]  # Only allow admin users
+
+    def get_object(self, pk):
+        try:
+            return Draw.objects.get(pk=pk, draw_type='global')  # Adjust based on your draw type logic
+        except Draw.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        draw = self.get_object(pk)
+        if draw is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = DrawSerializer(draw)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        draw = self.get_object(pk)
+        if draw is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = DrawSerializer(draw, data=request.data, partial=True)  # Enable partial updates
+        # Debugging line to see what is being passed to the serializer
+        print("Serializer data:", request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class CompanyDrawEditView(APIView):
+    def get(self, request, pk):
+        try:
+            # Only get the draw if the user is either the owner or HR manager
+            draw = Draw.objects.get(
+                pk=pk, 
+                company__membership__user=self.request.user, 
+                company__membership__role__in=['owner', 'HR']
+            )
+            serializer = DrawSerializer(draw)
+            return Response(serializer.data)
+        except Draw.DoesNotExist:
+            raise PermissionDenied("You do not have permission to access or manage this draw.")
+    
+    def put(self, request, pk):
+        try:
+            # Ensure only owners and HR managers can modify the draw
+            draw = Draw.objects.get(
+                pk=pk, 
+                company__membership__user=self.request.user, 
+                company__membership__role__in=['owner', 'HR']
+            )
+            serializer = DrawSerializer(draw, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Draw.DoesNotExist:
+            raise PermissionDenied("You do not have permission to modify this draw.")
+
+
+class EnterDrawView(APIView):
+    """
+    This view is used to enter a company draw
+    """
+    def post(self, request, pk):
+        try:
+            # Get the draw, ensure it's active and the user is a member of the company (if required)
+            draw = Draw.objects.get(pk=pk, company__membership__user=self.request.user)
+
+            # Check if the draw is active
+            if not draw.is_active:
+                return Response({'error': 'This draw is not active.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the ticket amount from the request, default to 1 if not provided
+            ticket_amount = request.data.get('ticket_amount', 1)
+
+            # Ensure the user has enough company tickets to enter the draw
+            if request.user.company_tickets < ticket_amount:
+                return Response({'error': 'You do not have enough company tickets to enter the draw.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create multiple entries for the user if ticket_amount > 1
+            entries = [DrawEntry(user=request.user, draw=draw) for _ in range(ticket_amount)]
+            DrawEntry.objects.bulk_create(entries)
+
+            # Deduct the used tickets from the user's company tickets
+            request.user.company_tickets -= ticket_amount
+            request.user.save()
+
+            return Response({'success': f'You have entered the draw with {ticket_amount} tickets. Your company ticket count has been reduced by {ticket_amount}.'}, status=status.HTTP_201_CREATED)
+
+        except Draw.DoesNotExist:
+            return Response({'error': 'You do not have permission to enter this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ExitDrawView(APIView):
+    """
+    This view is used to exit a company draw
+    """
+    def post(self, request, pk):
+        try:
+            # Get the draw, ensure it's active and the user is a member of the company (if required)
+            draw = Draw.objects.get(pk=pk, company__membership__user=self.request.user)
+
+            # Check if the draw is active
+            if not draw.is_active:
+                return Response({'error': 'This draw is not active.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if the user has any entries in the draw
+            entries = DrawEntry.objects.filter(draw=draw, user=request.user)
+            if not entries.exists():
+                return Response({'error': 'You are not entered in this draw.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Get the ticket amount from the request, default to remove all entries if not provided
+            ticket_amount = request.data.get('ticket_amount', None)
+
+            if ticket_amount is None:
+
+                # Return the user's tickets based on the number of entries they had
+                entry_count = entries.count()
+                # Remove all entries for the user
+                entries.delete()
+                print("entry_count", entry_count)
+                request.user.company_tickets += entry_count
+                request.user.save()
+
+                return Response({'success': f'You have completely left the draw. {entry_count} tickets have been returned to your account.'}, status=status.HTTP_200_OK)
+            else:
+                # If ticket_amount is provided, delete up to that number of entries
+                # Convert the queryset to a list and delete manually
+                entries_to_delete = list(entries[:ticket_amount])
+                entries_to_delete_count = len(entries_to_delete)
+
+                # Delete each entry manually
+                for entry in entries_to_delete:
+                    entry.delete()
+
+                # Return tickets only for the entries that were deleted
+                request.user.company_tickets += entries_to_delete_count
+                request.user.save()
+
+                return Response({'success': f'You have left {entries_to_delete_count} entries from the draw. {entries_to_delete_count} tickets have been returned to your account.'}, status=status.HTTP_200_OK)
+
+        except Draw.DoesNotExist:
+            return Response({'error': 'You do not have permission to leave this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)

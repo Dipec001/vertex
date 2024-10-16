@@ -50,18 +50,18 @@ def convert_from_utc(user_timezone_str, utc_datetime):
 
 
 # Example usage
-user_timezone_str = 'Africa/Lagos'
-naive_datetime_str = "2024-10-13T06:10:00"  # Example naive datetime
+# user_timezone_str = 'Africa/Lagos'
+# naive_datetime_str = "2024-10-13T06:10:00"  # Example naive datetime
 
-# Convert the string to a datetime object
-naive_datetime = datetime.strptime(naive_datetime_str, "%Y-%m-%dT%H:%M:%S")
-print(naive_datetime)
-print(type(naive_datetime))
+# # Convert the string to a datetime object
+# naive_datetime = datetime.strptime(naive_datetime_str, "%Y-%m-%dT%H:%M:%S")
+# print(naive_datetime)
+# print(type(naive_datetime))
 
-# Convert naive datetime to UTC
-utc_datetime = convert_to_utc(user_timezone_str, naive_datetime)
-print("UTC Datetime:", utc_datetime)
+# # Convert naive datetime to UTC
+# utc_datetime = convert_to_utc(user_timezone_str, naive_datetime)
+# print("UTC Datetime:", utc_datetime)
 
-# Convert back to user's local timezone
-local_datetime = convert_from_utc(user_timezone_str, utc_datetime)
-print("Local Datetime:", local_datetime)
+# # Convert back to user's local timezone
+# local_datetime = convert_from_utc(user_timezone_str, utc_datetime)
+# print("Local Datetime:", local_datetime)

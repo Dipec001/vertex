@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Xp, Streak
+from .models import Xp, Streak, Company, Draw
 
 @receiver(post_save, sender=Xp)
 def update_streak_on_xp_change(sender, instance, **kwargs):
@@ -47,5 +47,27 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
         highestStreak=max(highest_streak, current_streak + 1),  # Update highest streak if necessary
         timeStamp=timezone.now()  # Set the current timestamp
     )
+    
+    # Update the streak in the CustomUser model
+    user.streak += 1  # Increment the streak by 1
+    user.save()  # Save the changes to the CustomUser model
 
     print("Streak record created and updated")
+
+
+@receiver(post_save, sender=Company)
+def create_company_draw(sender, instance, created, **kwargs):
+    if created:
+        # Schedule draw for the 1st of the next month
+        today = timezone.now()
+        first_of_next_month = (today.replace(day=1) + timezone.timedelta(days=32)).replace(day=1)
+
+        # Create company draw
+        Draw.objects.create(
+            name=f"{instance.name} Company Draw",
+            draw_type='company',
+            draw_date=first_of_next_month,
+            number_of_winners=5,  # Example number of winners
+            is_active=True,
+            company=instance
+        )

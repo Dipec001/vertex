@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from timezone_field import TimeZoneField
 import pytz
+import random
 # Create your models here.
 
 TIMEZONES = tuple(zip(pytz.all_timezones, pytz.all_timezones))
@@ -100,6 +101,9 @@ class Xp(models.Model):
     def __str__(self):
         return f'{self.user.email} - XP: {self.totalXpToday}'
     
+    class Meta:
+        unique_together = ('user', 'timeStamp')  # Ensure one entry per user per day
+    
 
 class Streak(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='streak_records')
@@ -161,3 +165,67 @@ class Purchase(models.Model):
 
     def __str__(self):
         return f'{self.user.email} - Purchased: {self.quantity} {self.item_name}(s) for {self.xp_used} XP'
+    
+
+# Prize Model (for both global and company draws)
+class Prize(models.Model):
+    draw = models.ForeignKey('Draw', on_delete=models.CASCADE, related_name='prizes')
+    name = models.CharField(max_length=255)
+    description = models.TextField()
+    value = models.DecimalField(max_digits=10, decimal_places=2)  # Cash value or item worth
+    quantity = models.IntegerField(default=1)  # How many of these prizes exist
+
+    def __str__(self):
+        return self.name
+
+class Draw(models.Model):
+    DRAW_TYPE_CHOICES = [
+        ('company', 'Company Draw'),
+        ('global', 'Global Draw'),
+    ]
+    
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(max_length=255)
+    draw_type = models.CharField(max_length=7, choices=DRAW_TYPE_CHOICES)
+    draw_date = models.DateTimeField()  # When the draw happens
+    number_of_winners = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+
+    def pick_winners(self):
+        # Get all entries for the draw
+        entries = DrawEntry.objects.filter(draw=self)
+        if entries.count() == 0:
+            return  # No entries to pick from
+
+        # Randomly pick winners from the list of entries
+        winners = random.sample(list(entries), min(self.number_of_winners, entries.count()))
+
+        # Save the winners in the DrawWinner table
+        for entry in winners:
+            DrawWinner.objects.create(user=entry.user, draw=self)
+
+        # Mark draw as inactive
+        self.is_active = False
+        self.save()
+    
+    def __str__(self):
+        return f"{self.name} ({self.draw_type})"
+
+# Entry Model (tracks user entries in a draw)
+class DrawEntry(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    draw = models.ForeignKey(Draw, on_delete=models.CASCADE, related_name='entries')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} entry for {self.draw}"
+
+# Winner Model (tracks the winners for each draw)
+class DrawWinner(models.Model):
+    draw = models.ForeignKey(Draw, on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    prize = models.ForeignKey(Prize, on_delete=models.SET_NULL, null=True, blank=True)
+    win_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} won {self.prize.name} in {self.draw.name}"
