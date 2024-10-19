@@ -143,6 +143,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     streak_savers = serializers.IntegerField(read_only=True)  # Include streak savers
     global_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
+    gem = serializers.IntegerField(read_only=True)
 
 
     class Meta:
@@ -154,6 +155,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'is_company_owner', 
+            'gem',
             'streak', 
             'streak_savers',
             'global_tickets',
@@ -358,7 +360,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             defaults={
                 'totalXpToday': new_xp,
                 'totalXpAllTime': new_xp,
-                'currentXpRemaining': new_xp
             }
         )
 
@@ -366,7 +367,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         if not created_xp and new_xp > 0:
             user_xp.totalXpToday += new_xp
             user_xp.totalXpAllTime += new_xp
-            user_xp.currentXpRemaining += new_xp
             user_xp.save()
 
         # Record the additional steps in the WorkoutActivity model (multiple entries per day)
@@ -421,6 +421,11 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         # Check for conversion failure/ Ensure both datetime values are provided
         if start_datetime_utc is None or end_datetime_utc is None:
             raise serializers.ValidationError("Invalid date format for start_datetime or end_datetime.")
+        
+        if data.get('current_date'):
+            current_date = data.get('current_date')
+            if data.get('start_datetime').date() != current_date:
+                raise serializers.ValidationError("Invalid date for start_datetime. It should be the same as current_date.")
 
         # Check if end_datetime is before start_datetime
         if data['end_datetime'] <= data['start_datetime']:
@@ -514,7 +519,6 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             defaults={
                 'totalXpToday': workout_activity.xp,
                 'totalXpAllTime': workout_activity.xp,
-                'currentXpRemaining': workout_activity.xp
             }
         )
 
@@ -528,11 +532,9 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         if previous_xp:
             # If there is a previous record, use its values for all-time and remaining XP
             user_xp.totalXpAllTime = previous_xp.totalXpAllTime + workout_activity.xp
-            user_xp.currentXpRemaining = previous_xp.currentXpRemaining + workout_activity.xp
         else:
             # If no previous record exists, use the current workout XP
             user_xp.totalXpAllTime += workout_activity.xp
-            user_xp.currentXpRemaining += workout_activity.xp
 
         # Save the XP record
         user_xp.save()

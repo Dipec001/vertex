@@ -292,4 +292,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'myapp.tasks.create_global_draw',
         'schedule': timedelta(days=1),  # Every minute
     },
+    'reset-gems-hourly': {
+        'task': 'myapp.tasks.reset_gems_for_local_timezones',
+        'schedule': crontab(minute='*'),  # Every minute for now(will change later)
+    },
 }

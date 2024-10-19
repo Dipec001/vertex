@@ -29,6 +29,8 @@ class CustomUser(AbstractUser):
     global_tickets = models.PositiveIntegerField(default=0)  # Count of tickets
     streak_savers = models.PositiveIntegerField(default=0)  # Count of streak savers
     xp = models.PositiveIntegerField(default=0)
+    gem = models.PositiveIntegerField(default=0)  # Available gems (earned - spent)
+    gems_spent = models.PositiveIntegerField(default=0)  # Total gems the user has spent
     # Add a foreign key to the company (a user can only belong to one company)
     company = models.ForeignKey(
         'Company', 
@@ -96,7 +98,7 @@ class Xp(models.Model):
     timeStamp = models.DateTimeField(auto_now_add=True)  # Timestamp for when XP is earned
     totalXpToday = models.FloatField(default=0.0)  # XP earned today
     totalXpAllTime = models.FloatField(default=0.0)  # Total XP earned across all time
-    currentXpRemaining = models.FloatField(default=0.0)  # XP remaining after conversion to tickets
+    gems_awarded = models.PositiveIntegerField(default=0)  # Gems awarded based on XP today
 
     def __str__(self):
         return f'{self.user.email} - XP: {self.totalXpToday}'
@@ -159,12 +161,12 @@ class Purchase(models.Model):
 
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='purchases')
     item_name = models.CharField(max_length=100, choices=ITEM_CHOICES)  # Make this a choice field
-    xp_used = models.FloatField()  # Amount of XP used for the purchase
+    gem_used = models.PositiveIntegerField(default=1)  # Amount of gem used for the purchase
     quantity = models.PositiveIntegerField(default=1)  # New field to store the quantity of items purchased
     timestamp = models.DateTimeField(auto_now_add=True)  # Timestamp for when the purchase was made
 
     def __str__(self):
-        return f'{self.user.email} - Purchased: {self.quantity} {self.item_name}(s) for {self.xp_used} XP'
+        return f'{self.user.email} - Purchased: {self.quantity} {self.item_name}(s) for {self.gem_used} gem'
     
 
 # Prize Model (for both global and company draws)

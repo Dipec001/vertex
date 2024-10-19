@@ -617,7 +617,6 @@ class DailyStepsView(APIView):
             xp_data = {
                 'totalXpToday': user_xp.totalXpToday if user_xp else 0,
                 'totalXpAllTime': user_xp.totalXpAllTime if user_xp else 0,
-                'currentXpRemaining': user_xp.currentXpRemaining if user_xp else 0,
             }
 
             return Response({
@@ -719,22 +718,45 @@ class StreakRecordsView(APIView):
             'streak_per_day': streak_data,
             'overall_current_streak': current_streak
         })
+    
 
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+from datetime import timedelta
+import pytz
 
 class XpRecordsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date', timezone.now().date())
+        # Parse start_date and end_date from query parameters
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
 
-        if not start_date:
+        # Check if start_date is provided
+        if not start_date_str:
             return Response({"error": "Please provide a start date."}, status=400)
 
-        # Query XP records in the date range for the user
+        # Parse the dates
+        start_date = parse_date(start_date_str)
+        end_date = parse_date(end_date_str) if end_date_str else timezone.now().date()
+
+        # Get user's timezone from the model
+        user_timezone = request.user.timezone  # Assuming timezone is stored in user model
+
+        # Make the start and end dates timezone-aware using user's timezone
+        local_tz = pytz.timezone(user_timezone.key)
+        start_date_local = timezone.make_aware(datetime.combine(start_date, datetime.min.time()), local_tz)
+        end_date_local = timezone.make_aware(datetime.combine(end_date, datetime.max.time()), local_tz)
+
+        # Convert to UTC for querying the database
+        start_date_utc = start_date_local.astimezone(pytz.UTC)
+        end_date_utc = end_date_local.astimezone(pytz.UTC)
+
+        # Query XP records in the UTC-adjusted date range for the user
         xp_in_range = Xp.objects.filter(
             user=request.user,
-            timeStamp__date__range=[start_date, end_date]
+            timeStamp__range=[start_date_utc, end_date_utc]
         ).values('timeStamp__date').annotate(total_xp=Sum('totalXpToday')).order_by('timeStamp__date')
 
         xp_data = []
@@ -767,26 +789,76 @@ class XpRecordsView(APIView):
         # Fetch the actual total XP gained (across all time)
         total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('totalXpToday'))['total_xp'] or 0
 
-        # Fetch the last XP record for the remaining XP gained (after weekly reset)
-        remaining_xp_record = Xp.objects.filter(user=request.user).last()
-        remaining_xp_gained = remaining_xp_record.currentXpRemaining if remaining_xp_record else 0
-
         # Return response with the breakdown per day, total XP gained, and remaining XP gained
         return Response({
             'xp_per_day': xp_data,
             'total_xp_gained': total_xp_gained,  # Sum of all XP across all time
-            'remaining_convertible_xp': remaining_xp_gained  # Most recent XP remaining
         })
 
 
-class ConvertXPView(APIView):
+
+# class XpRecordsView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         start_date = request.query_params.get('start_date')
+#         end_date = request.query_params.get('end_date', timezone.now().date())
+
+#         if not start_date:
+#             return Response({"error": "Please provide a start date."}, status=400)
+
+#         # Query XP records in the date range for the user
+#         xp_in_range = Xp.objects.filter(
+#             user=request.user,
+#             timeStamp__date__range=[start_date, end_date]
+#         ).values('timeStamp__date').annotate(total_xp=Sum('totalXpToday')).order_by('timeStamp__date')
+
+#         xp_data = []
+
+#         # Loop over each day and fetch movement and mindfulness XP for that day
+#         for xp in xp_in_range:
+#             current_date = xp['timeStamp__date']
+
+#             # Fetch movement and mindfulness XP for the current date
+#             movement_xp = WorkoutActivity.objects.filter(
+#                 user=request.user,
+#                 current_date=current_date,
+#                 activity_type="movement"
+#             ).aggregate(movement_xp=Sum('xp'))['movement_xp'] or 0
+
+#             mindfulness_xp = WorkoutActivity.objects.filter(
+#                 user=request.user,
+#                 current_date=current_date,
+#                 activity_type="mindfulness"
+#             ).aggregate(mindfulness_xp=Sum('xp'))['mindfulness_xp'] or 0
+
+#             # Append data for the current date
+#             xp_data.append({
+#                 'date': current_date,
+#                 'total_xp': xp['total_xp'],
+#                 'movement_xp': movement_xp,
+#                 'mindfulness_xp': mindfulness_xp
+#             })
+
+#         # Fetch the actual total XP gained (across all time)
+#         total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('totalXpToday'))['total_xp'] or 0
+
+
+#         # Return response with the breakdown per day, total XP gained, and remaining XP gained
+#         return Response({
+#             'xp_per_day': xp_data,
+#             'total_xp_gained': total_xp_gained,  # Sum of all XP across all time
+#         })
+
+
+class ConvertGemView(APIView):
     permission_classes = [IsAuthenticated]
 
     # Define conversion rates
-    XP_COSTS = {
-        'streak_saver': 500,
-        'ticket_global': 250,
-        'ticket_company': 250,
+    GEM_COSTS = {
+        'streak_saver': 2,
+        'ticket_global': 1,
+        'ticket_company': 1,
     }
 
     def post(self, request):
@@ -794,57 +866,46 @@ class ConvertXPView(APIView):
         item_type = request.data.get('item_type')
         quantity = request.data.get('quantity', 1)  # Default quantity to 1 if not provided
 
-        if item_type not in self.XP_COSTS:
+        if item_type not in self.GEM_COSTS:
             return Response({"error": "Invalid item type"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Ensure the quantity is a positive integer
         if not isinstance(quantity, int) or quantity <= 0:
             return Response({"error": "Quantity must be a positive integer"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch the user's XP
-        user_xp = Xp.objects.filter(user=user).order_by('-timeStamp').first()
-        if not user_xp:  # Check if user XP record exists
-            return Response({"error": "No XP record found"}, status=status.HTTP_404_NOT_FOUND)
+        gem_cost_per_item = self.GEM_COSTS[item_type]
+        total_gem_cost = gem_cost_per_item * quantity
 
-        xp_cost_per_item = self.XP_COSTS[item_type]
-        total_xp_cost = xp_cost_per_item * quantity
-
-        # Check if the user has enough convertible XP remaining
-        if user_xp.currentXpRemaining < total_xp_cost:
-            return Response({"error": f"Not enough XP to convert. You need {total_xp_cost} XP for {quantity} {item_type}(s)."}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if the user has enough available gems
+        if user.gem < total_gem_cost:
+            return Response({"error": f"Not enough gems to purchase. You need {total_gem_cost} gems for {quantity} {item_type}(s)."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Use a transaction to ensure atomicity
         with transaction.atomic():
-            # Deduct the total XP cost
-            user_xp.currentXpRemaining -= total_xp_cost
-            user_xp.save()
+            # Deduct the total gem cost
+            user.gem -= total_gem_cost
+            user.gems_spent += total_gem_cost
+            user.save(update_fields=['gem', 'gems_spent'])
 
             # Update the user's tickets or streak savers
             if item_type == 'streak_saver':
                 user.streak_savers += quantity
             elif item_type == 'ticket_global':  # For tickets
-                # user.global_tickets += quantity
-                # Automatically add the user to the active global draw
                 global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
                 if global_draw:
                     for _ in range(quantity):  # Add as many entries as tickets purchased
                         DrawEntry.objects.create(user=user, draw=global_draw)
 
-            elif item_type == 'ticket_company':  # For tickets
+            elif item_type == 'ticket_company':  # For company tickets
                 user.company_tickets += quantity
-                # # Automatically add the user to the active company draw
-                # company_draw = Draw.objects.filter(is_active=True, draw_type='company', company=user.company).first()
-                # if company_draw:
-                #     for _ in range(quantity):
-                #         DrawEntry.objects.create(user=user, draw=company_draw)
 
-            user.save()
+            user.save(update_fields=['streak_savers', 'company_tickets'])
 
             # Record the purchase
             purchase_data = {
                 'item_name': item_type,
-                'xp_used': total_xp_cost,
-                'quantity': quantity  # Add the quantity field to track this
+                'gem_used': total_gem_cost,
+                'quantity': quantity
             }
             purchase_serializer = PurchaseSerializer(data=purchase_data)
 
@@ -854,9 +915,10 @@ class ConvertXPView(APIView):
                 return Response(purchase_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
-            "message": f"You have successfully converted {total_xp_cost} XP for {quantity} {item_type}(s).",
-            "remaining_xp": user_xp.currentXpRemaining
+            "message": f"You have successfully converted {total_gem_cost} gems for {quantity} {item_type}(s).",
+            "remaining_gem": user.gem
         }, status=status.HTTP_200_OK)
+
 
 class PurchaseHistoryView(APIView):
     permission_classes = [IsAuthenticated]
@@ -991,53 +1053,53 @@ class EnterDrawView(APIView):
             return Response({'error': 'You do not have permission to enter this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)
 
 
-class ExitDrawView(APIView):
-    """
-    This view is used to exit a company draw
-    """
-    def post(self, request, pk):
-        try:
-            # Get the draw, ensure it's active and the user is a member of the company (if required)
-            draw = Draw.objects.get(pk=pk, company__membership__user=self.request.user)
+# class ExitDrawView(APIView):
+#     """
+#     This view is used to exit a company draw
+#     """
+#     def post(self, request, pk):
+#         try:
+#             # Get the draw, ensure it's active and the user is a member of the company (if required)
+#             draw = Draw.objects.get(pk=pk, company__membership__user=self.request.user)
 
-            # Check if the draw is active
-            if not draw.is_active:
-                return Response({'error': 'This draw is not active.'}, status=status.HTTP_400_BAD_REQUEST)
+#             # Check if the draw is active
+#             if not draw.is_active:
+#                 return Response({'error': 'This draw is not active.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Check if the user has any entries in the draw
-            entries = DrawEntry.objects.filter(draw=draw, user=request.user)
-            if not entries.exists():
-                return Response({'error': 'You are not entered in this draw.'}, status=status.HTTP_400_BAD_REQUEST)
+#             # Check if the user has any entries in the draw
+#             entries = DrawEntry.objects.filter(draw=draw, user=request.user)
+#             if not entries.exists():
+#                 return Response({'error': 'You are not entered in this draw.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Get the ticket amount from the request, default to remove all entries if not provided
-            ticket_amount = request.data.get('ticket_amount', None)
+#             # Get the ticket amount from the request, default to remove all entries if not provided
+#             ticket_amount = request.data.get('ticket_amount', None)
 
-            if ticket_amount is None:
+#             if ticket_amount is None:
 
-                # Return the user's tickets based on the number of entries they had
-                entry_count = entries.count()
-                # Remove all entries for the user
-                entries.delete()
-                print("entry_count", entry_count)
-                request.user.company_tickets += entry_count
-                request.user.save()
+#                 # Return the user's tickets based on the number of entries they had
+#                 entry_count = entries.count()
+#                 # Remove all entries for the user
+#                 entries.delete()
+#                 print("entry_count", entry_count)
+#                 request.user.company_tickets += entry_count
+#                 request.user.save()
 
-                return Response({'success': f'You have completely left the draw. {entry_count} tickets have been returned to your account.'}, status=status.HTTP_200_OK)
-            else:
-                # If ticket_amount is provided, delete up to that number of entries
-                # Convert the queryset to a list and delete manually
-                entries_to_delete = list(entries[:ticket_amount])
-                entries_to_delete_count = len(entries_to_delete)
+#                 return Response({'success': f'You have completely left the draw. {entry_count} tickets have been returned to your account.'}, status=status.HTTP_200_OK)
+#             else:
+#                 # If ticket_amount is provided, delete up to that number of entries
+#                 # Convert the queryset to a list and delete manually
+#                 entries_to_delete = list(entries[:ticket_amount])
+#                 entries_to_delete_count = len(entries_to_delete)
 
-                # Delete each entry manually
-                for entry in entries_to_delete:
-                    entry.delete()
+#                 # Delete each entry manually
+#                 for entry in entries_to_delete:
+#                     entry.delete()
 
-                # Return tickets only for the entries that were deleted
-                request.user.company_tickets += entries_to_delete_count
-                request.user.save()
+#                 # Return tickets only for the entries that were deleted
+#                 request.user.company_tickets += entries_to_delete_count
+#                 request.user.save()
 
-                return Response({'success': f'You have left {entries_to_delete_count} entries from the draw. {entries_to_delete_count} tickets have been returned to your account.'}, status=status.HTTP_200_OK)
+#                 return Response({'success': f'You have left {entries_to_delete_count} entries from the draw. {entries_to_delete_count} tickets have been returned to your account.'}, status=status.HTTP_200_OK)
 
-        except Draw.DoesNotExist:
-            return Response({'error': 'You do not have permission to leave this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+#         except Draw.DoesNotExist:
+#             return Response({'error': 'You do not have permission to leave this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)

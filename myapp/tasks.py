@@ -5,6 +5,8 @@ from .models import Streak, CustomUser, Xp, Draw, Company
 from django.db.models import Sum
 import logging
 from datetime import timedelta, datetime
+from django.utils import timezone as django_timezone
+from zoneinfo import ZoneInfo  # Use ZoneInfo instead of pytz
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -165,3 +167,30 @@ def create_global_draw():
             print("Global draw already exists.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+
+
+@shared_task
+def reset_gems_for_local_timezones():
+    """
+    This task resets the users' gem amount every Monday at 00:01 AM in their local timezone.
+    """
+    now_utc = django_timezone.now()
+
+    # Fetch users with timezone info and other necessary fields
+    users = CustomUser.objects.values('id', 'email', 'gem', 'timezone')
+
+    for user in users:
+
+        # user['timezone'] is a ZoneInfo object already, so use it directly
+        user_timezone = user['timezone']
+        
+        try:
+            # Convert UTC time to user's local time using ZoneInfo
+            user_local_time = now_utc.astimezone(user_timezone)  # No need to check if it's a string
+
+            # Check if it's Monday 00:01 AM in the user's local timezone
+            if user_local_time.weekday() == 0 and user_local_time.hour == 0 and user_local_time.minute == 1:
+                # Reset the gem count to 0
+                CustomUser.objects.filter(id=user['id']).update(gem=0)
+        except Exception as e:
+            print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")

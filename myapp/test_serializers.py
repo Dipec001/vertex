@@ -256,7 +256,6 @@ class NormalUserSignupSerializerTest(TestCase):
 #             user=self.user,
 #             totalXpToday=200,
 #             totalXpAllTime=5000,
-#             currentXpRemaining=500
 #         )
 
 #     def test_xp_serialization(self):
@@ -270,7 +269,6 @@ class NormalUserSignupSerializerTest(TestCase):
 #             'user': self.user.id,
 #             'totalXpToday': 300,
 #             'totalXpAllTime': 5300,
-#             'currentXpRemaining': 600
 #         }
 #         serializer = XpSerializer(data=data)
 #         self.assertTrue(serializer.is_valid())

@@ -183,17 +183,15 @@ class InvitationModelTest(TestCase):
 #         self.user = CustomUser.objects.create_user(username='xptestuser', email='testuser@example.com', password='password123')
     
 #     def test_xp_creation(self):
-#         xp = Xp.objects.create(user=self.user, totalXpToday=100.5, totalXpAllTime=1000.0, currentXpRemaining=50.0)
+#         xp = Xp.objects.create(user=self.user, totalXpToday=100.5, totalXpAllTime=1000.0)
 #         self.assertIsInstance(xp, Xp)
 #         self.assertEqual(xp.totalXpToday, 100.5)
 #         self.assertEqual(xp.totalXpAllTime, 1000.0)
-#         self.assertEqual(xp.currentXpRemaining, 50.0)
 
 #     def test_default_values(self):
 #         xp = Xp.objects.create(user=self.user)
 #         self.assertEqual(xp.totalXpToday, 0.0)
 #         self.assertEqual(xp.totalXpAllTime, 0.0)
-#         self.assertEqual(xp.currentXpRemaining, 0.0)
 
 #     def test_xp_string_representation(self):
 #         xp = Xp.objects.create(user=self.user, totalXpToday=150.0)

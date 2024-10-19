@@ -18,11 +18,11 @@ urlpatterns = [
     path('workout/', views.WorkoutActivityView.as_view(), name='workout'),
     path('xp/', views.XpRecordsView.as_view(), name='xp-records'),
     path('streak/', views.StreakRecordsView.as_view(), name='streak-records'),
-    path('convert-xp/', views.ConvertXPView.as_view(), name='convert-xp'),
+    path('convert-gem/', views.ConvertGemView.as_view(), name='convert-gem'),
     path('purchase-history/', views.PurchaseHistoryView.as_view(), name='purchase-history'),
     path('draws/global/<int:pk>/', views.GlobalDrawEditView.as_view(), name='edit-global-draw'),
     path('draws/company/<int:pk>/', views.CompanyDrawEditView.as_view(), name='edit-company-draw'),
     path('draws/history/', views.DrawHistoryAndWinnersView.as_view(), name='draw history and winners'),
     path('draw/<int:pk>/enter/', views.EnterDrawView.as_view(), name='enter_company_draw'),
-    path('draw/<int:pk>/exit/', views.ExitDrawView.as_view(), name='exit_company_draw'),
+    # path('draw/<int:pk>/exit/', views.ExitDrawView.as_view(), name='exit_company_draw'),
 ]

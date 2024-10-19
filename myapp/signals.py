@@ -2,6 +2,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from .models import Xp, Streak, Company, Draw
+from django.db.models import Sum
 
 @receiver(post_save, sender=Xp)
 def update_streak_on_xp_change(sender, instance, **kwargs):
@@ -71,3 +72,26 @@ def create_company_draw(sender, instance, created, **kwargs):
             is_active=True,
             company=instance
         )
+
+@receiver(post_save, sender=Xp)
+def update_gems(sender, instance, **kwargs):
+    user = instance.user
+    total_xp_today = instance.totalXpToday
+
+    # Calculate how many gems to award based on the total XP for today
+    new_gems_awarded = int(total_xp_today // 250)  # Ensure integer division for whole gems
+
+    # Check if `gems_awarded` needs updating
+    if instance.gems_awarded != new_gems_awarded:
+        instance.gems_awarded = new_gems_awarded
+        instance.save(update_fields=['gems_awarded'])
+
+    # Calculate total gems awarded (sum of gems_awarded from all Xp records)
+    total_gems_awarded = user.xp_records.aggregate(total_gems_awarded=Sum('gems_awarded'))['total_gems_awarded'] or 0
+    
+    # Calculate available gems (total awarded - gems spent)
+    user.gem = total_gems_awarded - user.gems_spent
+    user.save(update_fields=['gem'])
+
+    print(f"Updated {user.email}'s available gems to {user.gem} based on today's XP.")
+
