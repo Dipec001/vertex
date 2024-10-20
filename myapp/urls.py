@@ -25,4 +25,5 @@ urlpatterns = [
     path('draws/history/', views.DrawHistoryAndWinnersView.as_view(), name='draw history and winners'),
     path('draw/<int:pk>/enter/', views.EnterDrawView.as_view(), name='enter_company_draw'),
     # path('draw/<int:pk>/exit/', views.ExitDrawView.as_view(), name='exit_company_draw'),
+    path('company-draws/', views.CompanyDrawListView.as_view(), name='company-draw-list'),
 ]

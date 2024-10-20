@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 from .models import Xp, Streak, Company, Draw
 from django.db.models import Sum
+from dateutil.relativedelta import relativedelta
 
 @receiver(post_save, sender=Xp)
 def update_streak_on_xp_change(sender, instance, **kwargs):
@@ -56,22 +57,28 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
     print("Streak record created and updated")
 
 
+
 @receiver(post_save, sender=Company)
 def create_company_draw(sender, instance, created, **kwargs):
     if created:
-        # Schedule draw for the 1st of the next month
+        # Get today's date
         today = timezone.now()
-        first_of_next_month = (today.replace(day=1) + timezone.timedelta(days=32)).replace(day=1)
 
-        # Create company draw
-        Draw.objects.create(
-            name=f"{instance.name} Company Draw",
-            draw_type='company',
-            draw_date=first_of_next_month,
-            number_of_winners=5,  # Example number of winners
-            is_active=True,
-            company=instance
-        )
+        # Create draws for the next 3 months
+        for i in range(1, 4):  # Loop through the next 3 months
+            # Add `i` months to today's date and time should be 3pm utc
+            first_of_next_month = (today + relativedelta(months=i)).replace(day=1, hour=15, minute=0, second=0, microsecond=0)
+
+            # Create the draw for the company
+            Draw.objects.create(
+                name=f"{instance.name} Company Draw - Month {i}",
+                draw_type='company',
+                draw_date=first_of_next_month,
+                number_of_winners=3,  # Example number of winners
+                is_active=True,
+                company=instance
+            )
+
 
 @receiver(post_save, sender=Xp)
 def update_gems(sender, instance, **kwargs):
@@ -94,4 +101,3 @@ def update_gems(sender, instance, **kwargs):
     user.save(update_fields=['gem'])
 
     print(f"Updated {user.email}'s available gems to {user.gem} based on today's XP.")
-

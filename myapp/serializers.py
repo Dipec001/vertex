@@ -244,11 +244,6 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
             if SocialAccount.objects.filter(provider=login_type, uid=uid).exists():
                 raise serializers.ValidationError(f"A user with this {login_type} UID already exists.")
 
-        # Get UID and login type from session
-        # request = self.context['request']
-        # uid = request.session.get('uid')
-        # login_type = request.session.get('login_type')
-
         # Create user based on login type
         if login_type in ['google', 'facebook', 'apple']:
             # social sign up
@@ -268,10 +263,6 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
                 provider=login_type,  # Use the correct provider
                 extra_data={'email': validated_data['email'], 'picture': profile_picture or ''}
             )
-            
-            # Clear session data after creating the account
-            # del request.session['uid']
-            # del request.session['login_type']
         else:
             user = CustomUser.objects.create_user(
                 email=validated_data['email'],
@@ -293,6 +284,13 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
             # Set the user's company to the invited company
             user.company = invitation.company  # Directly associate the user with the company
             user.save()  # Save the user to update their company
+
+            # Create a membership entry for the user in the company
+            Membership.objects.create(
+                user=user,
+                company=invitation.company,
+                role='employee'  # Default role as 'employee' or any role you prefer
+            )
         except Invitation.DoesNotExist:
             raise serializers.ValidationError("Invalid invitation ID.")
 
@@ -405,7 +403,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             'metadata',
             'start_datetime',
             'end_datetime',
-            'current_date',
+            # 'current_date',
             'deviceType',
         ]
 
@@ -422,10 +420,10 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         if start_datetime_utc is None or end_datetime_utc is None:
             raise serializers.ValidationError("Invalid date format for start_datetime or end_datetime.")
         
-        if data.get('current_date'):
-            current_date = data.get('current_date')
-            if data.get('start_datetime').date() != current_date:
-                raise serializers.ValidationError("Invalid date for start_datetime. It should be the same as current_date.")
+        # if data.get('current_date'):
+        #     current_date = data.get('current_date')
+        #     if data.get('start_datetime').date() != current_date:
+        #         raise serializers.ValidationError("Invalid date for start_datetime. It should be the same as current_date.")
 
         # Check if end_datetime is before start_datetime
         if data['end_datetime'] <= data['start_datetime']:
@@ -437,9 +435,9 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context['request'].user
 
-        # Check if `current_date` is provided, otherwise infer it from `start_datetime`
-        if 'current_date' not in validated_data:
-            validated_data['current_date'] = validated_data['start_datetime'].date()
+        # # Check if `current_date` is provided, otherwise infer it from `start_datetime`
+        # if 'current_date' not in validated_data:
+        #     validated_data['current_date'] = validated_data['start_datetime'].date()
 
         # Extract the date from the start_datetime to ensure conflict checking only happens for the same day
         start_date = validated_data['start_datetime'].date()
@@ -564,45 +562,122 @@ class PurchaseSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid item choice.")
         return value
     
+class PrizeSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False)
+    class Meta:
+        model = Prize
+        fields = ['id', 'name', 'description', 'value', 'quantity']
+    
 
 class DrawSerializer(serializers.ModelSerializer):
+    prizes = PrizeSerializer(many=True)  # Add nested PrizeSerializer
     entry_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Draw
-        fields = ['id', 'name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count']
-        read_only_fields = ['id', 'name', 'draw_type', 'draw_date', 'is_active','entry_count']
+        fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count', 'prizes']
+        read_only_fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'is_active', 'entry_count']
 
     def get_entry_count(self, obj):
         return obj.entries.count()  # Count the related DrawEntry objects
-    
+
     def validate(self, data):
-        read_only_fields = self.Meta.read_only_fields
-        unexpected_fields = set(data.keys()) - set(self.Meta.fields)  # Check for fields not in the serializer
-
-        if unexpected_fields:
-            raise serializers.ValidationError({field: f"{field} is not a valid field." for field in unexpected_fields})
-
-        for field in read_only_fields:
-            if field in data:
-                raise serializers.ValidationError({f"{field} cannot be modified."})
-
+        """Validate the incoming data, checking for any read-only or unexpected fields."""
+        self._validate_unexpected_fields(data)
+        self._validate_read_only_fields(data)
         return data
+
+    def _validate_unexpected_fields(self, data):
+        unexpected_fields = set(data.keys()) - set(self.Meta.fields)
+        if unexpected_fields:
+            raise serializers.ValidationError({
+                field: f"{field} is not a valid field." for field in unexpected_fields
+            })
+
+    def _validate_read_only_fields(self, data):
+        for field in self.Meta.read_only_fields:
+            if field in data:
+                raise serializers.ValidationError({
+                    f"{field}": f"{field} cannot be modified."
+                })
+
+    def update(self, instance, validated_data):
+        print("Incoming Request Data:", self.context['request'].data)
+        print("Validated Data:", validated_data)
+
+        prizes_data = validated_data.pop('prizes', [])
+        instance = super().update(instance, validated_data)  # Update the draw instance
+
+        # Process and update the related prizes
+        self._update_or_create_prizes(instance, prizes_data)
+
+        return instance
+
+    def _update_or_create_prizes(self, instance, prizes_data):
+        """Update existing prizes or create new ones."""
+        for prize_data in prizes_data:
+            prize_id = prize_data.get('id')
+            print("Processing Prize ID:", prize_id)
+
+            if prize_id:
+                self._update_existing_prize(prize_id, prize_data)
+            else:
+                self._create_new_prize(instance, prize_data)
+
+    def _update_existing_prize(self, prize_id, prize_data):
+        """Update an existing prize if it exists."""
+        try:
+            prize = Prize.objects.get(id=prize_id)
+            prize.name = prize_data.get('name', prize.name)
+            prize.description = prize_data.get('description', prize.description)
+            prize.save()
+            print(f"Updated Prize ID: {prize.id}")
+        except Prize.DoesNotExist:
+            print(f"Prize ID {prize_id} does not exist, creating a new one.")
+            Prize.objects.create(**prize_data)
+
+    def _create_new_prize(self, draw, prize_data):
+        """Create a new prize if no ID is provided."""
+        Prize.objects.create(draw=draw, **prize_data)
+        print(f"Created New Prize: {prize_data}")
+
+
+    
+    # def update(self, instance, validated_data):
+    # # Handle nested prizes update
+    # prizes_data = validated_data.pop('prizes', [])
+    
+    # # Update the Draw instance
+    # instance = super().update(instance, validated_data)
+
+    # # Create a mapping of existing prize IDs for easy access
+    # existing_prizes = {prize.id: prize for prize in instance.prizes.all()}
+
+    # for prize_data in prizes_data:
+    #     prize_id = prize_data.get('id', None)
+        
+    #     if prize_id and prize_id in existing_prizes:
+    #         # Update existing prize
+    #         prize = existing_prizes[prize_id]
+    #         prize.name = prize_data.get('name', prize.name)
+    #         prize.description = prize_data.get('description', prize.description)
+    #         prize.value = prize_data.get('value', prize.value)  # Ensure this is being set if provided
+    #         prize.quantity = prize_data.get('quantity', prize.quantity)
+    #         prize.save()
+    #     else:
+    #         # Create a new prize if no ID is provided or ID not found
+    #         Prize.objects.create(draw=instance, **prize_data)
+
+    # return instance
+
 
 
 
 class DrawEntrySerializer(serializers.ModelSerializer):
     draw = serializers.PrimaryKeyRelatedField(queryset=Draw.objects.all())  # Use PrimaryKeyRelatedField
-
-    
     class Meta:
         model = DrawEntry
         fields = ['user', 'draw', 'timestamp']
-
-
-class PrizeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Prize
-        fields = ['id', 'name', 'description', 'value', 'quantity']
 
 
 class DrawWinnerSerializer(serializers.ModelSerializer):

@@ -145,11 +145,10 @@ class WorkoutActivity(models.Model):
     metadata = models.TextField(null=True, blank=True)  # Optional metadata
     start_datetime = models.DateTimeField()  # Start of the activity
     end_datetime = models.DateTimeField()  # End of the activity
-    current_date = models.DateField()  # The day this activity is logged
     deviceType = models.CharField(max_length=100, null=True, blank=True) # Optional: to store device model it is recorded in
 
     def __str__(self):
-        return f'{self.user.email} - Activity: {self.activity_name} on {self.current_date}'
+        return f'{self.user.email} - Activity: {self.activity_name} on {self.start_datetime.date()}'
 
 
 class Purchase(models.Model):
@@ -174,7 +173,7 @@ class Prize(models.Model):
     draw = models.ForeignKey('Draw', on_delete=models.CASCADE, related_name='prizes')
     name = models.CharField(max_length=255)
     description = models.TextField()
-    value = models.DecimalField(max_digits=10, decimal_places=2)  # Cash value or item worth
+    value = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Cash value or item worth
     quantity = models.IntegerField(default=1)  # How many of these prizes exist
 
     def __str__(self):
@@ -187,7 +186,7 @@ class Draw(models.Model):
     ]
     
     company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
-    name = models.CharField(max_length=255)
+    draw_name = models.CharField(max_length=255)
     draw_type = models.CharField(max_length=7, choices=DRAW_TYPE_CHOICES)
     draw_date = models.DateTimeField()  # When the draw happens
     number_of_winners = models.PositiveIntegerField(default=1)

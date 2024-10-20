@@ -654,6 +654,7 @@ class WorkoutActivityView(APIView):
 
         # Convert user timezone to string if necessary
         user_timezone_str = str(request.user.timezone)
+        print('user timezone',user_timezone_str)
 
         # Extract and convert datetimes
         starttime_str = request.data['start_datetime']
@@ -891,6 +892,7 @@ class ConvertGemView(APIView):
             if item_type == 'streak_saver':
                 user.streak_savers += quantity
             elif item_type == 'ticket_global':  # For tickets
+                user.global_tickets += quantity
                 global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
                 if global_draw:
                     for _ in range(quantity):  # Add as many entries as tickets purchased
@@ -982,7 +984,6 @@ class GlobalDrawEditView(APIView):
         
         serializer = DrawSerializer(draw, data=request.data, partial=True)  # Enable partial updates
         # Debugging line to see what is being passed to the serializer
-        print("Serializer data:", request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -995,7 +996,6 @@ class CompanyDrawEditView(APIView):
             draw = Draw.objects.get(
                 pk=pk, 
                 company__membership__user=self.request.user, 
-                company__membership__role__in=['owner', 'HR']
             )
             serializer = DrawSerializer(draw)
             return Response(serializer.data)
@@ -1010,13 +1010,16 @@ class CompanyDrawEditView(APIView):
                 company__membership__user=self.request.user, 
                 company__membership__role__in=['owner', 'HR']
             )
-            serializer = DrawSerializer(draw, data=request.data, partial=True)
+            if request.data == {}:
+                return Response({'detail':'No data passed'},status=status.HTTP_400_BAD_REQUEST)
+            serializer = DrawSerializer(draw, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
-                serializer.save()
+                # Use the custom update method here
+                serializer.update(draw, serializer.validated_data)  
                 return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Draw.DoesNotExist:
-            raise PermissionDenied("You do not have permission to modify this draw.")
+            raise PermissionDenied("You do not have permission to access or manage this draw.")
 
 
 class EnterDrawView(APIView):
@@ -1103,3 +1106,30 @@ class EnterDrawView(APIView):
 
 #         except Draw.DoesNotExist:
 #             return Response({'error': 'You do not have permission to leave this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CompanyDrawListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Fetch the user's single membership to get their company
+            membership = Membership.objects.get(user=request.user)
+            
+            # Get the company from the membership
+            user_company = membership.company
+
+            # Query all active draws for the user's company that are yet to happen
+            draws = Draw.objects.filter(
+                company=user_company,
+                is_active=True,
+                # Uncomment the line below to only fetch future draws
+                # draw_date__gte=timezone.now()  
+            )
+            serializer = DrawSerializer(draws, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Membership.DoesNotExist:
+            return Response({"error": "User does not belong to any company."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
