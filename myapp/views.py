@@ -893,6 +893,7 @@ class ConvertGemView(APIView):
                 user.streak_savers += quantity
             elif item_type == 'ticket_global':  # For tickets
                 user.global_tickets += quantity
+
                 global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
                 if global_draw:
                     for _ in range(quantity):  # Add as many entries as tickets purchased
@@ -901,7 +902,7 @@ class ConvertGemView(APIView):
             elif item_type == 'ticket_company':  # For company tickets
                 user.company_tickets += quantity
 
-            user.save(update_fields=['streak_savers', 'company_tickets'])
+            user.save(update_fields=['streak_savers', 'company_tickets','global_tickets'])
 
             # Record the purchase
             purchase_data = {

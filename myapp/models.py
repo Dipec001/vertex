@@ -210,7 +210,7 @@ class Draw(models.Model):
         self.save()
     
     def __str__(self):
-        return f"{self.name} ({self.draw_type})"
+        return f"{self.draw_name} ({self.draw_type})"
 
 # Entry Model (tracks user entries in a draw)
 class DrawEntry(models.Model):
@@ -229,4 +229,4 @@ class DrawWinner(models.Model):
     win_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user} won {self.prize.name} in {self.draw.name}"
+        return f"{self.user} won {self.prize.name} in {self.draw.draw_name}"

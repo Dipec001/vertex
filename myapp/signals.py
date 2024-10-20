@@ -71,7 +71,7 @@ def create_company_draw(sender, instance, created, **kwargs):
 
             # Create the draw for the company
             Draw.objects.create(
-                name=f"{instance.name} Company Draw - Month {i}",
+                draw_name=f"{instance.name} Company Draw - Month {i}",
                 draw_type='company',
                 draw_date=first_of_next_month,
                 number_of_winners=3,  # Example number of winners
