@@ -769,13 +769,13 @@ class XpRecordsView(APIView):
             # Fetch movement and mindfulness XP for the current date
             movement_xp = WorkoutActivity.objects.filter(
                 user=request.user,
-                current_date=current_date,
+                start_datetime__date=current_date,  # Filter based on start_datetime date,
                 activity_type="movement"
             ).aggregate(movement_xp=Sum('xp'))['movement_xp'] or 0
 
             mindfulness_xp = WorkoutActivity.objects.filter(
                 user=request.user,
-                current_date=current_date,
+                start_datetime__date=current_date,  # Filter based on start_datetime date,
                 activity_type="mindfulness"
             ).aggregate(mindfulness_xp=Sum('xp'))['mindfulness_xp'] or 0
 
@@ -795,61 +795,6 @@ class XpRecordsView(APIView):
             'xp_per_day': xp_data,
             'total_xp_gained': total_xp_gained,  # Sum of all XP across all time
         })
-
-
-
-# class XpRecordsView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         start_date = request.query_params.get('start_date')
-#         end_date = request.query_params.get('end_date', timezone.now().date())
-
-#         if not start_date:
-#             return Response({"error": "Please provide a start date."}, status=400)
-
-#         # Query XP records in the date range for the user
-#         xp_in_range = Xp.objects.filter(
-#             user=request.user,
-#             timeStamp__date__range=[start_date, end_date]
-#         ).values('timeStamp__date').annotate(total_xp=Sum('totalXpToday')).order_by('timeStamp__date')
-
-#         xp_data = []
-
-#         # Loop over each day and fetch movement and mindfulness XP for that day
-#         for xp in xp_in_range:
-#             current_date = xp['timeStamp__date']
-
-#             # Fetch movement and mindfulness XP for the current date
-#             movement_xp = WorkoutActivity.objects.filter(
-#                 user=request.user,
-#                 current_date=current_date,
-#                 activity_type="movement"
-#             ).aggregate(movement_xp=Sum('xp'))['movement_xp'] or 0
-
-#             mindfulness_xp = WorkoutActivity.objects.filter(
-#                 user=request.user,
-#                 current_date=current_date,
-#                 activity_type="mindfulness"
-#             ).aggregate(mindfulness_xp=Sum('xp'))['mindfulness_xp'] or 0
-
-#             # Append data for the current date
-#             xp_data.append({
-#                 'date': current_date,
-#                 'total_xp': xp['total_xp'],
-#                 'movement_xp': movement_xp,
-#                 'mindfulness_xp': mindfulness_xp
-#             })
-
-#         # Fetch the actual total XP gained (across all time)
-#         total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('totalXpToday'))['total_xp'] or 0
-
-
-#         # Return response with the breakdown per day, total XP gained, and remaining XP gained
-#         return Response({
-#             'xp_per_day': xp_data,
-#             'total_xp_gained': total_xp_gained,  # Sum of all XP across all time
-#         })
 
 
 class ConvertGemView(APIView):
