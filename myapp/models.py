@@ -191,6 +191,7 @@ class Draw(models.Model):
     draw_date = models.DateTimeField()  # When the draw happens
     number_of_winners = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
+    video = models.FileField(upload_to='draw_videos/', null=True, blank=True)  # Optional video upload
 
     def pick_winners(self):
         # Get all entries for the draw

@@ -903,13 +903,25 @@ class DrawHistoryAndWinnersView(APIView):
         return Response(response_data)
 
 
+class GetAllGlobalView(APIView):
+    """
+    Returns all active global draws.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Filter only active draws with draw_type as 'global'
+        draws = Draw.objects.filter(is_active=True, draw_type='global')
+        serializer = DrawSerializer(draws, many=True)
+        return Response(serializer.data)
+
+
 class GlobalDrawEditView(APIView):
     """
     View for editing global draws.
-    Only admin users can access this view.
+    Any user can view draw details, but only admin users can edit.
     """
-    permission_classes = [permissions.IsAdminUser]  # Only allow admin users
-
+    
     def get_object(self, pk):
         try:
             return Draw.objects.get(pk=pk, draw_type='global')  # Adjust based on your draw type logic
@@ -917,6 +929,7 @@ class GlobalDrawEditView(APIView):
             return None
 
     def get(self, request, pk):
+        # Allow all users to view the draw details
         draw = self.get_object(pk)
         if draw is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -924,16 +937,30 @@ class GlobalDrawEditView(APIView):
         return Response(serializer.data)
 
     def put(self, request, pk):
+        # Only allow admin users to edit the draw details
+        if not request.user.is_staff:
+            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+
         draw = self.get_object(pk)
         if draw is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         
         serializer = DrawSerializer(draw, data=request.data, partial=True)  # Enable partial updates
-        # Debugging line to see what is being passed to the serializer
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
+            video = request.FILES.get('video')
+            if video:
+                image_url = save_image_to_s3(video, 'draw_videos')
+                if image_url:
+                    serializer.save(video=image_url)  # Save the URL instead
+                else:
+                    return Response({"error": "Failed to upload image to S3"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                serializer.save()  # Save without updating the profile picture
+
+            return Response({"success": "Draw updated successfully"}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CompanyDrawEditView(APIView):
     def get(self, request, pk):

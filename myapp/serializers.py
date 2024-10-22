@@ -575,7 +575,7 @@ class DrawSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Draw
-        fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count', 'prizes']
+        fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count','video', 'prizes']
         read_only_fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'is_active', 'entry_count']
 
     def get_entry_count(self, obj):
@@ -602,7 +602,7 @@ class DrawSerializer(serializers.ModelSerializer):
                 })
 
     def update(self, instance, validated_data):
-        print("Incoming Request Data:", self.context['request'].data)
+        # print("Incoming Request Data:", self.context['request'].data)
         print("Validated Data:", validated_data)
 
         prizes_data = validated_data.pop('prizes', [])
