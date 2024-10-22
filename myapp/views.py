@@ -912,7 +912,7 @@ class GetAllGlobalView(APIView):
     def get(self, request):
         # Filter only active draws with draw_type as 'global'
         draws = Draw.objects.filter(is_active=True, draw_type='global')
-        serializer = DrawSerializer(draws, many=True)
+        serializer = DrawSerializer(draws, many=True, context={'request': request})
         return Response(serializer.data)
 
 
@@ -933,7 +933,7 @@ class GlobalDrawEditView(APIView):
         draw = self.get_object(pk)
         if draw is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = DrawSerializer(draw)
+        serializer = DrawSerializer(draw, context={'request': request})
         return Response(serializer.data)
 
     def put(self, request, pk):
@@ -970,7 +970,7 @@ class CompanyDrawEditView(APIView):
                 pk=pk, 
                 company__membership__user=self.request.user, 
             )
-            serializer = DrawSerializer(draw)
+            serializer = DrawSerializer(draw, context={'request': request})
             return Response(serializer.data)
         except Draw.DoesNotExist:
             raise PermissionDenied("You do not have permission to access or manage this draw.")
@@ -1099,7 +1099,7 @@ class CompanyDrawListView(APIView):
                 # Uncomment the line below to only fetch future draws
                 # draw_date__gte=timezone.now()  
             )
-            serializer = DrawSerializer(draws, many=True)
+            serializer = DrawSerializer(draws, many=True, context={'request': request})
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Membership.DoesNotExist:

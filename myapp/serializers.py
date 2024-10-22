@@ -572,14 +572,23 @@ class PrizeSerializer(serializers.ModelSerializer):
 class DrawSerializer(serializers.ModelSerializer):
     prizes = PrizeSerializer(many=True)  # Add nested PrizeSerializer
     entry_count = serializers.SerializerMethodField()
+    user_entry_count = serializers.SerializerMethodField()  # User-specific entry count
 
     class Meta:
         model = Draw
-        fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count','video', 'prizes']
-        read_only_fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'is_active', 'entry_count']
+        fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count','video', 'prizes','user_entry_count']
+        read_only_fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'is_active', 'entry_count', 'user_entry_count']
 
     def get_entry_count(self, obj):
         return obj.entries.count()  # Count the related DrawEntry objects
+    
+    # Number of entries for the authenticated user in this draw
+    def get_user_entry_count(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.entries.filter(user=request.user).count()  # Count entries for the logged-in user
+        return 0  # Return 0 if the user is not authenticated or has no entries
+
 
     def validate(self, data):
         """Validate the incoming data, checking for any read-only or unexpected fields."""
@@ -603,7 +612,7 @@ class DrawSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         # print("Incoming Request Data:", self.context['request'].data)
-        print("Validated Data:", validated_data)
+        # print("Validated Data:", validated_data)
 
         prizes_data = validated_data.pop('prizes', [])
         instance = super().update(instance, validated_data)  # Update the draw instance
@@ -617,7 +626,7 @@ class DrawSerializer(serializers.ModelSerializer):
         """Update existing prizes or create new ones."""
         for prize_data in prizes_data:
             prize_id = prize_data.get('id')
-            print("Processing Prize ID:", prize_id)
+            # print("Processing Prize ID:", prize_id)
 
             if prize_id:
                 self._update_existing_prize(prize_id, prize_data)
@@ -640,37 +649,6 @@ class DrawSerializer(serializers.ModelSerializer):
         """Create a new prize if no ID is provided."""
         Prize.objects.create(draw=draw, **prize_data)
         print(f"Created New Prize: {prize_data}")
-
-
-    
-    # def update(self, instance, validated_data):
-    # # Handle nested prizes update
-    # prizes_data = validated_data.pop('prizes', [])
-    
-    # # Update the Draw instance
-    # instance = super().update(instance, validated_data)
-
-    # # Create a mapping of existing prize IDs for easy access
-    # existing_prizes = {prize.id: prize for prize in instance.prizes.all()}
-
-    # for prize_data in prizes_data:
-    #     prize_id = prize_data.get('id', None)
-        
-    #     if prize_id and prize_id in existing_prizes:
-    #         # Update existing prize
-    #         prize = existing_prizes[prize_id]
-    #         prize.name = prize_data.get('name', prize.name)
-    #         prize.description = prize_data.get('description', prize.description)
-    #         prize.value = prize_data.get('value', prize.value)  # Ensure this is being set if provided
-    #         prize.quantity = prize_data.get('quantity', prize.quantity)
-    #         prize.save()
-    #     else:
-    #         # Create a new prize if no ID is provided or ID not found
-    #         Prize.objects.create(draw=instance, **prize_data)
-
-    # return instance
-
-
 
 
 class DrawEntrySerializer(serializers.ModelSerializer):
