@@ -25,8 +25,10 @@ urlpatterns = [
     path('draws/history/', views.DrawHistoryAndWinnersView.as_view(), name='draw history and winners'),
     path('draw/<int:pk>/enter/', views.EnterDrawView.as_view(), name='enter_company_draw'),
     # path('draw/<int:pk>/exit/', views.ExitDrawView.as_view(), name='exit_company_draw'),
-    path('company-draws/', views.CompanyDrawListView.as_view(), name='company-draw-list'),
-    path('global-draws/', views.GetAllGlobalView.as_view(), name='global-draw-list'),
+    # path('company-draws/', views.CompanyDrawListView.as_view(), name='company-draw-list'),
+    # path('global-draws/', views.GetAllGlobalView.as_view(), name='global-draw-list'),
     path('active-league/company/', views.CompanyActiveLeagueView.as_view(), name='company-active-league'),
     path('active-league/global/', views.GlobalActiveLeagueView.as_view(), name='global-active-league'),
+    path('company-draws/', views.CompanyPastDrawsAPIView.as_view(), name='company-draws'),
+    path('global-draws/', views.GlobalPastDrawsAPIView.as_view(), name='global-draws'),
 ]

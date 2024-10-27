@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance
+from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Membership
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from django.db.models import Count, F
@@ -150,3 +150,59 @@ def add_to_first_league(sender, instance, **kwargs):
         # Add user to the Pathfinder LeagueInstance
         UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_global=0)
         print(f"User {user} added to {pathfinder_instance.league.name}.")
+
+
+# Constants for minimum users and XP thresholds
+MIN_USERS_FOR_LEAGUE = 5  # Minimum users to create the first league
+XP_THRESHOLD = [0, 100, 200, 400, 800, 1600]  # Example XP thresholds for leagues
+
+# Function to adjust company leagues based on membership count
+def adjust_company_leagues(company):
+    company_member_count = company.members.count()
+
+    # Check if the number of members is above the minimum requirement
+    if company_member_count >= MIN_USERS_FOR_LEAGUE:
+        # Define the number of leagues based on the number of users
+        num_leagues = min(10, (company_member_count // MIN_USERS_FOR_LEAGUE))
+
+        # Create league instances if they don't exist
+        existing_leagues = LeagueInstance.objects.filter(company=company).count()
+
+        for order in range(existing_leagues + 1, num_leagues + 1):
+            # Assuming you have a League object created with the correct order
+            league = League.objects.get(order=order)
+            LeagueInstance.objects.create(
+                league=league,
+                company=company,
+                league_start=timezone.now(),
+                league_end=timezone.now() + timezone.timedelta(days=7),  # Example duration
+                max_participants=30,
+                is_active=True,
+            )
+
+# Signal to create initial league instances when a new company is created
+# @receiver(post_save, sender=Company)
+# def create_initial_league_instances(sender, instance, created, **kwargs):
+#     if created:
+#         adjust_company_leagues(instance)
+
+# # Function to assign users to the appropriate leagues
+# @receiver(post_save, sender=Membership)
+# def assign_user_to_company_league(sender, instance, created, **kwargs):
+#     if created:
+#         user = instance.user
+#         company = instance.company
+
+#         # Check if leagues are set up for this company
+#         league_instances = LeagueInstance.objects.filter(company=company).order_by('league__order')
+
+#         if league_instances.exists():
+#             # Assign the user to the lowest league instance
+#             lowest_league_instance = league_instances.first()
+#             UserLeague.objects.create(
+#                 user=user,
+#                 league_instance=lowest_league_instance,
+#                 xp_company=0,
+#                 xp_global=0,
+#                 is_retained=False
+#             )

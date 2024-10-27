@@ -1190,3 +1190,55 @@ class CompanyActiveLeagueView(APIView):
         }
 
         return Response(data, status=status.HTTP_200_OK)
+
+
+class CompanyPastDrawsAPIView(APIView):
+    """
+    API view to retrieve all previous company draws (is_active=False) and their winners.
+    """
+    def get(self, request):
+        # Get all previous company draws (is_active=False)
+        company_draws = Draw.objects.filter(draw_type='company', is_active=False)
+        data = []
+
+        for draw in company_draws:
+            # Serialize each draw
+            draw_data = DrawSerializer(draw).data
+
+            # Get winners for this draw
+            winners = DrawWinner.objects.filter(draw=draw)
+            winners_data = DrawWinnerSerializer(winners, many=True).data
+
+            # Include draw data and winners in the response
+            data.append({
+                'draw': draw_data,
+                'winners': winners_data,
+            })
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class GlobalPastDrawsAPIView(APIView):
+    """
+    API view to retrieve all previous global draws (is_active=False) and their winners.
+    """
+    def get(self, request):
+        # Get all previous global draws (is_active=False)
+        global_draws = Draw.objects.filter(draw_type='global', is_active=False)
+        data = []
+
+        for draw in global_draws:
+            # Serialize each draw
+            draw_data = DrawSerializer(draw).data
+
+            # Get winners for this draw
+            winners = DrawWinner.objects.filter(draw=draw)
+            winners_data = DrawWinnerSerializer(winners, many=True).data
+
+            # Include draw data and winners in the response
+            data.append({
+                'draw': draw_data,
+                'winners': winners_data,
+            })
+
+        return Response(data, status=status.HTTP_200_OK)

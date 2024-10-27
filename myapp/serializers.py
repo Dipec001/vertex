@@ -730,6 +730,7 @@ class DrawEntrySerializer(serializers.ModelSerializer):
 class DrawWinnerSerializer(serializers.ModelSerializer):
     draw = DrawSerializer()
     prize = PrizeSerializer()
+    user = serializers.CharField(source='user.username')  # Display the user's name
 
     class Meta:
         model = DrawWinner
