@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity, DailySteps, Purchase, Prize, Draw, DrawEntry, DrawWinner
+from .models import (CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity, DailySteps, 
+                     Purchase, Prize, Draw, DrawEntry, DrawWinner, League, LeagueInstance, UserLeague)
 # Register your models here.
 
 # Customizing the display and functionality of the CustomUser model in the admin interface
@@ -123,3 +124,30 @@ class DrawWinnerAdmin(admin.ModelAdmin):
     list_filter = ('win_date',)
     ordering = ('win_date', 'user')
     list_per_page = 20
+
+
+# Customizing the display and functionality of the League model in the admin interface
+@admin.register(League)
+class LeagueAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'order')  # Display League ID, name, and order
+    search_fields = ('name',)  # Search by league name
+    ordering = ('order',)  # Order by ranking
+    list_per_page = 20  # Pagination
+
+# Customizing the display and functionality of the LeagueInstance model in the admin interface
+@admin.register(LeagueInstance)
+class LeagueInstanceAdmin(admin.ModelAdmin):
+    list_display = ('id', 'league', 'league_start', 'league_end', 'company', 'max_participants')  # Fields to display
+    search_fields = ('league__name',)  # Search by league name
+    list_filter = ('company', 'league_start', 'league_end')  # Filter options
+    ordering = ('league_start',)  # Ordering of the list
+    list_per_page = 20  # Pagination
+
+# Customizing the display and functionality of the UserLeague model in the admin interface
+@admin.register(UserLeague)
+class UserLeagueAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'league_instance', 'xp_company','xp_global', 'is_retained')  # Fields to display
+    search_fields = ('user__username', 'league_instance__league__name')  # Search by user and league
+    list_filter = ('is_retained',)  # Filter by retention status
+    ordering = ('user', 'league_instance')  # Order by user and league
+    list_per_page = 20  # Pagination

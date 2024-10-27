@@ -1,9 +1,10 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Xp, Streak, Company, Draw
+from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
+from django.db.models import Count, F
 
 @receiver(post_save, sender=Xp)
 def update_streak_on_xp_change(sender, instance, **kwargs):
@@ -97,7 +98,55 @@ def update_gems(sender, instance, **kwargs):
     total_gems_awarded = user.xp_records.aggregate(total_gems_awarded=Sum('gems_awarded'))['total_gems_awarded'] or 0
     
     # Calculate available gems (total awarded - gems spent)
-    user.gem = total_gems_awarded - user.gems_spent
+    # Calculate available gems, ensuring no negative values
+    user.gem = max(0, total_gems_awarded - user.gems_spent)
     user.save(update_fields=['gem'])
 
     print(f"Updated {user.email}'s available gems to {user.gem} based on today's XP.")
+
+
+@receiver(post_save, sender=Xp)
+def add_to_first_league(sender, instance, **kwargs):
+    """
+    This signal assigns users with total XP >= 65 to the Pathfinder League (level one league).
+    If no Pathfinder LeagueInstance has available space, a new instance is created.
+    """
+    user = instance.user
+    total_xp = instance.totalXpAllTime
+    print(total_xp)
+    
+    # Check if user's total XP qualifies them for the Pathfinder league
+    if total_xp >= 65:
+        pathfinder_league = League.objects.filter(name="Pathfinder League", order=1).first()
+
+        if not pathfinder_league:
+            print("Error: Pathfinder league not found.")
+            return
+
+        # Check if the user is already in the Pathfinder league
+        user_league_entry = UserLeague.objects.filter(user=user, league_instance__league=pathfinder_league).first()
+        print(user_league_entry)
+        if user_league_entry:
+            return  # User is already assigned to the Pathfinder league
+        
+        # Find or create a new LeagueInstance for Pathfinder League with less than max participants
+        pathfinder_instance = (
+            LeagueInstance.objects
+            .filter(league=pathfinder_league, company=None, is_active=True)
+            .annotate(participant_count=Count('userleague'))
+            .filter(participant_count__lt=F('max_participants'))
+            .first()
+        )
+
+        if not pathfinder_instance:
+            # Create a new Pathfinder LeagueInstance if no open instance exists
+            pathfinder_instance = LeagueInstance.objects.create(
+                league=pathfinder_league,
+                league_start=timezone.now(),
+                league_end=timezone.now() + timezone.timedelta(days=7),  # Example: set for a 1-week league duration
+                max_participants=30
+            )
+
+        # Add user to the Pathfinder LeagueInstance
+        UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp=0)
+        print(f"User {user} added to {pathfinder_instance.league.name}.")

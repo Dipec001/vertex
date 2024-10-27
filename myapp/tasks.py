@@ -1,12 +1,13 @@
 from celery import shared_task
 from .email_utils import send_invitation_email
 from django.utils import timezone
-from .models import Streak, CustomUser, Xp, Draw, Company
+from .models import Streak, CustomUser, Xp, Draw, Company,LeagueInstance, UserLeague
 from django.db.models import Sum
 import logging
 from datetime import timedelta, datetime
 from django.utils import timezone as django_timezone
 from zoneinfo import ZoneInfo  # Use ZoneInfo instead of pytz
+from .league_service import promote_user, demote_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -194,3 +195,32 @@ def reset_gems_for_local_timezones():
                 CustomUser.objects.filter(id=user['id']).update(gem=0)
         except Exception as e:
             print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")
+
+
+@shared_task
+def process_league_promotions():
+    # Get current time
+    now = timezone.now()
+    
+    # Query leagues where the end date has passed
+    expired_leagues = LeagueInstance.objects.filter(league_end__lte=now)
+    
+    for league in expired_leagues:
+        # Order users by XP in descending order for promotions and demotions
+        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp')
+        
+        for rank, user_league in enumerate(users_in_league):
+            if rank < 5:  # Example condition for promotion
+                # Call the promote_user function
+                promote_user(user_league.user)
+            elif rank > 25:  # Example condition for demotion
+                # Call the demote_user function
+                demote_user(user_league.user)
+
+            # Reset the user XP for the new league week
+            user_league.xp = 0
+            user_league.save()
+
+        # Mark this league instance as inactive
+        league.is_active = False
+        league.save()  # Save the updated league instance

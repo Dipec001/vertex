@@ -40,6 +40,7 @@ class CustomUser(AbstractUser):
         blank=True  # Company must not be selected
     )
     timezone = TimeZoneField(default='UTC', use_pytz=False)
+    # league = models.ForeignKey('LeagueInstance', on_delete=models.SET_NULL, null=True, blank=True)
     
     def __str__(self):
         return self.email
@@ -123,8 +124,8 @@ class DailySteps(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='daily_steps')
     xp = models.FloatField()  # XP earned from the activity
     step_count = models.IntegerField()  # Steps recorded
-    timestamp = models.DateTimeField(auto_now_add=True)  # When the steps were recorded
-    date = models.DateField(auto_now_add=True)  # The day these steps are logged
+    timestamp = models.DateTimeField()  # When the steps were recorded
+    date = models.DateField()  # The day these steps are logged
 
     def __str__(self):
         return f'{self.user.email} - Steps: {self.step_count} on {self.date}'
@@ -231,3 +232,36 @@ class DrawWinner(models.Model):
 
     def __str__(self):
         return f"{self.user} won {self.prize.name} in {self.draw.draw_name}"
+    
+
+
+class League(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    order = models.PositiveIntegerField()  # Ranking order of leagues
+
+    def __str__(self):
+        return self.name
+
+class LeagueInstance(models.Model):
+    league = models.ForeignKey(League, on_delete=models.CASCADE)
+    league_start = models.DateTimeField()  # Track the start of each week
+    league_end = models.DateTimeField()
+    company = models.ForeignKey(Company, null=True, blank=True, on_delete=models.CASCADE)
+    max_participants = models.PositiveIntegerField(default=30)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.league.name} - {self.league_start}"
+
+class UserLeague(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    league_instance = models.ForeignKey(LeagueInstance, on_delete=models.CASCADE)
+    xp_company = models.IntegerField(default=0)  # XP specific to company leagues
+    xp_global = models.IntegerField(default=0)    # XP specific to global leagues
+    is_retained = models.BooleanField(default=False)  # Grace period flag
+
+    class Meta:
+        unique_together = ('user', 'league_instance')
+    
+    def __str__(self):
+        return f"{self.user.username} in {self.league_instance}"

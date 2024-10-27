@@ -7,7 +7,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
-                     Streak, Purchase, DrawWinner, DrawEntry,Draw)
+                     Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import render
 from django.contrib.auth.tokens import default_token_generator
@@ -30,6 +30,7 @@ from django.db.models import Sum
 from .timezone_converter import convert_from_utc, convert_to_utc
 from datetime import datetime
 from rest_framework.exceptions import PermissionDenied
+from zoneinfo import ZoneInfo
 
 # Create your views here.
 
@@ -574,6 +575,9 @@ class DailyStepsView(APIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date', timezone.now().date())
 
+        # Get the user's timezone from their profile (ZoneInfo object)
+        user_timezone = ZoneInfo(request.user.timezone.key)
+
         if not start_date:
             return Response({"error": "Please provide a start date."}, status=400)
 
@@ -581,18 +585,22 @@ class DailyStepsView(APIView):
         steps_in_range = DailySteps.objects.filter(
             user=request.user,
             date__range=[start_date, end_date]
-        ).values('date').annotate(
+        ).values('date', 'timestamp').annotate(
             total_steps=Sum('step_count'),
             total_xp=Sum('xp')
         ).order_by('date')
 
-        # Prepare the data to include both steps and XP for each day
-        steps_data = [{
-            'date': step['date'],
-            'total_steps': step['total_steps'],
-            'total_xp': step['total_xp']
-        } for step in steps_in_range]
-
+        # Prepare the data to include both steps and XP for each day in the user's timezone
+        steps_data = []
+        for step in steps_in_range:
+            # Convert `timestamp` to the user's timezone, then use the date part
+            date_in_user_timezone = step['timestamp'].astimezone(user_timezone).date()
+            steps_data.append({
+                'date': date_in_user_timezone,
+                'total_steps': step['total_steps'],
+                'total_xp': step['total_xp']
+            })
+            
         # Query total steps for the user across all time
         total_steps_count = DailySteps.objects.filter(user=request.user).aggregate(total_steps=Sum('step_count'))['total_steps'] or 0
 
@@ -609,9 +617,9 @@ class DailyStepsView(APIView):
             # Save the serializer, which handles step count and XP logic
             daily_steps = serializer.save()
             
-            # Retrieve the XP for the current day
-            today = timezone.now().date()
-            user_xp = Xp.objects.filter(user=request.user, timeStamp__date=today).first()
+            # Retrieve the XP for the specified date
+            date = daily_steps.timestamp.date()
+            user_xp = Xp.objects.filter(user=request.user, timeStamp__date=date).first()
             
             # Prepare the response, handle the case where no XP record exists yet
             xp_data = {
@@ -654,7 +662,6 @@ class WorkoutActivityView(APIView):
 
         # Convert user timezone to string if necessary
         user_timezone_str = str(request.user.timezone)
-        print('user timezone',user_timezone_str)
 
         # Extract and convert datetimes
         starttime_str = request.data['start_datetime']
@@ -723,7 +730,6 @@ class StreakRecordsView(APIView):
 
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from datetime import timedelta
 import pytz
 
 class XpRecordsView(APIView):
@@ -1106,3 +1112,83 @@ class CompanyDrawListView(APIView):
             return Response({"error": "User does not belong to any company."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GlobalActiveLeagueView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        now = timezone.now()
+        user = request.user
+
+        user_league = (
+            UserLeague.objects
+            .filter(user=user, league_instance__is_active=True, league_instance__league_end__gt=now, league_instance__company__isnull=True)
+            .select_related('league_instance')
+            .first()
+        )
+
+        if not user_league:
+            return Response({"error": "No active global league found for the user"}, status=404)
+
+        league_instance = user_league.league_instance
+        rankings = UserLeague.objects.filter(league_instance=league_instance).order_by('-xp_global')
+
+        data = {
+            "league_name": league_instance.league.name,
+            "league_start": league_instance.league_start,
+            "league_end": league_instance.league_end,
+            "user_rank": next(
+                (index + 1 for index, ul in enumerate(rankings) if ul.user == user),
+                None
+            ),
+            "rankings": [
+                {
+                    "username": ul.user.username,
+                    "xp": ul.xp_global
+                }
+                for ul in rankings
+            ]
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class CompanyActiveLeagueView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        now = timezone.now()
+        user = request.user
+
+        user_league = (
+            UserLeague.objects
+            .filter(user=user, league_instance__is_active=True, league_instance__league_end__gt=now, league_instance__company__isnull=False)
+            .select_related('league_instance')
+            .first()
+        )
+
+        if not user_league:
+            return Response({"error": "No active company league found for the user"}, status=404)
+
+        league_instance = user_league.league_instance
+        rankings = UserLeague.objects.filter(league_instance=league_instance).order_by('-xp_company')
+
+        data = {
+            "league_name": league_instance.league.name,
+            "league_start": league_instance.league_start,
+            "league_end": league_instance.league_end,
+            "user_rank": next(
+                (index + 1 for index, ul in enumerate(rankings) if ul.user == user),
+                None
+            ),
+            "rankings": [
+                {
+                    "username": ul.user.username,
+                    "xp": ul.xp_company
+                }
+                for ul in rankings
+            ]
+        }
+
+        return Response(data, status=status.HTTP_200_OK)

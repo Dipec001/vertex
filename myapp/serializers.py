@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, DrawEntry, DrawWinner, Prize
+from .models import Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, DrawEntry, DrawWinner, Prize, UserLeague
 import random
 import string
 from allauth.socialaccount.models import SocialAccount
@@ -13,6 +13,9 @@ from .timezone_converter import convert_to_utc, convert_from_utc
 from timezone_field.rest_framework import TimeZoneSerializerField
 from pytz import UTC
 from datetime import datetime
+from pytz import timezone as pytz_timezone
+import pytz
+from zoneinfo import ZoneInfo
 
 
 logger = logging.getLogger(__name__)
@@ -144,6 +147,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     global_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     gem = serializers.IntegerField(read_only=True)
+    league = serializers.SerializerMethodField()  # Use SerializerMethodField instead
 
 
     class Meta:
@@ -164,7 +168,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'date_joined', 
             'profile_picture_url',  # Custom field with logic
             'company',
+            'league',
         ]
+
+    def get_league(self, obj):
+        # Get the UserLeague entry for the user
+        user_league_entry = UserLeague.objects.filter(user=obj).first()
+        if user_league_entry:
+            return user_league_entry.league_instance.league.name  # Return the league name
+        return None  # Return None if no league is found
 
     def get_profile_picture_url(self, obj):
         # If the user has an uploaded profile picture, return its URL
@@ -305,9 +317,25 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         model = DailySteps
         fields = ['step_count', 'timestamp', 'date', 'xp']  # Include 'date' for validation
         extra_kwargs = {
-            'timestamp': {'read_only': True},  # Set timestamp as read-only if needed
+            'timestamp': {'required': True},  # Set timestamp as read-only if needed
             'date': {'required': False}  # Make date optional
         }
+    
+    def validate_timestamp(self, timestamp):
+        # Get the user's timezone as a ZoneInfo object
+        user_timezone = self.context['request'].user.timezone  # This is a ZoneInfo object
+        
+        # Get the timezone string from the ZoneInfo object
+        user_timezone_str = user_timezone.key  # This gives you the string like "Africa/Lagos"
+
+        # Create a timezone-aware datetime using ZoneInfo
+        user_tz = ZoneInfo(user_timezone_str)
+
+        # Localize the timestamp to the user's timezone
+        user_localized_timestamp = timestamp.astimezone(user_tz)
+
+        # Convert to UTC for consistent storage
+        return user_localized_timestamp.astimezone(ZoneInfo('UTC'))
     
     def validate_step_count(self, value):
         if value < 0:
@@ -324,37 +352,61 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         request = self.context['request']
         user = request.user
         step_count = validated_data.get('step_count')
-        date = validated_data.get('date', timezone.now().date())  # Use today's date if not provided
+        timestamp = validated_data.get('timestamp')  # Use provided timestamp
+
+        # Get the user's timezone as a ZoneInfo object
+        user_timezone = user.timezone  # This should be a ZoneInfo object
+        
+        # Extract the timezone string from the ZoneInfo object
+        user_timezone_str = user_timezone.key  # Get the string representation (e.g., "Africa/Lagos")
+
+        # Convert the timestamp to the user's local timezone
+        user_tz = ZoneInfo(user_timezone_str)
+        user_localized_timestamp = timestamp.astimezone(user_tz)
+
+        # Convert the localized timestamp to UTC for database storage
+        utc_timestamp = user_localized_timestamp.astimezone(ZoneInfo('UTC'))
+
+        # Extract the date from the UTC timestamp
+        date = utc_timestamp.date()
 
         # Get or create the daily steps record (only one entry per day)
+        # Find or create the DailySteps record
         daily_steps, created = DailySteps.objects.get_or_create(
             user=user,
             date=date,
-            defaults={'step_count': step_count, 'xp': step_count / 10}
+            defaults={'xp': step_count / 10, 'timestamp': utc_timestamp, **validated_data}
         )
+        print(step_count)
+        # Initialize new_xp to 0
+        new_xp = 0  # Default value in case no new XP is calculated
 
         # Calculate new XP and update daily step count
+        # prevent duplicate entries within the same day
         if created:
             # For the first entry, set the initial XP based on the step count
             new_xp = step_count / 10  # Calculate XP for the new record
             daily_steps.xp = new_xp
         else:
-            # Calculate XP based on additional steps
-            step_diff = step_count - daily_steps.step_count
-            if step_diff > 0:  # Only award XP for additional steps
-                new_xp = step_diff / 10
-                daily_steps.step_count = step_count  # Update step count
-                daily_steps.xp += new_xp  # Update XP
+            if timestamp > daily_steps.timestamp:  # Use the latest entry of the day
+                step_diff = step_count - daily_steps.step_count
+                if step_diff > 0:
+                    new_xp = step_diff / 10
+                    daily_steps.step_count = step_count
+                    daily_steps.xp += new_xp
+                    daily_steps.timestamp = timestamp  # Update timestamp with new entry
             else:
-                new_xp = 0  # No XP to be awarded if no additional steps
+                new_xp = 0
 
-        daily_steps.timestamp = timezone.now()  # Update timestamp
         daily_steps.save()
+
+        # Check for active leagues
+        self.update_user_leagues(user, new_xp)
 
         # Update the user's XP record for today (in your XP model)
         user_xp, created_xp = Xp.objects.get_or_create(
             user=user,
-            timeStamp__date=date,  # Ensure it's tied to today
+            timeStamp__date=date,  # Ensure it's tied to steps day
             defaults={
                 'totalXpToday': new_xp,
                 'totalXpAllTime': new_xp,
@@ -380,11 +432,20 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 start_datetime=timezone.now(),
                 end_datetime=timezone.now(),
                 metadata='{}',
-                current_date=date,
+                # current_date=date,
                 deviceType=None
             )
 
         return daily_steps
+    
+    def update_user_leagues(self, user, new_xp):
+        active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
+        for user_league in active_leagues:
+            if user_league.league_instance.company is not None:
+                user_league.xp_company += new_xp  # Track company XP
+            else:
+                user_league.xp_global += new_xp  # Track global XP
+            user_league.save()
 
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):
@@ -463,6 +524,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
 
         # Update XP for the user
         self.update_xp(workout_activity)
+        self.update_user_leagues(user, xp_earned)
 
         return workout_activity
 
@@ -536,6 +598,15 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
 
         # Save the XP record
         user_xp.save()
+
+    def update_user_leagues(self, user, new_xp):
+        active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
+        for user_league in active_leagues:
+            if user_league.league_instance.company is not None:
+                user_league.xp_company += new_xp  # Track company XP
+            else:
+                user_league.xp_global += new_xp  # Track global XP
+            user_league.save()
 
 
 
@@ -640,9 +711,7 @@ class DrawSerializer(serializers.ModelSerializer):
             prize.name = prize_data.get('name', prize.name)
             prize.description = prize_data.get('description', prize.description)
             prize.save()
-            print(f"Updated Prize ID: {prize.id}")
         except Prize.DoesNotExist:
-            print(f"Prize ID {prize_id} does not exist, creating a new one.")
             Prize.objects.create(**prize_data)
 
     def _create_new_prize(self, draw, prize_data):
