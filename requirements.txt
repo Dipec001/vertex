@@ -16,6 +16,7 @@ cryptography==43.0.1
 dj-database-url==2.2.0
 Django==5.1.1
 django-allauth==64.2.1
+django-cors-headers==4.5.0
 django-filter==24.3
 django-storages==1.14.4
 django-timezone-field==7.0
