@@ -148,5 +148,5 @@ def add_to_first_league(sender, instance, **kwargs):
             )
 
         # Add user to the Pathfinder LeagueInstance
-        UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp=0)
+        UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_global=0)
         print(f"User {user} added to {pathfinder_instance.league.name}.")

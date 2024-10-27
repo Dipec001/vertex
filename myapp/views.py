@@ -31,6 +31,8 @@ from .timezone_converter import convert_from_utc, convert_to_utc
 from datetime import datetime
 from rest_framework.exceptions import PermissionDenied
 from zoneinfo import ZoneInfo
+from django.utils.dateparse import parse_date
+import pytz
 
 # Create your views here.
 
@@ -600,7 +602,7 @@ class DailyStepsView(APIView):
                 'total_steps': step['total_steps'],
                 'total_xp': step['total_xp']
             })
-            
+
         # Query total steps for the user across all time
         total_steps_count = DailySteps.objects.filter(user=request.user).aggregate(total_steps=Sum('step_count'))['total_steps'] or 0
 
@@ -727,10 +729,6 @@ class StreakRecordsView(APIView):
             'overall_current_streak': current_streak
         })
     
-
-from django.utils import timezone
-from django.utils.dateparse import parse_date
-import pytz
 
 class XpRecordsView(APIView):
     permission_classes = [IsAuthenticated]
