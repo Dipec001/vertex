@@ -878,8 +878,8 @@ class PurchaseHistoryView(APIView):
     def get(self, request):
         user = request.user
         
-        # Fetch user's purchase history, excluding streak savers
-        purchases = Purchase.objects.filter(user=user).exclude(item_name='streak_saver')
+        # Fetch user's purchase history
+        purchases = Purchase.objects.filter(user=user)
         
         # Serialize the purchase data
         serializer = PurchaseSerializer(purchases, many=True)
