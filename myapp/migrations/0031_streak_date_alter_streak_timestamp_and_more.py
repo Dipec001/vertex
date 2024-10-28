@@ -1,4 +1,5 @@
 from django.db import migrations, models
+from django.db.utils import ProgrammingError
 
 def populate_streak_date_field(apps, schema_editor):
     Streak = apps.get_model('myapp', 'Streak')
@@ -33,13 +34,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='streak',
-            name='date',
-            field=models.DateField(null=True),
+        migrations.RunSQL(
+            sql="ALTER TABLE myapp_dailysteps ADD COLUMN IF NOT EXISTS date DATE",
+            reverse_sql="ALTER TABLE myapp_dailysteps DROP COLUMN IF EXISTS date"
         ),
         migrations.AddField(
-            model_name='dailysteps',
+            model_name='streak',
             name='date',
             field=models.DateField(null=True),
         ),
