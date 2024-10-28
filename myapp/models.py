@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from timezone_field import TimeZoneField
 import pytz
 import random
+from django.utils import timezone
 # Create your models here.
 
 TIMEZONES = tuple(zip(pytz.all_timezones, pytz.all_timezones))
@@ -96,7 +97,8 @@ class Invitation(models.Model):
 
 class Xp(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='xp_records')
-    timeStamp = models.DateTimeField(auto_now_add=True)  # Timestamp for when XP is earned
+    timeStamp = models.DateTimeField()  # Timestamp for when XP is earned
+    date = models.DateField()  # Explicitly store the date part
     totalXpToday = models.FloatField(default=0.0)  # XP earned today
     totalXpAllTime = models.FloatField(default=0.0)  # Total XP earned across all time
     gems_awarded = models.PositiveIntegerField(default=0)  # Gems awarded based on XP today
@@ -105,18 +107,31 @@ class Xp(models.Model):
         return f'{self.user.email} - XP: {self.totalXpToday}'
     
     class Meta:
-        unique_together = ('user', 'timeStamp')  # Ensure one entry per user per day
+        unique_together = ('user', 'date')  # Ensure one entry per user per day
     
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = self.timeStamp.date()  # Set the date field based on timeStamp
+        super(Xp, self).save(*args, **kwargs)
 
 class Streak(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='streak_records')
-    timeStamp = models.DateTimeField(auto_now_add=True)  # Timestamp for the streak update
+    timeStamp = models.DateTimeField()  # Timestamp for the streak update
+    date = models.DateField()  # Explicitly store the date part
     currentStreak = models.IntegerField(default=0)  # Current active streak days
     highestStreak = models.IntegerField(default=0)  # Highest streak ever achieved
     currentStreakSaver = models.IntegerField(default=0)  # Optional field for streak savers
 
     def __str__(self):
         return f'{self.user.email} - Streak: {self.currentStreak}'
+    
+    class Meta:
+        unique_together = ('user', 'date')  # Ensure one entry per user per day
+    
+    def save(self, *args, **kwargs):
+        if not self.date:
+            self.date = self.timeStamp.date()  # Set the date field based on timeStamp
+        super(Streak, self).save(*args, **kwargs)
 
 
 
@@ -129,6 +144,9 @@ class DailySteps(models.Model):
 
     def __str__(self):
         return f'{self.user.email} - Steps: {self.step_count} on {self.date}'
+    
+    class Meta:
+        unique_together = ('user', 'date')  # Ensure one record per user per day
 
 
 class WorkoutActivity(models.Model):

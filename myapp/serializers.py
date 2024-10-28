@@ -22,6 +22,15 @@ logger = logging.getLogger(__name__)
 
 CustomUser = get_user_model()
 
+from rest_framework.fields import DateTimeField
+
+class NaiveDateTimeField(DateTimeField):
+    def to_internal_value(self, data):
+        # Preserve the original value for validation
+        return data
+
+
+
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
@@ -312,6 +321,7 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
 
 class DailyStepsSerializer(serializers.ModelSerializer):
     xp = serializers.FloatField(read_only=True)  # XP is calculated and read-only
+    timestamp = NaiveDateTimeField()
     
     class Meta:
         model = DailySteps
@@ -321,31 +331,18 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             'date': {'required': False}  # Make date optional
         }
     
-    def validate_timestamp(self, timestamp):
-        # Get the user's timezone as a ZoneInfo object
-        user_timezone = self.context['request'].user.timezone  # This is a ZoneInfo object
-        
-        # Get the timezone string from the ZoneInfo object
-        user_timezone_str = user_timezone.key  # This gives you the string like "Africa/Lagos"
+    def validate_timestamp(self, value):
+        """Validate that timestamp is in the correct format."""
+        try:
+            datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
+        except ValueError:
+            raise serializers.ValidationError("Invalid datetime format. Expected format: YYYY-MM-DDTHH:MM:SS")
+        return value
 
-        # Create a timezone-aware datetime using ZoneInfo
-        user_tz = ZoneInfo(user_timezone_str)
-
-        # Localize the timestamp to the user's timezone
-        user_localized_timestamp = timestamp.astimezone(user_tz)
-
-        # Convert to UTC for consistent storage
-        return user_localized_timestamp.astimezone(ZoneInfo('UTC'))
     
     def validate_step_count(self, value):
         if value < 0:
             raise serializers.ValidationError("Step count cannot be negative.")
-        return value
-
-    def validate_date(self, value):
-        """Ensure the date is not in the future."""
-        if value > timezone.now().date():
-            raise serializers.ValidationError("Date cannot be in the future.")
         return value
 
     def create(self, validated_data):
@@ -353,90 +350,93 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         user = request.user
         step_count = validated_data.get('step_count')
         timestamp = validated_data.get('timestamp')  # Use provided timestamp
+        print(timestamp)
 
         # Get the user's timezone as a ZoneInfo object
         user_timezone = user.timezone  # This should be a ZoneInfo object
-        
-        # Extract the timezone string from the ZoneInfo object
-        user_timezone_str = user_timezone.key  # Get the string representation (e.g., "Africa/Lagos")
-
-        # Convert the timestamp to the user's local timezone
-        user_tz = ZoneInfo(user_timezone_str)
-        user_localized_timestamp = timestamp.astimezone(user_tz)
-
-        # Convert the localized timestamp to UTC for database storage
-        utc_timestamp = user_localized_timestamp.astimezone(ZoneInfo('UTC'))
+        utc_timestamp = convert_to_utc(user_timezone=user_timezone, naive_datetime=timestamp)
+        print(utc_timestamp)
 
         # Extract the date from the UTC timestamp
         date = utc_timestamp.date()
+        print(date)
 
-        # Get or create the daily steps record (only one entry per day)
-        # Find or create the DailySteps record
-        daily_steps, created = DailySteps.objects.get_or_create(
-            user=user,
-            date=date,
-            defaults={'xp': step_count / 10, 'timestamp': utc_timestamp, **validated_data}
-        )
-        print(step_count)
-        # Initialize new_xp to 0
-        new_xp = 0  # Default value in case no new XP is calculated
+        with transaction.atomic():
 
-        # Calculate new XP and update daily step count
-        # prevent duplicate entries within the same day
-        if created:
-            # For the first entry, set the initial XP based on the step count
-            new_xp = step_count / 10  # Calculate XP for the new record
-            daily_steps.xp = new_xp
-        else:
-            if timestamp > daily_steps.timestamp:  # Use the latest entry of the day
-                step_diff = step_count - daily_steps.step_count
-                if step_diff > 0:
-                    new_xp = step_diff / 10
-                    daily_steps.step_count = step_count
-                    daily_steps.xp += new_xp
-                    daily_steps.timestamp = timestamp  # Update timestamp with new entry
-            else:
-                new_xp = 0
-
-        daily_steps.save()
-
-        # Check for active leagues
-        self.update_user_leagues(user, new_xp)
-
-        # Update the user's XP record for today (in your XP model)
-        user_xp, created_xp = Xp.objects.get_or_create(
-            user=user,
-            timeStamp__date=date,  # Ensure it's tied to steps day
-            defaults={
-                'totalXpToday': new_xp,
-                'totalXpAllTime': new_xp,
-            }
-        )
-
-        # Only update XP fields if the record already exists, or if new XP is added
-        if not created_xp and new_xp > 0:
-            user_xp.totalXpToday += new_xp
-            user_xp.totalXpAllTime += new_xp
-            user_xp.save()
-
-        # Record the additional steps in the WorkoutActivity model (multiple entries per day)
-        if new_xp > 0:  # Only create a new workout entry if there is additional XP
-            WorkoutActivity.objects.create(
+            # Get or create the daily steps record (only one entry per day)
+            # Find or create the DailySteps record
+            daily_steps, created = DailySteps.objects.get_or_create(
                 user=user,
-                activity_type="movement",
-                activity_name="steps",
-                xp=new_xp,  # Only the additional XP
-                duration=0,  # No duration for step counts
-                distance=0,
-                average_heart_rate=0,
-                start_datetime=timezone.now(),
-                end_datetime=timezone.now(),
-                metadata='{}',
-                # current_date=date,
-                deviceType=None
+                date=date,
+                defaults={'xp': step_count / 10, 'timestamp': utc_timestamp, **validated_data}
             )
+            # Initialize new_xp to 0
+            new_xp = 0  # Default value in case no new XP is calculated
 
-        return daily_steps
+            # Calculate new XP and update daily step count
+            # prevent duplicate entries within the same day
+            if created:
+                # For the first entry, set the initial XP based on the step count
+                new_xp = step_count / 10  # Calculate XP for the new record
+                daily_steps.xp = new_xp
+            else:
+                if utc_timestamp > daily_steps.timestamp:  # Use the latest entry of the day
+                    step_diff = step_count - daily_steps.step_count
+                    if step_diff > 0:
+                        new_xp = step_diff / 10
+                        daily_steps.step_count = step_count
+                        daily_steps.xp += new_xp
+                        daily_steps.timestamp = utc_timestamp # Update timestamp with new entry
+                else:
+                    new_xp = 0
+
+            daily_steps.save()
+
+            # Check for active leagues
+            self.update_user_leagues(user, new_xp)
+
+            # Update the user's XP record for today (in your XP model)
+            user_xp, created_xp = Xp.objects.get_or_create(
+                user=user,
+                date=date,  # Ensure it's tied to steps day
+                defaults={
+                    'totalXpToday': new_xp,
+                    'totalXpAllTime': new_xp,
+                    'timeStamp': utc_timestamp
+                }
+            )
+            print(user_xp)
+            print(new_xp)
+
+            # Only update XP fields if the record already exists for that day, or if new XP is added
+            if not created_xp and new_xp > 0:
+                user_xp.totalXpToday += new_xp
+                user_xp.totalXpAllTime += new_xp
+                user_xp.save()
+            elif created_xp:
+                user_xp.totalXpToday = new_xp
+                user_xp.totalXpAllTime += new_xp
+                user_xp.save()
+
+
+            # Record the additional steps in the WorkoutActivity model (multiple entries per day)
+            if new_xp > 0:  # Only create a new workout entry if there is additional XP
+                WorkoutActivity.objects.create(
+                    user=user,
+                    activity_type="movement",
+                    activity_name="steps",
+                    xp=new_xp,  # Only the additional XP
+                    duration=0,  # No duration for step counts
+                    distance=0,
+                    average_heart_rate=0,
+                    start_datetime=utc_timestamp,
+                    end_datetime=utc_timestamp,
+                    metadata='{}',
+                    # current_date=date,
+                    deviceType=None
+                )
+
+            return daily_steps
     
     def update_user_leagues(self, user, new_xp):
         active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)

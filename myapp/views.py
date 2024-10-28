@@ -615,13 +615,14 @@ class DailyStepsView(APIView):
         # Instantiate the serializer with the request data and user context
         serializer = DailyStepsSerializer(data=request.data, context={'request': request})
         
+        
         if serializer.is_valid():
             # Save the serializer, which handles step count and XP logic
             daily_steps = serializer.save()
             
             # Retrieve the XP for the specified date
-            date = daily_steps.timestamp.date()
-            user_xp = Xp.objects.filter(user=request.user, timeStamp__date=date).first()
+            date = daily_steps.date
+            user_xp = Xp.objects.filter(user=request.user, date=date).first()
             
             # Prepare the response, handle the case where no XP record exists yet
             xp_data = {

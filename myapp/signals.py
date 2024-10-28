@@ -18,44 +18,42 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
         print("Total XP is less than 500, not updating streak")
         return
 
-    current_date = timezone.now().date()
+    xp_date = instance.date  # Use the date from Xp instance
 
-    # Check if a streak record exists for today
-    streak_record = Streak.objects.filter(user=user, timeStamp__date=current_date).first()
+    # Check if a streak record exists for this date
+    streak_record = Streak.objects.filter(user=user, date=xp_date).first()
 
-    # If a streak record exists for today, exit
     if streak_record:
-        print("Streak record already exists for today, exiting")
-        return  # Streak has already been updated today
+        print("Streak record already exists for this date, exiting")
+        return
 
-    # Check for a previous streak record from yesterday
-    previous_date = current_date - timezone.timedelta(days=1)
-    previous_streak_record = Streak.objects.filter(user=user, timeStamp__date=previous_date).first()
+    # Find the most recent streak record
+    recent_streak_record = Streak.objects.filter(user=user).order_by('-date').first()
 
-    if previous_streak_record:
-        # If a previous record exists, get the current and highest streak values
-        current_streak = previous_streak_record.currentStreak
-        highest_streak = previous_streak_record.highestStreak
-        print("Previous streak record found, using existing values")
+    if recent_streak_record and (xp_date - recent_streak_record.date).days == 1:
+        # Continue the streak
+        current_streak = recent_streak_record.currentStreak + 1
     else:
-        # If no previous record, initialize current streak to 0 and highest streak to 0
-        current_streak = 0
-        highest_streak = 0
-        print("No previous streak record found, initializing to zero")
+        # Reset the streak
+        current_streak = 1
 
-    # Create a new streak record for today
+    # Get the highest streak so far
+    highest_streak = max(recent_streak_record.highestStreak if recent_streak_record else 0, current_streak)
+
+    # Create a new streak record for this date
     streak_record = Streak.objects.create(
         user=user,
-        currentStreak=current_streak + 1,  # Increment the current streak by 1
-        highestStreak=max(highest_streak, current_streak + 1),  # Update highest streak if necessary
-        timeStamp=timezone.now()  # Set the current timestamp
+        currentStreak=current_streak,
+        highestStreak=highest_streak,
+        timeStamp=instance.timeStamp,
+        date=xp_date  # Set the date
     )
-    
-    # Update the streak in the CustomUser model
-    user.streak += 1  # Increment the streak by 1
-    user.save()  # Save the changes to the CustomUser model
 
+    # Update the streak in the CustomUser model
+    user.streak = current_streak
+    user.save()
     print("Streak record created and updated")
+
 
 
 
