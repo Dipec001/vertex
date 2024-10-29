@@ -646,42 +646,33 @@ class WorkoutActivityView(APIView):
         activities = WorkoutActivity.objects.filter(user=user)
         serializer = WorkoutActivitySerializer(activities, many=True)
 
-        # Convert timestamps back to the user's timezone
-        user_timezone_str = str(user.timezone)  # Get user's timezone as a string
+        user_timezone = user.timezone
 
         # Convert timestamps back to the user's timezone
         for activity in serializer.data:
-            # Convert the string back to a datetime object
-            activity['start_datetime'] = datetime.fromisoformat(activity['start_datetime'])
-            activity['end_datetime'] = datetime.fromisoformat(activity['end_datetime'])
 
             # Now convert from UTC to user's timezone
-            activity['start_datetime'] = convert_from_utc(user_timezone_str, activity['start_datetime'])
-            activity['end_datetime'] = convert_from_utc(user_timezone_str, activity['end_datetime'])
+            activity['start_datetime'] = convert_from_utc(user_timezone, activity['start_datetime'])
+            activity['end_datetime'] = convert_from_utc(user_timezone, activity['end_datetime'])
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
 
-        # Convert user timezone to string if necessary
-        user_timezone_str = str(request.user.timezone)
+        user_timezone = request.user.timezone
 
         # Extract and convert datetimes
         starttime_str = request.data['start_datetime']
         endtime_str = request.data['end_datetime']
         
-        # Use fromisoformat to handle ISO datetime strings
-        start_naive_datetime = datetime.fromisoformat(starttime_str)
-        end_naive_datetime = datetime.fromisoformat(endtime_str)
-        
         # Convert to UTC
-        start_datetime = convert_to_utc(user_timezone_str, start_naive_datetime)
-        end_datetime = convert_to_utc(user_timezone_str, end_naive_datetime)
+        start_datetime = convert_to_utc(user_timezone, starttime_str)
+        end_datetime = convert_to_utc(user_timezone, endtime_str)
 
         # Create a mutable copy of request.data and update the datetime fields
         updated_data = request.data.copy()
-        updated_data['start_datetime'] = start_datetime.isoformat()  # Ensure it's in ISO format
-        updated_data['end_datetime'] = end_datetime.isoformat()      # Ensure it's in ISO format
+        updated_data['start_datetime'] = start_datetime
+        updated_data['end_datetime'] = end_datetime
 
         # Pass the updated data to the serializer
         serializer = WorkoutActivitySerializer(data=updated_data, context={'request': request})

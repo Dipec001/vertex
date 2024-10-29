@@ -481,10 +481,6 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         if start_datetime_utc is None or end_datetime_utc is None:
             raise serializers.ValidationError("Invalid date format for start_datetime or end_datetime.")
         
-        # if data.get('current_date'):
-        #     current_date = data.get('current_date')
-        #     if data.get('start_datetime').date() != current_date:
-        #         raise serializers.ValidationError("Invalid date for start_datetime. It should be the same as current_date.")
 
         # Check if end_datetime is before start_datetime
         if data['end_datetime'] <= data['start_datetime']:
