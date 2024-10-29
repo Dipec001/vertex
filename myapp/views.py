@@ -632,7 +632,8 @@ class DailyStepsView(APIView):
 
             return Response({
                 'data': serializer.data,  # Serialized daily steps data
-                'xp': xp_data  # XP data for the current day
+                'xp': xp_data,  # XP data for the current day
+                'message': 'Update successful'
             }, status=status.HTTP_201_CREATED)
 
         # If the serializer is not valid, return the validation errors

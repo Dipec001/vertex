@@ -32,15 +32,17 @@ def convert_to_utc(user_timezone, naive_datetime):
     try:
 
         local_time = datetime.strptime(naive_datetime, "%Y-%m-%dT%H:%M:%S")
+        print('local time in conversion function',local_time)
 
         # Make timezone-aware
-        user_timezone_str = user_timezone.key
-        user_timezone = pytz.timezone(user_timezone_str)
-        aware_local_time = user_timezone.localize(local_time)
+        if isinstance(user_timezone, ZoneInfo):
+            user_timezone = pytz.timezone(user_timezone.key)
+        else:
+            raise ValueError("Invalid timezone")
 
+        aware_local_time = user_timezone.localize(local_time)
         # Convert to UTC
         utc_time = aware_local_time.astimezone(pytz.UTC)
-
         return utc_time
     except Exception as e:
         # Handle errors gracefully

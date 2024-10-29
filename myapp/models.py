@@ -143,7 +143,7 @@ class DailySteps(models.Model):
     date = models.DateField()  # The day these steps are logged
 
     def __str__(self):
-        return f'{self.user.email} - Steps: {self.step_count} on {self.date}'
+        return f'{self.user.email} - Steps: {self.step_count} on {self.timestamp}'
     
     class Meta:
         unique_together = ('user', 'date')  # Ensure one record per user per day

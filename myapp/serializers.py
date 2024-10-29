@@ -350,16 +350,16 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         user = request.user
         step_count = validated_data.get('step_count')
         timestamp = validated_data.get('timestamp')  # Use provided timestamp
-        print(timestamp)
+        print('local timestamp in serializer',timestamp)
 
         # Get the user's timezone as a ZoneInfo object
         user_timezone = user.timezone  # This should be a ZoneInfo object
         utc_timestamp = convert_to_utc(user_timezone=user_timezone, naive_datetime=timestamp)
-        print(utc_timestamp)
+        print('converted utc timestamp',utc_timestamp)
 
         # Extract the date from the UTC timestamp
         date = utc_timestamp.date()
-        print(date)
+        print('converted utc timestamp date',date)
 
         with transaction.atomic():
 
@@ -387,8 +387,10 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                         daily_steps.step_count = step_count
                         daily_steps.xp += new_xp
                         daily_steps.timestamp = utc_timestamp # Update timestamp with new entry
+                    else:
+                        raise serializers.ValidationError(f"No update was made; step count less or equal to the latest entry for this data, {daily_steps.step_count} steps.")
                 else:
-                    new_xp = 0
+                    raise serializers.ValidationError("No update was made; timestamp is older than the latest entry for this data.")
 
             daily_steps.save()
 
@@ -405,8 +407,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                     'timeStamp': utc_timestamp
                 }
             )
-            print(user_xp)
-            print(new_xp)
 
             # Only update XP fields if the record already exists for that day, or if new XP is added
             if not created_xp and new_xp > 0:
@@ -486,9 +486,9 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         if data['end_datetime'] <= data['start_datetime']:
             raise serializers.ValidationError("End time must be after the start time.")
 
-
         return data
 
+    # @transaction.atomic
     def create(self, validated_data):
         user = self.context['request'].user
 
