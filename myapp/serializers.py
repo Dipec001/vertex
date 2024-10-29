@@ -388,9 +388,9 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                         daily_steps.xp += new_xp
                         daily_steps.timestamp = utc_timestamp # Update timestamp with new entry
                     else:
-                        raise serializers.ValidationError(f"No update was made; step count less or equal to the latest entry for this data, {daily_steps.step_count} steps.")
+                        raise serializers.ValidationError(f"No update was made; step count less or equal to the latest entry for this day, {daily_steps.step_count} steps.")
                 else:
-                    raise serializers.ValidationError("No update was made; timestamp is older than the latest entry for this data.")
+                    raise serializers.ValidationError("No update was made; timestamp is older than the latest entry for this day.")
 
             daily_steps.save()
 
