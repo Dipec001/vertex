@@ -139,11 +139,11 @@ class DailySteps(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='daily_steps')
     xp = models.FloatField()  # XP earned from the activity
     step_count = models.IntegerField()  # Steps recorded
-    timestamp = models.DateTimeField()  # When the steps were recorded
-    date = models.DateField()  # The day these steps are logged
+    timestamp = models.DateTimeField()  # When the steps were recorded in local time
+    date = models.DateField()  # Local day these steps are logged
 
     def __str__(self):
-        return f'{self.user.email} - Steps: {self.step_count} on {self.timestamp}'
+        return f'{self.user.email} - Steps: {self.step_count} on {self.date}'
     
     class Meta:
         unique_together = ('user', 'date')  # Ensure one record per user per day

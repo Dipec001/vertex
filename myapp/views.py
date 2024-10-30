@@ -575,10 +575,7 @@ class DailyStepsView(APIView):
 
     def get(self, request):
         start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date', timezone.now().date())
-
-        # Get the user's timezone from their profile (ZoneInfo object)
-        user_timezone = ZoneInfo(request.user.timezone.key)
+        end_date = request.query_params.get('end_date', datetime.now().date())
 
         if not start_date:
             return Response({"error": "Please provide a start date."}, status=400)
@@ -592,42 +589,44 @@ class DailyStepsView(APIView):
             total_xp=Sum('xp')
         ).order_by('date')
 
-        # Prepare the data to include both steps and XP for each day in the user's timezone
+        # Prepare the data to include both steps and XP for each day
         steps_data = []
         for step in steps_in_range:
-            # Convert `timestamp` to the user's timezone, then use the date part
-            date_in_user_timezone = step['timestamp'].astimezone(user_timezone).date()
             steps_data.append({
-                'date': date_in_user_timezone,
+                'date': step['date'],
+                'timestamp': step['timestamp'],
                 'total_steps': step['total_steps'],
                 'total_xp': step['total_xp']
             })
 
         # Query total steps for the user across all time
         total_steps_count = DailySteps.objects.filter(user=request.user).aggregate(total_steps=Sum('step_count'))['total_steps'] or 0
-
+        
         return Response({
             'steps_per_day': steps_data,
             'total_steps': total_steps_count
         })
 
+    
     def post(self, request, *args, **kwargs):
         # Instantiate the serializer with the request data and user context
         serializer = DailyStepsSerializer(data=request.data, context={'request': request})
-        
-        
+
         if serializer.is_valid():
             # Save the serializer, which handles step count and XP logic
             daily_steps = serializer.save()
-            
+
             # Retrieve the XP for the specified date
             date = daily_steps.date
             user_xp = Xp.objects.filter(user=request.user, date=date).first()
-            
+
+            # Calculate total XP across all records for the user
+            total_xp_all_time = Xp.objects.filter(user=request.user).aggregate(Sum('totalXpToday'))['totalXpToday__sum'] or 0
+
             # Prepare the response, handle the case where no XP record exists yet
             xp_data = {
                 'totalXpToday': user_xp.totalXpToday if user_xp else 0,
-                'totalXpAllTime': user_xp.totalXpAllTime if user_xp else 0,
+                'totalXpAllTime': total_xp_all_time,
             }
 
             return Response({
@@ -635,53 +634,67 @@ class DailyStepsView(APIView):
                 'xp': xp_data,  # XP data for the current day
                 'message': 'Update successful'
             }, status=status.HTTP_201_CREATED)
-
         # If the serializer is not valid, return the validation errors
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class WorkoutActivityView(APIView):
 
+# class WorkoutActivityView(APIView):
+
+#     def get(self, request):
+#         user = request.user
+#         activities = WorkoutActivity.objects.filter(user=user)
+#         serializer = WorkoutActivitySerializer(activities, many=True)
+
+#         user_timezone = user.timezone
+
+#         # Convert timestamps back to the user's timezone
+#         for activity in serializer.data:
+
+#             # Now convert from UTC to user's timezone
+#             activity['start_datetime'] = convert_from_utc(user_timezone, activity['start_datetime'])
+#             activity['end_datetime'] = convert_from_utc(user_timezone, activity['end_datetime'])
+
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+
+#     def post(self, request):
+
+#         user_timezone = request.user.timezone
+
+#         # Extract and convert datetimes
+#         starttime_str = request.data['start_datetime']
+#         endtime_str = request.data['end_datetime']
+        
+#         # Convert to UTC
+#         start_datetime = convert_to_utc(user_timezone, starttime_str)
+#         end_datetime = convert_to_utc(user_timezone, endtime_str)
+
+#         # Create a mutable copy of request.data and update the datetime fields
+#         updated_data = request.data.copy()
+#         updated_data['start_datetime'] = start_datetime
+#         updated_data['end_datetime'] = end_datetime
+
+#         # Pass the updated data to the serializer
+#         serializer = WorkoutActivitySerializer(data=updated_data, context={'request': request})
+        
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class WorkoutActivityView(APIView):
     def get(self, request):
         user = request.user
         activities = WorkoutActivity.objects.filter(user=user)
         serializer = WorkoutActivitySerializer(activities, many=True)
-
-        user_timezone = user.timezone
-
-        # Convert timestamps back to the user's timezone
-        for activity in serializer.data:
-
-            # Now convert from UTC to user's timezone
-            activity['start_datetime'] = convert_from_utc(user_timezone, activity['start_datetime'])
-            activity['end_datetime'] = convert_from_utc(user_timezone, activity['end_datetime'])
-
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-
-        user_timezone = request.user.timezone
-
-        # Extract and convert datetimes
-        starttime_str = request.data['start_datetime']
-        endtime_str = request.data['end_datetime']
-        
-        # Convert to UTC
-        start_datetime = convert_to_utc(user_timezone, starttime_str)
-        end_datetime = convert_to_utc(user_timezone, endtime_str)
-
-        # Create a mutable copy of request.data and update the datetime fields
-        updated_data = request.data.copy()
-        updated_data['start_datetime'] = start_datetime
-        updated_data['end_datetime'] = end_datetime
-
-        # Pass the updated data to the serializer
-        serializer = WorkoutActivitySerializer(data=updated_data, context={'request': request})
-        
+        serializer = WorkoutActivitySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     
@@ -723,6 +736,78 @@ class StreakRecordsView(APIView):
         })
     
 
+# class XpRecordsView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         # Parse start_date and end_date from query parameters
+#         start_date_str = request.query_params.get('start_date')
+#         end_date_str = request.query_params.get('end_date')
+
+#         # Check if start_date is provided
+#         if not start_date_str:
+#             return Response({"error": "Please provide a start date."}, status=400)
+
+#         # Parse the dates
+#         start_date = parse_date(start_date_str)
+#         end_date = parse_date(end_date_str) if end_date_str else timezone.now().date()
+
+#         # Get user's timezone from the model
+#         user_timezone = request.user.timezone  # Assuming timezone is stored in user model
+
+#         # Make the start and end dates timezone-aware using user's timezone
+#         local_tz = pytz.timezone(user_timezone.key)
+#         start_date_local = timezone.make_aware(datetime.combine(start_date, datetime.min.time()), local_tz)
+#         end_date_local = timezone.make_aware(datetime.combine(end_date, datetime.max.time()), local_tz)
+
+#         # Convert to UTC for querying the database
+#         start_date_utc = start_date_local.astimezone(pytz.UTC)
+#         end_date_utc = end_date_local.astimezone(pytz.UTC)
+
+#         # Query XP records in the UTC-adjusted date range for the user
+#         xp_in_range = Xp.objects.filter(
+#             user=request.user,
+#             timeStamp__range=[start_date_utc, end_date_utc]
+#         ).values('timeStamp__date').annotate(total_xp=Sum('totalXpToday')).order_by('timeStamp__date')
+
+#         xp_data = []
+
+#         # Loop over each day and fetch movement and mindfulness XP for that day
+#         for xp in xp_in_range:
+#             current_date = xp['timeStamp__date']
+
+#             # Fetch movement and mindfulness XP for the current date
+#             movement_xp = WorkoutActivity.objects.filter(
+#                 user=request.user,
+#                 start_datetime__date=current_date,  # Filter based on start_datetime date,
+#                 activity_type="movement"
+#             ).aggregate(movement_xp=Sum('xp'))['movement_xp'] or 0
+
+#             mindfulness_xp = WorkoutActivity.objects.filter(
+#                 user=request.user,
+#                 start_datetime__date=current_date,  # Filter based on start_datetime date,
+#                 activity_type="mindfulness"
+#             ).aggregate(mindfulness_xp=Sum('xp'))['mindfulness_xp'] or 0
+
+#             # Append data for the current date
+#             xp_data.append({
+#                 'date': current_date,
+#                 'total_xp': xp['total_xp'],
+#                 'movement_xp': movement_xp,
+#                 'mindfulness_xp': mindfulness_xp
+#             })
+
+#         # Fetch the actual total XP gained (across all time)
+#         total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('totalXpToday'))['total_xp'] or 0
+
+#         # Return response with the breakdown per day, total XP gained, and remaining XP gained
+#         return Response({
+#             'xp_per_day': xp_data,
+#             'total_xp_gained': total_xp_gained,  # Sum of all XP across all time
+#         })
+
+
+
 class XpRecordsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -739,40 +824,33 @@ class XpRecordsView(APIView):
         start_date = parse_date(start_date_str)
         end_date = parse_date(end_date_str) if end_date_str else timezone.now().date()
 
-        # Get user's timezone from the model
-        user_timezone = request.user.timezone  # Assuming timezone is stored in user model
+        if not start_date:
+            return Response({"error": "Invalid start date format."}, status=400)
+        if not end_date:
+            return Response({"error": "Invalid end date format."}, status=400)
 
-        # Make the start and end dates timezone-aware using user's timezone
-        local_tz = pytz.timezone(user_timezone.key)
-        start_date_local = timezone.make_aware(datetime.combine(start_date, datetime.min.time()), local_tz)
-        end_date_local = timezone.make_aware(datetime.combine(end_date, datetime.max.time()), local_tz)
-
-        # Convert to UTC for querying the database
-        start_date_utc = start_date_local.astimezone(pytz.UTC)
-        end_date_utc = end_date_local.astimezone(pytz.UTC)
-
-        # Query XP records in the UTC-adjusted date range for the user
+        # Query XP records in the date range for the user
         xp_in_range = Xp.objects.filter(
             user=request.user,
-            timeStamp__range=[start_date_utc, end_date_utc]
-        ).values('timeStamp__date').annotate(total_xp=Sum('totalXpToday')).order_by('timeStamp__date')
+            date__range=[start_date, end_date]
+        ).values('date').annotate(total_xp=Sum('totalXpToday')).order_by('date')
 
         xp_data = []
 
         # Loop over each day and fetch movement and mindfulness XP for that day
         for xp in xp_in_range:
-            current_date = xp['timeStamp__date']
+            current_date = xp['date']
 
             # Fetch movement and mindfulness XP for the current date
             movement_xp = WorkoutActivity.objects.filter(
                 user=request.user,
-                start_datetime__date=current_date,  # Filter based on start_datetime date,
+                start_datetime__date=current_date,  # Filter based on start_datetime date
                 activity_type="movement"
             ).aggregate(movement_xp=Sum('xp'))['movement_xp'] or 0
 
             mindfulness_xp = WorkoutActivity.objects.filter(
                 user=request.user,
-                start_datetime__date=current_date,  # Filter based on start_datetime date,
+                start_datetime__date=current_date,  # Filter based on start_datetime date
                 activity_type="mindfulness"
             ).aggregate(mindfulness_xp=Sum('xp'))['mindfulness_xp'] or 0
 
@@ -787,10 +865,10 @@ class XpRecordsView(APIView):
         # Fetch the actual total XP gained (across all time)
         total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('totalXpToday'))['total_xp'] or 0
 
-        # Return response with the breakdown per day, total XP gained, and remaining XP gained
+        # Return response with the breakdown per day and total XP gained
         return Response({
             'xp_per_day': xp_data,
-            'total_xp_gained': total_xp_gained,  # Sum of all XP across all time
+            'total_xp_gained': total_xp_gained  # Sum of all XP across all time
         })
 
 
