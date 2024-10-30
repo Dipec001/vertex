@@ -183,7 +183,7 @@ def reset_gems_for_local_timezones():
     for user in users:
 
         # user['timezone'] is a ZoneInfo object already, so use it directly
-        user_timezone = user['timezone'].key
+        user_timezone = user['timezone']
         
         try:
             # Convert UTC time to user's local time using ZoneInfo
