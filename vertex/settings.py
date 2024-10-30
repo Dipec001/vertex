@@ -303,7 +303,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     'reset-gems-hourly': {
         'task': 'myapp.tasks.reset_gems_for_local_timezones',
-        'schedule': crontab(minute='*'),  # Every minute for now(will change later)
+        'schedule': crontab(day_of_month=1, hour=15, minute=0),  # Every minute for now(will change later)
     },
     'process_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_league_promotions',
