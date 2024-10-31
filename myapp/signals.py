@@ -5,6 +5,10 @@ from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstanc
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from django.db.models import Count, F
+from datetime import timedelta, datetime
+from django.db import transaction
+import pytz
+
 
 @receiver(post_save, sender=Xp)
 def update_streak_on_xp_change(sender, instance, **kwargs):
@@ -16,43 +20,81 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
     # Check if total XP for today is >= 500
     if total_xp_today < 500:
         print("Total XP is less than 500, not updating streak")
-        return
 
     xp_date = instance.date  # Use the date from Xp instance
 
-    # Check if a streak record exists for this date
-    streak_record = Streak.objects.filter(user=user, date=xp_date).first()
+    with transaction.atomic():
+        # Get the most recent streak record before the given xp_date
+        recent_streak = Streak.objects.filter(user=user, date__lt=xp_date).order_by('-date').first()
+        print('Recent streak date:', recent_streak.date if recent_streak else None)
+    
+        # Determine the starting streak value and highest streak value
+        if recent_streak:
+            if (xp_date - recent_streak.date).days == 1:
+                current_streak = recent_streak.currentStreak + 1
+                highest_streak = max(recent_streak.highestStreak, current_streak)
+            else:
+                current_streak = 1
+                highest_streak = recent_streak.highestStreak
+        else:
+            current_streak = 1
+            highest_streak = 1
 
-    if streak_record:
-        print("Streak record already exists for this date, exiting")
-        return
+        current_date = xp_date
 
-    # Find the most recent streak record
-    recent_streak_record = Streak.objects.filter(user=user).order_by('-date').first()
+        # Create or update the streak record for the given xp_date
+        streak_record, created = Streak.objects.get_or_create(
+            user=user,
+            date=xp_date,
+            defaults={
+                'currentStreak': current_streak,
+                'highestStreak': highest_streak,
+                'timeStamp': instance.timeStamp,
+            }
+        )
 
-    if recent_streak_record and (xp_date - recent_streak_record.date).days == 1:
-        # Continue the streak
-        current_streak = recent_streak_record.currentStreak + 1
-    else:
-        # Reset the streak
-        current_streak = 1
+        if not created:
+            streak_record.currentStreak = current_streak
+            streak_record.highestStreak = highest_streak
+            streak_record.timeStamp = instance.timeStamp
+            streak_record.save()
+            print(f"Streak record updated for date: {xp_date}")
+        else:
+            print(f"Streak record created for date: {xp_date}")
 
-    # Get the highest streak so far
-    highest_streak = max(recent_streak_record.highestStreak if recent_streak_record else 0, current_streak)
+        # Ensure proper conversion to user's local timezone
+        user_timezone = pytz.timezone(user.timezone.key)
+        local_now = datetime.now(user_timezone)
+        print('local time',local_now)
 
-    # Create a new streak record for this date
-    streak_record = Streak.objects.create(
-        user=user,
-        currentStreak=current_streak,
-        highestStreak=highest_streak,
-        timeStamp=instance.timeStamp,
-        date=xp_date  # Set the date
-    )
+        current_date = xp_date + timedelta(days=1)  # Start checking from the next day
 
-    # Update the streak in the CustomUser model
-    user.streak = current_streak
-    user.save()
-    print("Streak record created and updated")
+        while current_date <= local_now.date():
+            # Check if a streak record exists for this date
+            streak_record = Streak.objects.filter(user=user, date=current_date).first()
+            print(streak_record,f'for day {current_date}')
+
+
+            if streak_record:
+                # Update existing record for current_date
+                # Increment the streak for each existing record
+                current_streak += 1
+                streak_record.currentStreak = current_streak
+                streak_record.highestStreak = max(streak_record.highestStreak, current_streak)
+                streak_record.save()
+                print(f"Streak record updated for date: {current_date}")
+            else:
+                # Break the streak if no XP was gained for the day
+                print(f"No XP gained on {current_date}. Streak breaks.")
+                break
+
+            current_date += timedelta(days=1)
+
+        # Correct the current streak before updating the CustomUser model
+        user.streak = current_streak
+        user.save()
+        print(f"Updated user streak to: {user.streak}")
+
 
 
 
@@ -100,7 +142,7 @@ def update_gems(sender, instance, **kwargs):
     user.gem = max(0, total_gems_awarded - user.gems_spent)
     user.save(update_fields=['gem'])
 
-    print(f"Updated {user.email}'s available gems to {user.gem} based on today's XP.")
+    # print(f"Updated {user.email}'s available gems to {user.gem} based on today's XP.")
 
 
 @receiver(post_save, sender=Xp)
@@ -111,19 +153,19 @@ def add_to_first_league(sender, instance, **kwargs):
     """
     user = instance.user
     total_xp = instance.totalXpAllTime
-    print(total_xp)
+    # print(total_xp)
     
     # Check if user's total XP qualifies them for the Pathfinder league
     if total_xp >= 65:
         pathfinder_league = League.objects.filter(name="Pathfinder League", order=1).first()
 
         if not pathfinder_league:
-            print("Error: Pathfinder league not found.")
+            # print("Error: Pathfinder league not found.")
             return
 
         # Check if the user is already in the Pathfinder league
         user_league_entry = UserLeague.objects.filter(user=user, league_instance__league=pathfinder_league).first()
-        print(user_league_entry)
+        # print(user_league_entry)
         if user_league_entry:
             return  # User is already assigned to the Pathfinder league
         
@@ -147,7 +189,7 @@ def add_to_first_league(sender, instance, **kwargs):
 
         # Add user to the Pathfinder LeagueInstance
         UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_global=0)
-        print(f"User {user} added to {pathfinder_instance.league.name}.")
+        # print(f"User {user} added to {pathfinder_instance.league.name}.")
 
 
 # Constants for minimum users and XP thresholds

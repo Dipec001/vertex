@@ -719,16 +719,7 @@ class StreakRecordsView(APIView):
         # Prepare the data
         streak_data = [{'date': streak['timeStamp__date'], 'current_streak': streak['current_streak']} for streak in streak_in_range]
 
-        current_date = timezone.now().date()
-        previous_date = current_date - timezone.timedelta(days=1)
-
-        # Retrieve yesterday's streak record
-        previous_streak_record = Streak.objects.filter(user=user, timeStamp__date=previous_date).first()
-
-        if previous_streak_record:
-            current_streak = previous_streak_record.currentStreak
-        else:
-            current_streak = 0  # If no streak from yesterday, the streak resets to 0
+        current_streak = user.streak
 
         return Response({
             'streak_per_day': streak_data,

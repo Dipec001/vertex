@@ -2,11 +2,9 @@ from celery import shared_task
 from .email_utils import send_invitation_email
 from django.utils import timezone
 from .models import Streak, CustomUser, Xp, Draw, Company,LeagueInstance, UserLeague
-from django.db.models import Sum
 import logging
 from datetime import timedelta, datetime
 from django.utils import timezone as django_timezone
-from zoneinfo import ZoneInfo  # Use ZoneInfo instead of pytz
 from .league_service import promote_user, demote_user
 
 # Configure logging
@@ -28,7 +26,7 @@ def reset_daily_streaks():
     while True:
         # Fetch users who have a timezone set and whose current streak is greater than 0
         users = CustomUser.objects.exclude(timezone=None).filter(
-            streak_records__currentStreak__gt=0
+            streak__gt=0
         )[offset:offset + batch_size]
         
         if not users:  # Exit if no more users are left
@@ -42,23 +40,19 @@ def reset_daily_streaks():
 
             # Check if the current time is midnight in the user's local time
             if user_local_time.hour == 0 and user_local_time.minute < 60:
-                print(True)
                 # Define yesterday's start and end times in UTC
                 yesterday_start = user_local_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
                 yesterday_end = yesterday_start + timedelta(days=1)
+                
 
                 # Retrieve the previous day's XP record
-                previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start, yesterday_end)).last()
+                previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start, yesterday_end)).last()  
 
                 # Get the total XP for yesterday, defaulting to 0 if no entry exists
                 daily_xp = previous_xp.totalXpToday if previous_xp else 0
 
                 # Only reset the streak if yesterday's XP is less than 500
                 if daily_xp < 500:
-                    streak_record = Streak.objects.filter(user=user).last()
-                    streak_record.currentStreak = 0
-                    streak_record.save()
-
                     # Update the streak in the CustomUser model
                     user.streak = 0  # Reset the streak to 0
                     user.save()  # Save the changes to the CustomUser model
@@ -172,29 +166,40 @@ def create_global_draw():
 
 @shared_task
 def reset_gems_for_local_timezones():
-    """
-    This task resets the users' gem amount every Monday at 00:01 AM in their local timezone.
-    """
+    """This task resets the users' gem amount every Monday midnight in their local timezone."""
     now_utc = django_timezone.now()
+    
+    batch_size = 100  # Adjust based on your needs
+    offset = 0
 
-    # Fetch users with timezone info and other necessary fields
-    users = CustomUser.objects.values('id', 'email', 'gem', 'timezone')
+    while True:
+        users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gem', 'timezone')[offset:offset + batch_size]
 
-    for user in users:
+        if not users:
+            print("Processed all users successfully.")
+            break
 
-        # user['timezone'] is a ZoneInfo object already, so use it directly
-        user_timezone = user['timezone']
-        
-        try:
-            # Convert UTC time to user's local time using ZoneInfo
-            user_local_time = now_utc.astimezone(user_timezone)  # No need to check if it's a string
+        for user in users:
+            user_timezone = user['timezone']
 
-            # Check if it's Monday 00:01 AM in the user's local timezone
-            if user_local_time.weekday() == 0 and user_local_time.hour == 0 and user_local_time.minute == 1:
-                # Reset the gem count to 0
-                CustomUser.objects.filter(id=user['id']).update(gem=0)
-        except Exception as e:
-            print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")
+            try:
+                # Convert UTC time to user's local time
+                user_local_time = now_utc.astimezone(user_timezone)
+                print(user_local_time.weekday())
+                
+                # Check if it's Monday midnight in the user's local timezone
+                if user_local_time.weekday() == 0 and user_local_time.hour == 0:
+
+                    # Reset the gem count to 0
+                    CustomUser.objects.filter(id=user['id']).update(gem=0)
+            
+            except Exception as e:
+                print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")
+
+        offset += batch_size
+
+    print("Gem reset task completed successfully.")
+
 
 
 @shared_task

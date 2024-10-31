@@ -285,9 +285,9 @@ APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 
 
 CELERY_BEAT_SCHEDULE = {
-    'reset-daily-streaks-every-hour': {
+    'reset-daily-streaks-every-midnight': {
         'task': 'myapp.tasks.reset_daily_streaks',
-        'schedule': timedelta(minutes=1),  # Run the task every hour
+        'schedule': crontab(minute='*/25'),  # Run the task every 25 minutes
     },
     'run-company-draws-every-month': {
         'task': 'myapp.tasks.run_company_draws',
@@ -301,9 +301,9 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'myapp.tasks.create_global_draw',
         'schedule': timedelta(days=1),  # Every minute
     },
-    'reset-gems-hourly': {
+    'reset-gems-every-monday-midnight': {
         'task': 'myapp.tasks.reset_gems_for_local_timezones',
-        'schedule': crontab(minute='*'),  # Every minute for now(will change later)
+        'schedule': crontab(minute='*/10'),  # Every 10 minutes
     },
     'process_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_league_promotions',
