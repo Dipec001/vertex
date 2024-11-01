@@ -67,8 +67,7 @@ class ValidateCompanyAssociationView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        company_email_or_code = request.data.get('company_email_or_code')
-        print(company_email_or_code)
+        company_email_or_code = request.data.get('company_email_or_code').lower()
 
         # Ensure company email or invite code is provided
         if not company_email_or_code:

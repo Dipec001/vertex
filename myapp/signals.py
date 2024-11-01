@@ -20,6 +20,7 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
     # Check if total XP for today is >= 500
     if total_xp_today < 500:
         print("Total XP is less than 500, not updating streak")
+        return
 
     xp_date = instance.date  # Use the date from Xp instance
 

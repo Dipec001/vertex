@@ -463,6 +463,8 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         }
 
     def validate_timestamp(self, value):
+        user = self.context['request'].user
+        # Existing validation
         if isinstance(value, str):
             try:
                 value = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
@@ -470,6 +472,11 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Invalid datetime format. Expected format: YYYY-MM-DDTHH:MM:SS")
         elif not isinstance(value, datetime):
             raise serializers.ValidationError("Invalid type for timestamp. Expected str or datetime.")
+        
+        # New validation for join date
+        if value < user.date_joined:
+            raise serializers.ValidationError("Timestamp cannot be before the user’s join date.")
+        
         return value
 
     def validate_step_count(self, value):
@@ -739,16 +746,22 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             'deviceType',
         ]
 
+
     def validate(self, data):
-        """Custom validation for start/end times."""
+        """Custom validation for start/end times and join date."""
+        user = self.context['request'].user
         start_datetime = data.get('start_datetime')
         end_datetime = data.get('end_datetime')
-
+        
+        # Existing validation
         if start_datetime is None or end_datetime is None:
             raise serializers.ValidationError("Invalid date format for start_datetime or end_datetime.")
-
         if end_datetime <= start_datetime:
             raise serializers.ValidationError("End time must be after the start time.")
+
+        # New validation for join date
+        if start_datetime < user.date_joined or end_datetime < user.date_joined:
+            raise serializers.ValidationError("Activity dates cannot be before the user’s join date.")
         
         return data
 
