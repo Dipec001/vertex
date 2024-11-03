@@ -474,9 +474,9 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid type for timestamp. Expected str or datetime.")
         
         # New validation for join date
-        if value < user.date_joined:
+        if value.date() < user.date_joined.date():
             raise serializers.ValidationError("Timestamp cannot be before the user’s join date.")
-        
+
         return value
 
     def validate_step_count(self, value):
@@ -760,7 +760,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("End time must be after the start time.")
 
         # New validation for join date
-        if start_datetime < user.date_joined or end_datetime < user.date_joined:
+        if start_datetime.date() < user.date_joined.date() or end_datetime.date() < user.date_joined.date():
             raise serializers.ValidationError("Activity dates cannot be before the user’s join date.")
         
         return data
