@@ -595,7 +595,7 @@ class DailyStepsView(APIView):
                 'date': step['date'],
                 'timestamp': step['timestamp'],
                 'total_steps': step['total_steps'],
-                'total_xp': step['total_xp']
+                'total_xp': int(step['total_xp'])
             })
 
         # Query total steps for the user across all time

@@ -99,8 +99,8 @@ class Xp(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='xp_records')
     timeStamp = models.DateTimeField()  # Timestamp for when XP is earned
     date = models.DateField()  # Explicitly store the date part
-    totalXpToday = models.IntegerField(default=0.0)  # XP earned today
-    totalXpAllTime = models.IntegerField(default=0.0)  # Total XP earned across all time
+    totalXpToday = models.FloatField(default=0.0)  # XP earned today
+    totalXpAllTime = models.FloatField(default=0.0)  # Total XP earned across all time
     gems_awarded = models.PositiveIntegerField(default=0)  # Gems awarded based on XP today
 
     def __str__(self):
@@ -137,7 +137,7 @@ class Streak(models.Model):
 
 class DailySteps(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='daily_steps')
-    xp = models.IntegerField()  # XP earned from the activity
+    xp = models.FloatField()  # XP earned from the activity
     step_count = models.IntegerField()  # Steps recorded
     timestamp = models.DateTimeField()  # When the steps were recorded in local time
     date = models.DateField()  # Local day these steps are logged
@@ -156,7 +156,7 @@ class WorkoutActivity(models.Model):
     ]
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='workout_activity')
     duration = models.IntegerField()  # Duration in minutes
-    xp = models.IntegerField()  # XP earned from the activity
+    xp = models.FloatField()  # XP earned from the activity
     activity_type = models.CharField(max_length=50)  # Type of activity: "Mindfulness" or "Movement"
     activity_name = models.CharField(max_length=100)  # Name of the activity (e.g., Running, Yoga, Steps)
     distance = models.FloatField(null=True, blank=True, default=0.0)  # Distance for movement activities
