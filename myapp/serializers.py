@@ -430,7 +430,7 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                     deviceType=None
                 )
             except IntegrityError:
-                print(f"Workout activity with the start time {timestamp} already exists.")
+                raise serializers.ValidationError(f"Daily step with the start time {timestamp} already exists.")
 
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):
@@ -497,12 +497,12 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         activity_type = data.get('activity_type')
         movement_xp = 0
         if activity_type == 'movement':
-            if duration >= 30:
-                movement_xp += 100
-            if duration >= 45:
-                movement_xp += 150
             if duration >= 60:
                 movement_xp += 200
+            elif duration >= 45:
+                movement_xp += 150
+            elif duration >= 30:
+                movement_xp += 100
             avg_bpm = data.get('average_heart_rate', 0)
             if 100 <= avg_bpm < 120:
                 movement_xp += 20
@@ -511,8 +511,13 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             elif avg_bpm >= 150:
                 movement_xp += 60
         elif activity_type == 'mindfulness':
-            if data['activity_name'] == 'Yoga' and duration >= 30:
-                movement_xp += 100
+            if data['activity_name'] == 'Yoga':
+                if duration >= 60:
+                    movement_xp += 200
+                elif duration >= 45:
+                    movement_xp += 150
+                elif duration >= 30:
+                    movement_xp += 100
             elif data['activity_name'] == 'Mind and Body':
                 if data['metadata'] == 'Moment of Silence':
                     movement_xp += 20 * duration
