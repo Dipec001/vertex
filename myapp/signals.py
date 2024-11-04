@@ -129,6 +129,7 @@ def update_gems(sender, instance, **kwargs):
 
     # Calculate how many gems to award based on the total XP for today
     new_gems_awarded = int(total_xp_today // 250)  # Ensure integer division for whole gems
+    print(new_gems_awarded)
 
     # Check if `gems_awarded` needs updating
     if instance.gems_awarded != new_gems_awarded:

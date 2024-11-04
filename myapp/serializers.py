@@ -6,7 +6,7 @@ import string
 from allauth.socialaccount.models import SocialAccount
 import logging
 from rest_framework.validators import UniqueValidator
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from .tasks import send_invitation_email_task
 from django.utils import timezone
 from .timezone_converter import convert_to_utc, convert_from_utc
@@ -311,146 +311,6 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
         return user
 
 
-# from rest_framework.fields import DateTimeField
-# from datetime import datetime
-
-# class NaiveDateTimeField(DateTimeField):
-#     def to_internal_value(self, data):
-#         if isinstance(data, str):
-#             # Parse the string into a datetime object
-#             data = datetime.strptime(data, "%Y-%m-%dT%H:%M:%S")
-#         return data
-
-
-# class DailyStepsSerializer(serializers.ModelSerializer):
-#     xp = serializers.FloatField(read_only=True)  # XP is calculated and read-only
-#     # timestamp = NaiveDateTimeField()
-    
-#     class Meta:
-#         model = DailySteps
-#         fields = ['step_count', 'timestamp', 'date', 'xp']  # Include 'date' for validation
-#         extra_kwargs = {
-#             'timestamp': {'required': True},  # Set timestamp as read-only if needed
-#             'date': {'required': False}  # Make date optional
-#         }
-    
-#     def validate_timestamp(self, value):
-#         """Validate that timestamp is in the correct format."""
-#         if isinstance(value, str):
-#             try:
-#                 value = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
-#             except ValueError:
-#                 raise serializers.ValidationError("Invalid datetime format. Expected format: YYYY-MM-DDTHH:MM:SS")
-#         elif not isinstance(value, datetime):
-#             raise serializers.ValidationError("Invalid type for timestamp. Expected str or datetime.")
-#         return value
-
-    
-#     def validate_step_count(self, value):
-#         if value < 0:
-#             raise serializers.ValidationError("Step count cannot be negative.")
-#         return value
-
-#     def create(self, validated_data):
-#         request = self.context['request']
-#         user = request.user
-#         step_count = validated_data.get('step_count')
-#         timestamp = validated_data.get('timestamp')
-
-#         # # Get the user's timezone as a ZoneInfo object
-#         # user_timezone = user.timezone
-#         # utc_timestamp = convert_to_utc(user_timezone=user_timezone, naive_datetime=timestamp)
-
-#         # # Extract the date from the UTC timestamp
-#         # date = utc_timestamp.date()
-
-#         with transaction.atomic():
-#             local_date = timestamp.date()
-
-#             # Get or create the daily steps record (only one entry per day)
-#             daily_steps, created = DailySteps.objects.get_or_create(
-#                 user=user,
-#                 date=local_date,
-#                 defaults={'xp': step_count / 10, 'timestamp': timestamp, **validated_data}
-#             )
-#             # Initialize new_xp to 0
-#             new_xp = 0  # Default value in case no new XP is calculated
-
-#             # Calculate new XP and update daily step count
-#             # prevent duplicate entries within the same day
-#             if created:
-#                 # For the first entry, set the initial XP based on the step count
-#                 new_xp = step_count / 10  # Calculate XP for the new record
-#                 daily_steps.xp = new_xp
-#             else:
-#                 # Ensure step count is larger before updating timestamp
-#                 if step_count > daily_steps.step_count:
-#                     step_diff = step_count - daily_steps.step_count
-#                     new_xp = step_diff / 10
-#                     daily_steps.step_count = step_count
-#                     daily_steps.xp += new_xp
-#                     # Update timestamp to the most recent valid timestamp
-#                     daily_steps.timestamp = max(daily_steps.timestamp, timestamp)
-#                 else:
-#                     raise serializers.ValidationError(
-#                         f"No update was made; step count is less than or equal to the latest entry for this day, {daily_steps.step_count} steps."
-#                     )
-
-#             daily_steps.save()
-
-#             # Check for active leagues
-#             self.update_user_leagues(user, new_xp)
-
-#             # Update the user's XP record for today (in your XP model)
-#             user_xp, created_xp = Xp.objects.get_or_create(
-#                 user=user,
-#                 date=local_date,  # Ensure it's tied to steps day
-#                 defaults={
-#                     'totalXpToday': new_xp,
-#                     'totalXpAllTime': new_xp,
-#                     'timeStamp': timestamp
-#                 }
-#             )
-
-#             # Only update XP fields if the record already exists for that day, or if new XP is added
-#             if not created_xp and new_xp > 0:
-#                 user_xp.totalXpToday += new_xp
-#                 user_xp.totalXpAllTime += new_xp
-#                 user_xp.save()
-#             elif created_xp:
-#                 user_xp.totalXpToday = new_xp
-#                 user_xp.totalXpAllTime += new_xp
-#                 user_xp.save()
-
-
-#             # Record the additional steps in the WorkoutActivity model (multiple entries per day)
-#             if new_xp > 0:  # Only create a new workout entry if there is additional XP
-#                 WorkoutActivity.objects.create(
-#                     user=user,
-#                     activity_type="movement",
-#                     activity_name="steps",
-#                     xp=new_xp,  # Only the additional XP
-#                     duration=0,  # No duration for step counts
-#                     distance=0,
-#                     average_heart_rate=0,
-#                     start_datetime=timestamp,
-#                     end_datetime=timestamp,
-#                     metadata='{}',
-#                     # current_date=date,
-#                     deviceType=None
-#                 )
-
-#             return daily_steps
-    
-#     def update_user_leagues(self, user, new_xp):
-#         active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
-#         for user_league in active_leagues:
-#             if user_league.league_instance.company is not None:
-#                 user_league.xp_company += new_xp  # Track company XP
-#             else:
-#                 user_league.xp_global += new_xp  # Track global XP
-#             user_league.save()
-
 class DailyStepsSerializer(serializers.ModelSerializer):
     xp = serializers.FloatField(read_only=True)
 
@@ -555,177 +415,23 @@ class DailyStepsSerializer(serializers.ModelSerializer):
 
     def create_workout_activity(self, user, new_xp, timestamp):
         if new_xp > 0:
-            WorkoutActivity.objects.create(
-                user=user,
-                activity_type="movement",
-                activity_name="steps",
-                xp=new_xp,
-                duration=0,
-                distance=0,
-                average_heart_rate=0,
-                start_datetime=timestamp,
-                end_datetime=timestamp,
-                metadata='{}',
-                deviceType=None
-            )
+            try:
+                WorkoutActivity.objects.create(
+                    user=user,
+                    activity_type="movement",
+                    activity_name="steps",
+                    xp=new_xp,
+                    duration=0,
+                    distance=0,
+                    average_heart_rate=0,
+                    start_datetime=timestamp,
+                    end_datetime=timestamp,
+                    metadata='{}',
+                    deviceType=None
+                )
+            except IntegrityError:
+                print(f"Workout activity with the start time {timestamp} already exists.")
 
-
-
-# class WorkoutActivitySerializer(serializers.ModelSerializer):
-#     xp = serializers.FloatField(read_only=True)  # Mark xp as read-only
-
-#     class Meta:
-#         model = WorkoutActivity
-#         fields = [
-#             'id',
-#             'duration',
-#             'xp',
-#             'activity_type',
-#             'activity_name',
-#             'distance',
-#             'average_heart_rate',
-#             'metadata',
-#             'start_datetime',
-#             'end_datetime',
-#             # 'current_date',
-#             'deviceType',
-#         ]
-
-#     def validate(self, data):
-#         """
-#         Custom validation for start/end times.
-#         """
-
-#         # Get the converted datetime from the view
-#         start_datetime_utc = data.get('start_datetime')
-#         end_datetime_utc = data.get('end_datetime') 
-        
-#         # Check for conversion failure/ Ensure both datetime values are provided
-#         if start_datetime_utc is None or end_datetime_utc is None:
-#             raise serializers.ValidationError("Invalid date format for start_datetime or end_datetime.")
-        
-
-#         # Check if end_datetime is before start_datetime
-#         if data['end_datetime'] <= data['start_datetime']:
-#             raise serializers.ValidationError("End time must be after the start time.")
-
-#         return data
-
-#     # @transaction.atomic
-#     def create(self, validated_data):
-#         user = self.context['request'].user
-
-#         # # Check if `current_date` is provided, otherwise infer it from `start_datetime`
-#         # if 'current_date' not in validated_data:
-#         #     validated_data['current_date'] = validated_data['start_datetime'].date()
-
-#         # Extract the date from the start_datetime to ensure conflict checking only happens for the same day
-#         start_date = validated_data['start_datetime'].date()
-#         end_date = validated_data['end_datetime'].date()
-
-
-#         # Check for existing workout activities on the same day only
-#         if (WorkoutActivity.objects.filter(
-#                 user=user,
-#                 start_datetime__date=start_date,
-#                 end_datetime__date=end_date,
-#                 start_datetime=validated_data['start_datetime'],
-#                 end_datetime=validated_data['end_datetime']
-#             ).exists()):
-#             raise serializers.ValidationError("A workout with the same start and end times already exists for this day.")
-
-#         # Calculate XP based on activity and details
-#         xp_earned = self.calculate_xp(validated_data)
-#         validated_data['xp'] = xp_earned
-
-#         # Save the activity record
-#         workout_activity = WorkoutActivity.objects.create(user=user, **validated_data)
-
-#         # Update XP for the user
-#         self.update_xp(workout_activity)
-#         self.update_user_leagues(user, xp_earned)
-
-#         return workout_activity
-
-#     def calculate_xp(self, data):
-#         duration = data.get('duration', 0)
-#         activity_type = data.get('activity_type')
-#         movement_xp = 0
-
-#         # XP calculation logic for movement activities
-#         if activity_type == 'movement':
-#             if duration >= 30:
-#                 movement_xp += 100
-#             if duration >= 45:
-#                 movement_xp += 150
-#             if duration >= 60:
-#                 movement_xp += 200
-
-#             avg_bpm = data.get('average_heart_rate', 0)
-#             if 100 <= avg_bpm < 120:
-#                 movement_xp += 20
-#             elif 120 <= avg_bpm < 150:
-#                 movement_xp += 40
-#             elif avg_bpm >= 150:
-#                 movement_xp += 60
-
-#         # XP calculation logic for mindfulness activities
-#         elif activity_type == 'mindfulness':
-#             if data['activity_name'] == 'Yoga' and duration >= 30:
-#                 movement_xp += 100
-#             elif data['activity_name'] == 'Mind and Body':
-#                 if data['metadata'] == 'Moment of Silence':
-#                     movement_xp += 20 * duration
-#                 elif data['metadata'] == 'Meditation':
-#                     movement_xp += 100 * (duration // 10)
-
-#         return movement_xp
-
-#     def update_xp(self, workout_activity):
-#         user = workout_activity.user
-#         # Extract the date from the timestamp
-#         activity_date = workout_activity.start_datetime.date()
-
-#         # Get start and end of day in UTC to avoid multiple objects issue
-#         start_of_day = timezone.datetime.combine(activity_date, timezone.datetime.min.time()).replace(tzinfo=UTC)
-#         end_of_day = timezone.datetime.combine(activity_date, timezone.datetime.max.time()).replace(tzinfo=UTC)
-
-#         # Update or create an XP record for that user and the current day
-#         user_xp, created_xp = Xp.objects.get_or_create(
-#             user=user,
-#             timeStamp__gte=start_of_day,
-#             timeStamp__lte=end_of_day,
-#             defaults={
-#                 'totalXpToday': workout_activity.xp,
-#                 'totalXpAllTime': workout_activity.xp,
-#             }
-#         )
-
-#         # Only update XP fields if the record already exists
-#         if not created_xp:
-#             user_xp.totalXpToday += workout_activity.xp
-
-#         # Retrieve the previous XP record (excluding the current day)
-#         previous_xp = Xp.objects.filter(user=user).exclude(timeStamp__date=activity_date).order_by('-timeStamp').first()
-
-#         if previous_xp:
-#             # If there is a previous record, use its values for all-time and remaining XP
-#             user_xp.totalXpAllTime = previous_xp.totalXpAllTime + workout_activity.xp
-#         else:
-#             # If no previous record exists, use the current workout XP
-#             user_xp.totalXpAllTime += workout_activity.xp
-
-#         # Save the XP record
-#         user_xp.save()
-
-#     def update_user_leagues(self, user, new_xp):
-#         active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
-#         for user_league in active_leagues:
-#             if user_league.league_instance.company is not None:
-#                 user_league.xp_company += new_xp  # Track company XP
-#             else:
-#                 user_league.xp_global += new_xp  # Track global XP
-#             user_league.save()
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):
     xp = serializers.FloatField(read_only=True)  # Mark xp as read-only
