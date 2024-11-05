@@ -309,5 +309,6 @@ CELERY_BEAT_SCHEDULE = {
     'process_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_league_promotions',
         'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
+        # 'schedule': crontab(minute='*'),
     },
 }

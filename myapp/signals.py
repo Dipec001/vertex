@@ -153,21 +153,20 @@ def add_to_first_league(sender, instance, **kwargs):
     This signal assigns users with total XP >= 65 to the Pathfinder League (level one league).
     If no Pathfinder LeagueInstance has available space, a new instance is created.
     """
+    print('Add to league triggered')
     user = instance.user
     total_xp = instance.totalXpAllTime
-    # print(total_xp)
     
     # Check if user's total XP qualifies them for the Pathfinder league
     if total_xp >= 65:
         pathfinder_league = League.objects.filter(name="Pathfinder League", order=1).first()
 
         if not pathfinder_league:
-            # print("Error: Pathfinder league not found.")
+            print("Error: Pathfinder league not found.")
             return
 
         # Check if the user is already in the Pathfinder league
         user_league_entry = UserLeague.objects.filter(user=user, league_instance__league=pathfinder_league).first()
-        # print(user_league_entry)
         if user_league_entry:
             return  # User is already assigned to the Pathfinder league
         

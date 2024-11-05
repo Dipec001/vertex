@@ -89,7 +89,7 @@ def run_company_draws():
         next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
 
         Draw.objects.create(
-            name=f"Monthly Draw for {company.name}",
+            draw_name=f"Monthly Draw for {company.name}",
             company=company,
             draw_type='company',
             draw_date=next_draw_date,
@@ -201,31 +201,31 @@ def reset_gems_for_local_timezones():
     print("Gem reset task completed successfully.")
 
 
-
 @shared_task
 def process_league_promotions():
     # Get current time
     now = timezone.now()
+    print(now)
     
-    # Query leagues where the end date has passed
-    expired_leagues = LeagueInstance.objects.filter(league_end__lte=now)
+    # Query leagues where the end date has passed but still active
+    expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True)
+    print('Expired league', expired_leagues)
     
     for league in expired_leagues:
-        # Order users by XP in descending order for promotions and demotions
-        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp')
+        print('league end time', league.league_end)
+        # Order users by global XP in descending order for promotions and demotions
+        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global')
         
         for rank, user_league in enumerate(users_in_league):
-            if rank < 5:  # Example condition for promotion
-                # Call the promote_user function
+            if rank < 3:  # Promotion for the top 3 users
                 promote_user(user_league.user)
-            elif rank > 25:  # Example condition for demotion
-                # Call the demote_user function
+            else:  # Demote other users
                 demote_user(user_league.user)
 
-            # Reset the user XP for the new league week
-            user_league.xp = 0
+            # Reset the user global XP for the new league week
+            user_league.xp_global = 0
             user_league.save()
 
         # Mark this league instance as inactive
         league.is_active = False
-        league.save()  # Save the updated league instance
+        league.save()

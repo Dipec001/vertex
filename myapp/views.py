@@ -1062,11 +1062,12 @@ class GlobalActiveLeagueView(APIView):
 
     def get(self, request):
         now = timezone.now()
+        print('time now ', now)
         user = request.user
 
         user_league = (
             UserLeague.objects
-            .filter(user=user, league_instance__is_active=True, league_instance__league_end__gt=now, league_instance__company__isnull=True)
+            .filter(user=user, league_instance__is_active=True, league_instance__company__isnull=True)
             .select_related('league_instance')
             .first()
         )
