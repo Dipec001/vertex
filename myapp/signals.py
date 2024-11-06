@@ -159,7 +159,7 @@ def add_to_first_league(sender, instance, **kwargs):
     
     # Check if user's total XP qualifies them for the Pathfinder league
     if total_xp >= 65:
-        pathfinder_league = League.objects.filter(name="Pathfinder League", order=1).first()
+        pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
 
         if not pathfinder_league:
             print("Error: Pathfinder league not found.")
