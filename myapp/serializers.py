@@ -399,8 +399,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             user=user,
             date=date,
             defaults={
-                'totalXpToday': new_xp,
-                'totalXpAllTime': new_xp,
                 'timeStamp': timestamp
             }
         )

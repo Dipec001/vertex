@@ -5,7 +5,7 @@ from .models import Streak, CustomUser, Xp, Draw, Company,LeagueInstance, UserLe
 import logging
 from datetime import timedelta, datetime
 from django.utils import timezone as django_timezone
-from .league_service import promote_user, demote_user
+from .league_service import promote_user, demote_user, promote_company_user, demote_company_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -227,5 +227,34 @@ def process_league_promotions():
             user_league.save()
 
         # Mark this league instance as inactive
+        league.is_active = False
+        league.save()
+
+
+@shared_task
+def process_company_league_promotions():
+    """
+    Handles promotions and demotions of users in company leagues at the end of a league period.
+    """
+    now = timezone.now()
+    expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=False)
+    print('Expired company league', expired_leagues)
+
+    for league in expired_leagues:
+        # Get users ordered by company XP for promotions and demotions
+        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_company')
+
+        # Promote the top 3 users if a higher league level exists within the company
+        for rank, user_league in enumerate(users_in_league):
+            if rank < 3:
+                promote_company_user(user_league.user, league)
+            else:
+                demote_company_user(user_league.user, league)
+
+            # Reset XP for the new league week
+            user_league.xp_company = 0
+            user_league.save()
+
+        # Mark the league instance as inactive
         league.is_active = False
         league.save()

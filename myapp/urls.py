@@ -1,7 +1,12 @@
 from django.urls import path
 from . import views
 
+
+# def trigger_error(request):
+#     division_by_zero = 1 / 0
+
 urlpatterns = [
+    # path('sentry-debug/', trigger_error),
     path('validate-email-password/', views.ValidateEmailPasswordView.as_view(), name='validate_email_password'),
     path('validate-company-association/', views.ValidateCompanyAssociationView.as_view(), name='validate_company_association'),
     path('create-user/', views.NormalUserSignupView.as_view(), name='create_user'),
@@ -31,4 +36,6 @@ urlpatterns = [
     path('active-league/global/', views.GlobalActiveLeagueView.as_view(), name='global-active-league'),
     path('company-draws/', views.CompanyPastDrawsAPIView.as_view(), name='company-draws'),
     path('global-draws/', views.GlobalPastDrawsAPIView.as_view(), name='global-draws'),
+    path('company/league-levels/', views.ApprovedLeaguesView.as_view(), name='approved-league-levels'),
+    path('profile/<int:id>/', views.PublicUserProfileView.as_view(), name='public-user-profile'),
 ]

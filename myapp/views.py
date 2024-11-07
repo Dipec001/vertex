@@ -9,7 +9,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance)
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.hashers import make_password
 from django.contrib import messages
@@ -450,6 +450,15 @@ class FacebookSignInView(APIView):
                 "last_name": last_name,
                 "profile_picture": picture
             }, status=status.HTTP_200_OK)
+        
+
+class PublicUserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, id):
+        user = get_object_or_404(CustomUser, id=id)
+        serializer = UserProfileSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UserProfileView(APIView):
@@ -1088,6 +1097,7 @@ class GlobalActiveLeagueView(APIView):
             ),
             "rankings": [
                 {
+                    "user id": ul.user.id,
                     "username": ul.user.username,
                     "xp": ul.xp_global
                 }
@@ -1128,6 +1138,7 @@ class CompanyActiveLeagueView(APIView):
             ),
             "rankings": [
                 {
+                    "user id": ul.user.id,
                     "username": ul.user.username,
                     "xp": ul.xp_company
                 }
@@ -1188,3 +1199,28 @@ class GlobalPastDrawsAPIView(APIView):
             })
 
         return Response(data, status=status.HTTP_200_OK)
+
+
+class ApprovedLeaguesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get the user's company
+        company = request.user.company
+
+        # Check if user has a company
+        if not company:
+            return Response({"detail": "User does not belong to any company.", "approved_leagues": []})
+
+        # Retrieve approved leagues for the user's company
+        approved_leagues = (
+            LeagueInstance.objects
+            .filter(company=company, is_active=True)
+            .select_related('league')  # Preload related league to avoid extra queries
+            .values("league__name", "league__order")
+        )
+
+        # Format the leagues into a list of dictionaries
+        approved_leagues_data = list(approved_leagues)
+
+        return Response({"approved_leagues": approved_leagues_data})

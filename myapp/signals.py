@@ -156,6 +156,7 @@ def add_to_first_league(sender, instance, **kwargs):
     print('Add to league triggered')
     user = instance.user
     total_xp = instance.totalXpAllTime
+    print(f"Total xp for the user is {total_xp}")
     
     # Check if user's total XP qualifies them for the Pathfinder league
     if total_xp >= 65:
@@ -194,56 +195,69 @@ def add_to_first_league(sender, instance, **kwargs):
 
 
 # Constants for minimum users and XP thresholds
-MIN_USERS_FOR_LEAGUE = 5  # Minimum users to create the first league
-XP_THRESHOLD = [0, 100, 200, 400, 800, 1600]  # Example XP thresholds for leagues
+XP_THRESHOLD = {
+    1: 0, 
+    2: 100, 
+    3: 200, 
+    4: 400, 
+    5: 800, 
+    6: 1600,
+    7: 2000,
+    8: 4000,
+    9: 8000,
+    10: 16000
+    }  # Example XP thresholds for leagues
 
-# Function to adjust company leagues based on membership count
-def adjust_company_leagues(company):
-    company_member_count = company.members.count()
 
-    # Check if the number of members is above the minimum requirement
-    if company_member_count >= MIN_USERS_FOR_LEAGUE:
-        # Define the number of leagues based on the number of users
-        num_leagues = min(10, (company_member_count // MIN_USERS_FOR_LEAGUE))
+@receiver(post_save, sender=Xp)
+def add_to_first_company_league(sender, instance, **kwargs):
+    """
+    Adds a user to the first available Pathfinder league instance for their company upon joining.
+    If no instance has room, a new Pathfinder instance is created.
+    """
+    print('Add to Company league triggered')
+    user = instance.user
+    total_xp = instance.totalXpAllTime
+    company = user.company
+    
+    # Check if user's total XP qualifies them for the Pathfinder league
+    if total_xp >= 80:
+        pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
 
-        # Create league instances if they don't exist
-        existing_leagues = LeagueInstance.objects.filter(company=company).count()
+        if not pathfinder_league:
+            print("Error: Pathfinder league not found.")
+            return
 
-        for order in range(existing_leagues + 1, num_leagues + 1):
-            # Assuming you have a League object created with the correct order
-            league = League.objects.get(order=order)
-            LeagueInstance.objects.create(
-                league=league,
+        # Check if the user is already assigned to a Pathfinder league for this company
+        user_league_entry = UserLeague.objects.filter(
+            user=user,
+            league_instance__league=pathfinder_league,
+            league_instance__company=company
+        ).first()
+        print('in company league, user league entry', user_league_entry)
+
+        if user_league_entry:
+            return  # User is already in the Pathfinder league for this company
+
+        # Find an active Pathfinder instance with room or create a new one
+        pathfinder_instance = (
+            LeagueInstance.objects
+            .filter(league=pathfinder_league, company=company, is_active=True)
+            .annotate(participant_count=Count('userleague'))
+            .filter(participant_count__lt=F('max_participants'))
+            .first()
+        )
+
+        if not pathfinder_instance:
+            # Create a new Pathfinder instance if all are full or none exist
+            pathfinder_instance = LeagueInstance.objects.create(
+                league=pathfinder_league,
                 company=company,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(days=7),  # Example duration
-                max_participants=30,
-                is_active=True,
+                league_end=timezone.now() + timezone.timedelta(days=7),
+                max_participants=5
             )
 
-# Signal to create initial league instances when a new company is created
-# @receiver(post_save, sender=Company)
-# def create_initial_league_instances(sender, instance, created, **kwargs):
-#     if created:
-#         adjust_company_leagues(instance)
-
-# # Function to assign users to the appropriate leagues
-# @receiver(post_save, sender=Membership)
-# def assign_user_to_company_league(sender, instance, created, **kwargs):
-#     if created:
-#         user = instance.user
-#         company = instance.company
-
-#         # Check if leagues are set up for this company
-#         league_instances = LeagueInstance.objects.filter(company=company).order_by('league__order')
-
-#         if league_instances.exists():
-#             # Assign the user to the lowest league instance
-#             lowest_league_instance = league_instances.first()
-#             UserLeague.objects.create(
-#                 user=user,
-#                 league_instance=lowest_league_instance,
-#                 xp_company=0,
-#                 xp_global=0,
-#                 is_retained=False
-#             )
+        # Add the user to the Pathfinder league instance
+        UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_company=0)
+        print(f"User {user} added to the {pathfinder_instance.league.name} instance for {company.name}.")

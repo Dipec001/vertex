@@ -16,6 +16,7 @@ import os
 from dotenv import load_dotenv
 import dj_database_url
 from celery.schedules import crontab
+import sentry_sdk
 
 
 load_dotenv()
@@ -311,4 +312,23 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
         # 'schedule': crontab(minute='*'),
     },
+    'process_company_league_promotions_every_6_hours': {
+        'task': 'myapp.tasks.process_company_league_promotions',
+        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
+        'schedule': crontab(minute='*'),
+    },
 }
+
+
+sentry_sdk.init(
+    dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    _experiments={
+        # Set continuous_profiling_auto_start to True
+        # to automatically start the profiler on when
+        # possible.
+        "continuous_profiling_auto_start": True,
+    },
+)
