@@ -5,7 +5,7 @@ from .models import Streak, CustomUser, Xp, Draw, Company,LeagueInstance, UserLe
 import logging
 from datetime import timedelta, datetime
 from django.utils import timezone as django_timezone
-from .league_service import promote_user, demote_user, promote_company_user, demote_company_user
+from .league_service import promote_user, demote_user, promote_company_user, demote_company_user, retain_company_user, retain_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -215,12 +215,25 @@ def process_league_promotions():
         print('league end time', league.league_end)
         # Order users by global XP in descending order for promotions and demotions
         users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global')
+        total_users = users_in_league.count()
+
+        promotion_threshold = int(total_users * 0.30)  # Promote top 30%
+        demotion_threshold = total_users - int(total_users * 0.20)  # Demote bottom 20%
         
-        for rank, user_league in enumerate(users_in_league):
-            if rank < 3:  # Promotion for the top 3 users
-                promote_user(user_league.user)
-            else:  # Demote other users
-                demote_user(user_league.user)
+        # for rank, user_league in enumerate(users_in_league):
+        #     if rank < 3:  # Promotion for the top 3 users
+        #         promote_user(user_league.user)
+        #     else:  # Demote other users
+        #         demote_user(user_league.user)
+        for rank, user_league in enumerate(users_in_league, start=1):
+            user = user_league.user
+            if rank <= promotion_threshold:
+                promote_user(user)
+            elif rank >= demotion_threshold:
+                demote_user(user)
+            else:
+                retain_user(user)
+
 
             # Reset the user global XP for the new league week
             user_league.xp_global = 0
@@ -244,12 +257,26 @@ def process_company_league_promotions():
         # Get users ordered by company XP for promotions and demotions
         users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_company')
 
-        # Promote the top 3 users if a higher league level exists within the company
-        for rank, user_league in enumerate(users_in_league):
-            if rank < 3:
-                promote_company_user(user_league.user, league)
+        total_users = users_in_league.count()
+        
+        promotion_threshold = int(total_users * 0.30)
+        demotion_threshold = total_users - int(total_users * 0.20)
+
+        for rank, user_league in enumerate(users_in_league, start=1):
+            user = user_league.user
+            if rank <= promotion_threshold:
+                promote_company_user(user, league)
+            elif rank >= demotion_threshold:
+                demote_company_user(user, league)
             else:
-                demote_company_user(user_league.user, league)
+                retain_company_user(user, league)
+
+        # # Promote the top 3 users if a higher league level exists within the company
+        # for rank, user_league in enumerate(users_in_league):
+        #     if rank < 3:
+        #         promote_company_user(user_league.user, league)
+        #     else:
+        #         demote_company_user(user_league.user, league)
 
             # Reset XP for the new league week
             user_league.xp_company = 0

@@ -1071,13 +1071,13 @@ class GlobalActiveLeagueView(APIView):
 
     def get(self, request):
         now = timezone.now()
-        print('time now ', now)
         user = request.user
 
+        # Get the user's active global league instance
         user_league = (
             UserLeague.objects
             .filter(user=user, league_instance__is_active=True, league_instance__company__isnull=True)
-            .select_related('league_instance')
+            .select_related('league_instance', 'user')
             .first()
         )
 
@@ -1085,27 +1085,91 @@ class GlobalActiveLeagueView(APIView):
             return Response({"error": "No active global league found for the user"}, status=404)
 
         league_instance = user_league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).order_by('-xp_global')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global')
 
+        total_users = rankings.count()
+        promotion_threshold = int(total_users * 0.30)  # Top 10%
+        demotion_threshold = int(total_users * 0.80)  # Bottom 10%
+
+        rankings_data = []
+        for index, ul in enumerate(rankings, start=1):
+            # Determine advancement status
+            if index <= promotion_threshold:
+                gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+                advancement = "Promoted"
+            elif index <= demotion_threshold:
+                gems_obtained = 10  # Retained users get a base reward
+                advancement = "Retained"
+            else:
+                gems_obtained = 0  # Demoted users receive no gems
+                advancement = "Demoted"
+            
+            # User data for each ranking
+            rankings_data.append({
+                "user_id": ul.user.id,
+                "username": ul.user.username,
+                "xp": ul.xp_global,
+                "streaks": ul.user.streak,  # Assuming `streak` is a field on the user model
+                "gems_obtained": gems_obtained,
+                "rank": index,
+                "advancement": advancement
+            })
+
+        # Find the current user's rank
+        user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
+
+        # Response data
         data = {
             "league_name": league_instance.league.name,
             "league_start": league_instance.league_start,
             "league_end": league_instance.league_end,
-            "user_rank": next(
-                (index + 1 for index, ul in enumerate(rankings) if ul.user == user),
-                None
-            ),
-            "rankings": [
-                {
-                    "user id": ul.user.id,
-                    "username": ul.user.username,
-                    "xp": ul.xp_global
-                }
-                for ul in rankings
-            ]
+            "user_rank": user_rank,
+            "rankings": rankings_data
         }
 
         return Response(data, status=status.HTTP_200_OK)
+
+
+# class GlobalActiveLeagueView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         now = timezone.now()
+#         print('time now ', now)
+#         user = request.user
+
+#         user_league = (
+#             UserLeague.objects
+#             .filter(user=user, league_instance__is_active=True, league_instance__company__isnull=True)
+#             .select_related('league_instance')
+#             .first()
+#         )
+
+#         if not user_league:
+#             return Response({"error": "No active global league found for the user"}, status=404)
+
+#         league_instance = user_league.league_instance
+#         rankings = UserLeague.objects.filter(league_instance=league_instance).order_by('-xp_global')
+
+#         data = {
+#             "league_name": league_instance.league.name,
+#             "league_start": league_instance.league_start,
+#             "league_end": league_instance.league_end,
+#             "user_rank": next(
+#                 (index + 1 for index, ul in enumerate(rankings) if ul.user == user),
+#                 None
+#             ),
+#             "rankings": [
+#                 {
+#                     "user_id": ul.user.id,
+#                     "username": ul.user.username,
+#                     "xp": ul.xp_global
+#                 }
+#                 for ul in rankings
+#             ]
+#         }
+
+#         return Response(data, status=status.HTTP_200_OK)
 
 
 class CompanyActiveLeagueView(APIView):
@@ -1115,10 +1179,11 @@ class CompanyActiveLeagueView(APIView):
         now = timezone.now()
         user = request.user
 
+        # Get the user's active company league instance
         user_league = (
             UserLeague.objects
             .filter(user=user, league_instance__is_active=True, league_instance__league_end__gt=now, league_instance__company__isnull=False)
-            .select_related('league_instance')
+            .select_related('league_instance', 'user')
             .first()
         )
 
@@ -1126,27 +1191,108 @@ class CompanyActiveLeagueView(APIView):
             return Response({"error": "No active company league found for the user"}, status=404)
 
         league_instance = user_league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).order_by('-xp_company')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company')
 
+        # # Determine ranks, gems, and advancement status
+        # rankings_data = []
+        # for index, ul in enumerate(rankings, start=1):
+        #     if index == 1:
+        #         gems_obtained = 20
+        #         advancement = "Promoted"
+        #     elif index == 2:
+        #         gems_obtained = 16
+        #         advancement = "Promoted"
+        #     elif index == 3:
+        #         gems_obtained = 14
+        #         advancement = "Promoted"
+        #     else:
+        #         # For ranks outside the top 3, assign 10 gems if retained, else 0 gems if demoted
+        #         gems_obtained = 10 if index <= len(rankings) - 3 else 0
+        #         advancement = "Retained" if index <= len(rankings) - 3 else "Demoted"
+        total_users = rankings.count()
+        promotion_threshold = int(total_users * 0.30)  # Top 10%
+        # demotion_threshold = int(total_users * 0.80)  # Bottom 10%
+        demotion_threshold = total_users - int(total_users * 0.20)
+
+        rankings_data = []
+        for index, ul in enumerate(rankings, start=1):
+            # Determine advancement status
+            if index <= promotion_threshold:
+                gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+                advancement = "Promoted"
+            elif index <= demotion_threshold:
+                gems_obtained = 10  # Retained users get a base reward
+                advancement = "Retained"
+            else:
+                gems_obtained = 0  # Demoted users receive no gems
+                advancement = "Demoted"
+            
+            # User data for each ranking
+            rankings_data.append({
+                "user_id": ul.user.id,
+                "username": ul.user.username,
+                "xp": ul.xp_company,
+                "streaks": ul.user.streak,  # Assuming `streak` is a field on the user model
+                "gems_obtained": gems_obtained,
+                "rank": index,
+                "advancement": advancement
+            })
+
+        # Find the current user's rank
+        user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
+
+        # Response data
         data = {
             "league_name": league_instance.league.name,
             "league_start": league_instance.league_start,
             "league_end": league_instance.league_end,
-            "user_rank": next(
-                (index + 1 for index, ul in enumerate(rankings) if ul.user == user),
-                None
-            ),
-            "rankings": [
-                {
-                    "user id": ul.user.id,
-                    "username": ul.user.username,
-                    "xp": ul.xp_company
-                }
-                for ul in rankings
-            ]
+            "user_rank": user_rank,
+            "rankings": rankings_data
         }
 
         return Response(data, status=status.HTTP_200_OK)
+
+
+
+# class CompanyActiveLeagueView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         now = timezone.now()
+#         user = request.user
+
+#         user_league = (
+#             UserLeague.objects
+#             .filter(user=user, league_instance__is_active=True, league_instance__league_end__gt=now, league_instance__company__isnull=False)
+#             .select_related('league_instance')
+#             .first()
+#         )
+
+#         if not user_league:
+#             return Response({"error": "No active company league found for the user"}, status=404)
+
+#         league_instance = user_league.league_instance
+#         rankings = UserLeague.objects.filter(league_instance=league_instance).order_by('-xp_company')
+
+#         data = {
+#             "league_name": league_instance.league.name,
+#             "league_start": league_instance.league_start,
+#             "league_end": league_instance.league_end,
+#             "user_rank": next(
+#                 (index + 1 for index, ul in enumerate(rankings) if ul.user == user),
+#                 None
+#             ),
+#             "rankings": [
+#                 {
+#                     "user_id": ul.user.id,
+#                     "username": ul.user.username,
+#                     "xp": ul.xp_company
+#                 }
+#                 for ul in rankings
+#             ]
+#         }
+
+#         return Response(data, status=status.HTTP_200_OK)
 
 
 class CompanyPastDrawsAPIView(APIView):
@@ -1224,3 +1370,20 @@ class ApprovedLeaguesView(APIView):
         approved_leagues_data = list(approved_leagues)
 
         return Response({"approved_leagues": approved_leagues_data})
+
+
+class LogoutView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            return Response({"error": "No refresh token provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            return Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

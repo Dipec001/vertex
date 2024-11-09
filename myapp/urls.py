@@ -38,4 +38,5 @@ urlpatterns = [
     path('global-draws/', views.GlobalPastDrawsAPIView.as_view(), name='global-draws'),
     path('company/league-levels/', views.ApprovedLeaguesView.as_view(), name='approved-league-levels'),
     path('profile/<int:id>/', views.PublicUserProfileView.as_view(), name='public-user-profile'),
+    path('logout/', views.LogoutView.as_view(), name='logout'),
 ]

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "myapp",
     'rest_framework',
     'rest_framework_simplejwt',
+    # 'rest_framework_simplejwt.token_blacklist',  # Add token_blacklist app
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -208,6 +209,9 @@ MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,  # Enables blacklisting
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
 
 
@@ -314,8 +318,8 @@ CELERY_BEAT_SCHEDULE = {
     },
     'process_company_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_company_league_promotions',
-        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
-        'schedule': crontab(minute='*'),
+        'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
+        # 'schedule': crontab(minute='*'),
     },
 }
 
