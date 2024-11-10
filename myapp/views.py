@@ -755,6 +755,77 @@ class XpRecordsView(APIView):
         })
 
 
+# class ConvertGemView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     # Define conversion rates
+#     GEM_COSTS = {
+#         'streak_saver': 2,
+#         'ticket_global': 1,
+#         'ticket_company': 1,
+#     }
+
+#     def post(self, request):
+#         user = request.user
+#         item_type = request.data.get('item_type')
+#         quantity = request.data.get('quantity', 1)  # Default quantity to 1 if not provided
+
+#         if item_type not in self.GEM_COSTS:
+#             return Response({"error": "Invalid item type"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Ensure the quantity is a positive integer
+#         if not isinstance(quantity, int) or quantity <= 0:
+#             return Response({"error": "Quantity must be a positive integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         gem_cost_per_item = self.GEM_COSTS[item_type]
+#         total_gem_cost = gem_cost_per_item * quantity
+
+#         # Check if the user has enough available gems
+#         if user.gem < total_gem_cost:
+#             return Response({"error": f"Not enough gems to purchase. You need {total_gem_cost} gems for {quantity} {item_type}(s)."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Use a transaction to ensure atomicity
+#         with transaction.atomic():
+#             # Deduct the total gem cost
+#             user.gem -= total_gem_cost
+#             user.gems_spent += total_gem_cost
+#             user.save(update_fields=['gem', 'gems_spent'])
+
+#             # Update the user's tickets or streak savers
+#             if item_type == 'streak_saver':
+#                 user.streak_savers += quantity
+#             elif item_type == 'ticket_global':  # For tickets
+#                 user.global_tickets += quantity
+
+#                 global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
+#                 if global_draw:
+#                     for _ in range(quantity):  # Add as many entries as tickets purchased
+#                         DrawEntry.objects.create(user=user, draw=global_draw)
+
+#             elif item_type == 'ticket_company':  # For company tickets
+#                 user.company_tickets += quantity
+
+#             user.save(update_fields=['streak_savers', 'company_tickets','global_tickets'])
+
+#             # Record the purchase
+#             purchase_data = {
+#                 'item_name': item_type,
+#                 'gem_used': total_gem_cost,
+#                 'quantity': quantity
+#             }
+#             purchase_serializer = PurchaseSerializer(data=purchase_data)
+
+#             if purchase_serializer.is_valid():
+#                 purchase_serializer.save(user=user)  # Save the purchase with the user
+#             else:
+#                 return Response(purchase_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#         return Response({
+#             "message": f"You have successfully converted {total_gem_cost} gems for {quantity} {item_type}(s).",
+#             "remaining_gem": user.gem
+#         }, status=status.HTTP_200_OK)
+
+
 class ConvertGemView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -769,11 +840,11 @@ class ConvertGemView(APIView):
         user = request.user
         item_type = request.data.get('item_type')
         quantity = request.data.get('quantity', 1)  # Default quantity to 1 if not provided
+        company_draw_id = request.data.get('company_draw_id')  # ID of the company draw to enter
 
+        # Validate item_type and quantity
         if item_type not in self.GEM_COSTS:
             return Response({"error": "Invalid item type"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Ensure the quantity is a positive integer
         if not isinstance(quantity, int) or quantity <= 0:
             return Response({"error": "Quantity must be a positive integer"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -782,30 +853,49 @@ class ConvertGemView(APIView):
 
         # Check if the user has enough available gems
         if user.gem < total_gem_cost:
-            return Response({"error": f"Not enough gems to purchase. You need {total_gem_cost} gems for {quantity} {item_type}(s)."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "error": f"Not enough gems. You need {total_gem_cost} gems for {quantity} {item_type}(s)."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Use a transaction to ensure atomicity
         with transaction.atomic():
             # Deduct the total gem cost
             user.gem -= total_gem_cost
             user.gems_spent += total_gem_cost
-            user.save(update_fields=['gem', 'gems_spent'])
 
             # Update the user's tickets or streak savers
             if item_type == 'streak_saver':
                 user.streak_savers += quantity
-            elif item_type == 'ticket_global':  # For tickets
+
+            elif item_type == 'ticket_global':
                 user.global_tickets += quantity
 
+                # Ensure there is an active global draw
                 global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
-                if global_draw:
-                    for _ in range(quantity):  # Add as many entries as tickets purchased
-                        DrawEntry.objects.create(user=user, draw=global_draw)
+                print(global_draw)
+                if not global_draw:
+                    return Response({"error": "No active global draw available."}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Add entries to the global draw
+                entries = [DrawEntry(user=user, draw=global_draw) for _ in range(quantity)]
+                DrawEntry.objects.bulk_create(entries)
 
-            elif item_type == 'ticket_company':  # For company tickets
+            elif item_type == 'ticket_company':
+                if company_draw_id is None:
+                    return Response({"error": "Company draw ID is required."}, status=status.HTTP_400_BAD_REQUEST)
                 user.company_tickets += quantity
 
-            user.save(update_fields=['streak_savers', 'company_tickets','global_tickets'])
+                # Validate the company draw ID and check if there’s an active company draw for the user’s company
+                try:
+                    company_draw = Draw.objects.get(pk=company_draw_id, company__membership__user=user, is_active=True)
+                except Draw.DoesNotExist:
+                    return Response({"error": "No active company draw available for the specified ID or not authorized."}, status=status.HTTP_404_NOT_FOUND)
+
+                # Add entries to the specified company draw
+                entries = [DrawEntry(user=user, draw=company_draw) for _ in range(quantity)]
+                DrawEntry.objects.bulk_create(entries)
+
+            user.save(update_fields=['gem', 'gems_spent', 'streak_savers', 'global_tickets', 'company_tickets'])
 
             # Record the purchase
             purchase_data = {
@@ -824,6 +914,7 @@ class ConvertGemView(APIView):
             "message": f"You have successfully converted {total_gem_cost} gems for {quantity} {item_type}(s).",
             "remaining_gem": user.gem
         }, status=status.HTTP_200_OK)
+
 
 
 class PurchaseHistoryView(APIView):
@@ -870,6 +961,7 @@ class GetAllGlobalView(APIView):
     def get(self, request):
         # Filter only active draws with draw_type as 'global'
         draws = Draw.objects.filter(is_active=True, draw_type='global')
+        print(draws)
         serializer = DrawSerializer(draws, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -882,13 +974,14 @@ class GlobalDrawEditView(APIView):
     
     def get_object(self, pk):
         try:
-            return Draw.objects.get(pk=pk, draw_type='global')  # Adjust based on your draw type logic
+            return Draw.objects.get(pk=pk, draw_type='global', is_active=True)  # Adjust based on your draw type logic
         except Draw.DoesNotExist:
             return None
 
     def get(self, request, pk):
         # Allow all users to view the draw details
         draw = self.get_object(pk)
+        print(draw)
         if draw is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         serializer = DrawSerializer(draw, context={'request': request})
@@ -953,38 +1046,38 @@ class CompanyDrawEditView(APIView):
             raise PermissionDenied("You do not have permission to access or manage this draw.")
 
 
-class EnterDrawView(APIView):
-    """
-    This view is used to enter a company draw
-    """
-    def post(self, request, pk):
-        try:
-            # Get the draw, ensure it's active and the user is a member of the company (if required)
-            draw = Draw.objects.get(pk=pk, company__membership__user=self.request.user)
+# class EnterDrawView(APIView):
+#     """
+#     This view is used to enter a company draw
+#     """
+#     def post(self, request, pk):
+#         try:
+#             # Get the draw, ensure it's active and the user is a member of the company (if required)
+#             draw = Draw.objects.get(pk=pk, company__membership__user=self.request.user)
 
-            # Check if the draw is active
-            if not draw.is_active:
-                return Response({'error': 'This draw is not active.'}, status=status.HTTP_400_BAD_REQUEST)
+#             # Check if the draw is active
+#             if not draw.is_active:
+#                 return Response({'error': 'This draw is not active.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Get the ticket amount from the request, default to 1 if not provided
-            ticket_amount = request.data.get('ticket_amount', 1)
+#             # Get the ticket amount from the request, default to 1 if not provided
+#             ticket_amount = request.data.get('ticket_amount', 1)
 
-            # Ensure the user has enough company tickets to enter the draw
-            if request.user.company_tickets < ticket_amount:
-                return Response({'error': 'You do not have enough company tickets to enter the draw.'}, status=status.HTTP_400_BAD_REQUEST)
+#             # Ensure the user has enough company tickets to enter the draw
+#             if request.user.company_tickets < ticket_amount:
+#                 return Response({'error': 'You do not have enough company tickets to enter the draw.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create multiple entries for the user if ticket_amount > 1
-            entries = [DrawEntry(user=request.user, draw=draw) for _ in range(ticket_amount)]
-            DrawEntry.objects.bulk_create(entries)
+#             # Create multiple entries for the user if ticket_amount > 1
+#             entries = [DrawEntry(user=request.user, draw=draw) for _ in range(ticket_amount)]
+#             DrawEntry.objects.bulk_create(entries)
 
-            # Deduct the used tickets from the user's company tickets
-            request.user.company_tickets -= ticket_amount
-            request.user.save()
+#             # Deduct the used tickets from the user's company tickets
+#             request.user.company_tickets -= ticket_amount
+#             request.user.save()
 
-            return Response({'success': f'You have entered the draw with {ticket_amount} tickets. Your company ticket count has been reduced by {ticket_amount}.'}, status=status.HTTP_201_CREATED)
+#             return Response({'success': f'You have entered the draw with {ticket_amount} tickets. Your company ticket count has been reduced by {ticket_amount}.'}, status=status.HTTP_201_CREATED)
 
-        except Draw.DoesNotExist:
-            return Response({'error': 'You do not have permission to enter this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+#         except Draw.DoesNotExist:
+#             return Response({'error': 'You do not have permission to enter this draw or it does not exist.'}, status=status.HTTP_404_NOT_FOUND)
 
 
 # class ExitDrawView(APIView):

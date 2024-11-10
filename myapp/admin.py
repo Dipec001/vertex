@@ -101,7 +101,7 @@ class PrizeAdmin(admin.ModelAdmin):
 # Customizing the display and functionality of the Draw model in the admin interface
 @admin.register(Draw)
 class DrawAdmin(admin.ModelAdmin):
-    list_display = ('draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active')
+    list_display = ('id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active')
     search_fields = ('draw_name', 'company__name', 'draw_type')
     list_filter = ('draw_type', 'draw_date', 'is_active')
     ordering = ('draw_date', 'draw_name')
@@ -119,7 +119,7 @@ class DrawEntryAdmin(admin.ModelAdmin):
 # Customizing the display and functionality of the DrawWinner model in the admin interface
 @admin.register(DrawWinner)
 class DrawWinnerAdmin(admin.ModelAdmin):
-    list_display = ('user', 'prize', 'draw', 'win_date')
+    list_display = ('id' ,'user', 'prize', 'draw', 'win_date')
     search_fields = ('user__email', 'prize__name', 'draw__draw_name')
     list_filter = ('win_date',)
     ordering = ('win_date', 'user')
