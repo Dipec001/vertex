@@ -1103,11 +1103,15 @@ class GlobalActiveLeagueView(APIView):
             else:
                 gems_obtained = 0  # Demoted users receive no gems
                 advancement = "Demoted"
+
+            # Prefix for S3 bucket URL
+            s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
             
             # User data for each ranking
             rankings_data.append({
                 "user_id": ul.user.id,
                 "username": ul.user.username,
+                "profile_picture": f"{s3_bucket_url}{ul.user.profile_picture}" if ul.user.profile_picture else None,
                 "xp": ul.xp_global,
                 "streaks": ul.user.streak,  # Assuming `streak` is a field on the user model
                 "gems_obtained": gems_obtained,
@@ -1226,11 +1230,15 @@ class CompanyActiveLeagueView(APIView):
             else:
                 gems_obtained = 0  # Demoted users receive no gems
                 advancement = "Demoted"
-            
+
+            # Prefix for S3 bucket URL  
+            s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
+
             # User data for each ranking
             rankings_data.append({
                 "user_id": ul.user.id,
                 "username": ul.user.username,
+                "profile_picture": f"{s3_bucket_url}{ul.user.profile_picture}" if ul.user.profile_picture else None,
                 "xp": ul.xp_company,
                 "streaks": ul.user.streak,  # Assuming `streak` is a field on the user model
                 "gems_obtained": gems_obtained,
