@@ -411,24 +411,62 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             user_xp.totalXpAllTime += new_xp
             user_xp.save()
 
+    # def create_workout_activity(self, user, new_xp, timestamp):
+    #     if new_xp > 0:
+    #         try:
+    #             WorkoutActivity.objects.create(
+    #                 user=user,
+    #                 activity_type="movement",
+    #                 activity_name="steps",
+    #                 xp=new_xp,
+    #                 duration=0,
+    #                 distance=0,
+    #                 average_heart_rate=0,
+    #                 start_datetime=timestamp,
+    #                 end_datetime=timestamp,
+    #                 metadata='{}',
+    #                 deviceType=None
+    #             )
+    #         except IntegrityError:
+    #             raise serializers.ValidationError(f"Daily step with the start time {timestamp} already exists.")
+
     def create_workout_activity(self, user, new_xp, timestamp):
         if new_xp > 0:
+            # Determine the date from the provided timestamp
+            local_date = timestamp.date()
+
             try:
-                WorkoutActivity.objects.create(
+                # Try to retrieve an existing workout for steps on the same day
+                workout_activity = WorkoutActivity.objects.filter(
                     user=user,
                     activity_type="movement",
                     activity_name="steps",
-                    xp=new_xp,
-                    duration=0,
-                    distance=0,
-                    average_heart_rate=0,
-                    start_datetime=timestamp,
-                    end_datetime=timestamp,
-                    metadata='{}',
-                    deviceType=None
-                )
+                    start_datetime__date=local_date
+                ).first()
+
+                if workout_activity:
+                    # Update the existing workout activity
+                    workout_activity.xp += new_xp
+                    # workout_activity.step_count += step_count  # Assuming `step_count` is recorded
+                    workout_activity.end_datetime = max(workout_activity.end_datetime, timestamp)
+                    workout_activity.save()
+                else:
+                    # Create a new workout activity if none exists for the day
+                    WorkoutActivity.objects.create(
+                        user=user,
+                        activity_type="movement",
+                        activity_name="steps",
+                        xp=new_xp,
+                        duration=0,
+                        distance=0,
+                        average_heart_rate=0,
+                        start_datetime=timestamp,
+                        end_datetime=timestamp,
+                        metadata='{}',
+                        deviceType=None
+                    )
             except IntegrityError:
-                raise serializers.ValidationError(f"Daily step with the start time {timestamp} already exists.")
+                raise serializers.ValidationError(f"An error occurred while recording steps workout activity for {timestamp}.")
 
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):
