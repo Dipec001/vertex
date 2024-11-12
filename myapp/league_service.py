@@ -30,7 +30,7 @@ def promote_user(user):
                 next_league_instance = LeagueInstance.objects.create(
                     league=next_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=1),
                     max_participants=30
                 )
 
@@ -56,7 +56,7 @@ def promote_user(user):
                 highest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=1),
                     max_participants=30
                 )
 
@@ -96,7 +96,7 @@ def demote_user(user):
                 previous_league_instance = LeagueInstance.objects.create(
                     league=previous_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=1),
                     max_participants=5
                 )
 
@@ -117,7 +117,7 @@ def demote_user(user):
                 lowest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=7),
                     max_participants=5
                 )
 
@@ -154,7 +154,7 @@ def retain_user(user):
             retain_league_instance = LeagueInstance.objects.create(
                 league=current_league,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(days=7),
+                league_end=timezone.now() + timezone.timedelta(hours=1),
                 max_participants=30
             )
 
@@ -210,7 +210,7 @@ def promote_company_user(user, current_league_instance):
                 next_league_instance = LeagueInstance.objects.create(
                     league=next_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
                     max_participants=30
                 )
@@ -238,7 +238,7 @@ def promote_company_user(user, current_league_instance):
                 current_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
                     max_participants=30
                 )
@@ -278,7 +278,7 @@ def demote_company_user(user, current_league_instance):
                 previous_league_instance = LeagueInstance.objects.create(
                     league=previous_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
                     max_participants=30
                 )
@@ -299,7 +299,7 @@ def demote_company_user(user, current_league_instance):
                 lowest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(days=7),
+                    league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
                     max_participants=30
                 )
@@ -342,7 +342,7 @@ def retain_company_user(user, current_league_instance):
                 league=current_league,
                 company=company,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(days=7),
+                league_end=timezone.now() + timezone.timedelta(hours=1),
                 max_participants=30
             )
 
