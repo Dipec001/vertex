@@ -12,6 +12,7 @@ from .tasks import send_invitation_email_task
 from timezone_field.rest_framework import TimeZoneSerializerField
 from datetime import datetime, timedelta
 from django.db.models import Sum
+from django.utils import timezone
 
 
 logger = logging.getLogger(__name__)
@@ -150,10 +151,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
     follower_count = serializers.IntegerField(source='followers.count', read_only=True)
     following_count = serializers.IntegerField(source='following.count', read_only=True)
     is_following = serializers.SerializerMethodField()
-    # weekly_xp = serializers.SerializerMethodField()
-    # weekly_steps = serializers.SerializerMethodField()
-    # weekly_workouts = serializers.SerializerMethodField()
-    # total_xp_all_time = serializers.SerializerMethodField()
+    weekly_xp = serializers.SerializerMethodField()
+    weekly_steps = serializers.SerializerMethodField()
+    weekly_workouts = serializers.SerializerMethodField()
+    total_xp_all_time = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -179,10 +180,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'follower_count',
             'following_count',
             'is_following',
-            # 'weekly_xp',
-            # 'weekly_steps',
-            # 'weekly_workouts',
-            # 'total_xp_all_time'
+            'weekly_xp',
+            'weekly_steps',
+            'weekly_workouts',
+            'total_xp_all_time'
         ]
 
     def get_global_league(self, obj):
@@ -218,23 +219,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return UserFollowing.objects.filter(follower=request.user, following=obj).exists()
         return False
     
-    # def get_weekly_xp(self, obj):
-    #     return self.get_weekly_data(obj, 'xp_records', 'totalXpToday')
+    def get_weekly_xp(self, obj):
+        return self.get_weekly_data(obj, 'xp_records', 'totalXpToday')
 
-    # def get_weekly_steps(self, obj):
-    #     return self.get_weekly_data(obj, 'daily_steps', 'step_count')
+    def get_weekly_steps(self, obj):
+        return self.get_weekly_data(obj, 'daily_steps', 'step_count')
 
-    # def get_weekly_workouts(self, obj):
-    #     return self.get_weekly_data(obj, 'workout_activity', 'duration')
+    def get_weekly_workouts(self, obj):
+        return self.get_weekly_data(obj, 'workout_activity', 'duration', use_timestamp=True)
 
-    # def get_total_xp_all_time(self, obj):
-    #     # Summing all XP values across all time for the user
-    #     total_xp = Xp.objects.filter(user=obj).aggregate(total=Sum('totalXpToday'))['total'] or 0
-    #     return total_xp
+    def get_total_xp_all_time(self, obj):
+        # Summing all XP values across all time for the user
+        total_xp = Xp.objects.filter(user=obj).aggregate(total=Sum('totalXpToday'))['total'] or 0
+        return total_xp
 
     # def get_weekly_data(self, obj, related_field, value_field):
     #     """Helper to get weekly XP, steps, or workouts data from Monday to Sunday."""
-    #     current_day = localtime(now()).date()
+    #     user_timezone = obj.timezone
+    #     # print(user_timezone)
+    #     current_utc_time = timezone.now()
+    #     user_local_time = current_utc_time.astimezone(user_timezone)
+    #     # print('user_local_time', user_local_time)
+    #     current_day = user_local_time.date()
     #     # Calculate the start and end of the week based on Monday as the start of the week
     #     start_of_week = current_day - timedelta(days=current_day.weekday())
     #     end_of_week = start_of_week + timedelta(days=6)
@@ -257,6 +263,44 @@ class UserProfileSerializer(serializers.ModelSerializer):
     #         weekly_data[weekday_name] = 0
 
     #     return weekly_data
+
+    def get_weekly_data(self, obj, related_field, value_field, use_timestamp=False):
+        """Helper to get weekly data from Monday to Sunday, supports timestamp fields."""
+        user_timezone = obj.timezone
+        current_utc_time = timezone.now()
+        user_local_time = current_utc_time.astimezone(user_timezone)
+        current_day = user_local_time.date()
+
+        # Calculate the start and end of the week based on Monday as the start of the week
+        start_of_week = current_day - timedelta(days=current_day.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+
+        # Initialize weekly data as a dictionary with days of the week as keys and 0 values
+        weekly_data = {day: 0 for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
+
+        # Get the user's records for the current week, filter by date range
+        records = getattr(obj, related_field)
+        
+        # Filter records by date or timestamp based on the field type
+        if use_timestamp:
+            # For `workout_activity`, filter by `start_datetime` range
+            records = records.filter(start_datetime__date__range=[start_of_week, end_of_week])
+        else:
+            records = records.filter(date__range=[start_of_week, end_of_week])
+
+        # Loop over the records and populate weekly data
+        for record in records:
+            record_date = record.start_datetime.date() if use_timestamp else record.date
+            record_day = record_date.weekday()  # Monday=0, Sunday=6
+            weekday_name = list(weekly_data.keys())[record_day]
+            weekly_data[weekday_name] += getattr(record, value_field, 0)
+
+        # Set future days of the week to 0
+        for day_offset in range(current_day.weekday() + 1, 7):
+            weekday_name = list(weekly_data.keys())[day_offset]
+            weekly_data[weekday_name] = 0
+
+        return weekly_data
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
