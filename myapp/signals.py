@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Membership
+from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Feed
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from django.db.models import Count, F
@@ -10,16 +10,31 @@ from django.db import transaction
 import pytz
 
 
+def is_milestone_streak(streak):
+    # Define milestones dynamically
+    if streak < 10:
+        return False
+    elif streak % 10 == 0 and streak < 100:
+        return True
+    elif streak % 100 == 0 and streak < 1000:
+        return True
+    elif streak % 1000 == 0 and streak < 1000000:
+        return True
+    elif streak % 1000000 == 0:
+        return True
+    return False
+
+
 @receiver(post_save, sender=Xp)
 def update_streak_on_xp_change(sender, instance, **kwargs):
-    print("Signal triggered")
+    # print("Signal triggered")
     user = instance.user
     total_xp_today = instance.totalXpToday
-    print(f"Total XP today: {total_xp_today}")
+    # print(f"Total XP today: {total_xp_today}")
 
     # Check if total XP for today is >= 250
     if total_xp_today < 250:
-        print("Total XP is less than 500, not updating streak")
+        # print("Total XP is less than 500, not updating streak")
         return
 
     xp_date = instance.date  # Use the date from Xp instance
@@ -27,7 +42,7 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
     with transaction.atomic():
         # Get the most recent streak record before the given xp_date
         recent_streak = Streak.objects.filter(user=user, date__lt=xp_date).order_by('-date').first()
-        print('Recent streak date:', recent_streak.date if recent_streak else None)
+        # print('Recent streak date:', recent_streak.date if recent_streak else None)
     
         # Determine the starting streak value and highest streak value
         if recent_streak:
@@ -63,10 +78,19 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
         else:
             print(f"Streak record created for date: {xp_date}")
 
+        # Dynamic milestone check
+        if is_milestone_streak(current_streak):
+            Feed.objects.create(
+                user=user,
+                feed_type=Feed.STREAK,
+                content=f"{user.username} has reached a {current_streak}-day streak!",
+            )
+            print(f"Feed created for {current_streak}-day streak milestone.")
+
         # Ensure proper conversion to user's local timezone
         user_timezone = pytz.timezone(user.timezone.key)
         local_now = datetime.now(user_timezone)
-        print('local time',local_now)
+        # print('local time',local_now)
 
         current_date = xp_date + timedelta(days=1)  # Start checking from the next day
 
@@ -129,7 +153,6 @@ def update_gems(sender, instance, **kwargs):
 
     # Calculate how many gems to award based on the total XP for today
     new_gems_awarded = int(total_xp_today // 250)  # Ensure integer division for whole gems
-    print(new_gems_awarded)
 
     # Check if `gems_awarded` needs updating
     if instance.gems_awarded != new_gems_awarded:
@@ -153,10 +176,10 @@ def add_to_first_league(sender, instance, **kwargs):
     This signal assigns users with total XP >= 65 to the Pathfinder League (level one league).
     If no Pathfinder LeagueInstance has available space, a new instance is created.
     """
-    print('Add to league triggered')
+    # print('Add to league triggered')
     user = instance.user
     total_xp = instance.totalXpAllTime
-    print(f"Total xp for the user is {total_xp}")
+    # print(f"Total xp for the user is {total_xp}")
     
     # Check if user's total XP qualifies them for the Pathfinder league
     if total_xp >= 65:
@@ -234,7 +257,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
             league_instance__league=pathfinder_league,
             league_instance__company=company
         ).first()
-        print('in company league, user league entry', user_league_entry)
+        # print('in company league, user league entry', user_league_entry)
 
         if user_league_entry:
             return  # User is already in the Pathfinder league for this company

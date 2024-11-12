@@ -5,9 +5,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
                           DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
-                          DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer)
+                          DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
-                     Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance)
+                     Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
@@ -457,7 +457,7 @@ class PublicUserProfileView(APIView):
 
     def get(self, request, id):
         user = get_object_or_404(CustomUser, id=id)
-        serializer = UserProfileSerializer(user)
+        serializer = UserProfileSerializer(user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -1488,3 +1488,46 @@ class LogoutView(APIView):
             return Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+class FollowToggleAPIView(APIView):
+    def post(self, request, user_id):
+        user_to_follow = get_object_or_404(CustomUser, id=user_id)
+
+        # Prevent users from following themselves
+        if user_to_follow == request.user:
+            return Response({"message": "You cannot follow yourself."}, status=status.HTTP_400_BAD_REQUEST)
+
+        follow_instance, created = UserFollowing.objects.get_or_create(
+            follower=request.user, following=user_to_follow
+        )
+
+        if not created:
+            follow_instance.delete()
+            return Response({"message": "Unfollowed"}, status=status.HTTP_200_OK)
+
+        return Response({"message": "Followed"}, status=status.HTTP_201_CREATED)
+    
+
+class ClapToggleAPIView(APIView):
+    def post(self, request, feed_id):
+        feed = get_object_or_404(Feed, id=feed_id)
+        clap_instance, created = Clap.objects.get_or_create(user=request.user, feed=feed)
+        if not created:
+            clap_instance.delete()
+            return Response({"message": "Unclapped"}, status=status.HTTP_200_OK)
+        return Response({"message": "Clapped"}, status=status.HTTP_201_CREATED)
+
+
+class FeedListView(APIView):
+    def get(self, request):
+        # Get the list of users the current user is following
+        following_users = request.user.following.values_list('following', flat=True)
+        
+        # Fetch all feeds from users the current user follows
+        feeds = Feed.objects.filter(user__in=following_users).order_by('-created_at')
+        
+        # Serialize the feeds with the request context for `has_clapped`
+        serializer = FeedSerializer(feeds, many=True, context={'request': request})
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)

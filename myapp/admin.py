@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import (CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity, DailySteps, 
-                     Purchase, Prize, Draw, DrawEntry, DrawWinner, League, LeagueInstance, UserLeague)
+                     Purchase, Prize, Draw, DrawEntry, DrawWinner, League, LeagueInstance, UserLeague, Clap,
+                       UserFollowing, Feed)
 # Register your models here.
 
 # Customizing the display and functionality of the CustomUser model in the admin interface
@@ -151,3 +152,30 @@ class UserLeagueAdmin(admin.ModelAdmin):
     list_filter = ('is_retained',)  # Filter by retention status
     ordering = ('user', 'league_instance')  # Order by user and league
     list_per_page = 20  # Pagination
+
+
+@admin.register(UserFollowing)
+class UserFollowingAdmin(admin.ModelAdmin):
+    list_display = ('follower', 'following', 'followed_at')  # Display these fields in the list view
+    search_fields = ('follower__username', 'following__username')  # Allow search by follower and following usernames
+    list_filter = ('followed_at',)  # Filter by the date the follow occurred
+    ordering = ('-followed_at',)  # Ordering by the most recent follow first
+    list_per_page = 20  # Pagination, 20 entries per page
+
+
+@admin.register(Feed)
+class FeedAdmin(admin.ModelAdmin):
+    list_display = ('user', 'content', 'created_at', 'claps_count')  # Fields to display in the list
+    search_fields = ('user__username', 'content')  # Allow searching by username and feed content
+    list_filter = ('created_at',)  # Filter by creation date
+    ordering = ('-created_at',)  # Ordering by the most recent feed first
+    list_per_page = 20  # Pagination, 20 entries per page
+
+
+@admin.register(Clap)
+class ClapAdmin(admin.ModelAdmin):
+    list_display = ('user', 'feed', 'created_at')  # Display user, feed, and timestamp
+    search_fields = ('user__username', 'feed__content')  # Search by user username and feed content
+    list_filter = ('created_at',)  # Filter by creation date of the clap
+    ordering = ('-created_at',)  # Ordering by the most recent clap first
+    list_per_page = 20  # Pagination, 20 entries per page

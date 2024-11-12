@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, DrawEntry, DrawWinner, Prize, UserLeague
+from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, 
+                     DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing)
 import random
 import string
 from allauth.socialaccount.models import SocialAccount
@@ -8,14 +9,9 @@ import logging
 from rest_framework.validators import UniqueValidator
 from django.db import transaction, IntegrityError
 from .tasks import send_invitation_email_task
-from django.utils import timezone
-from .timezone_converter import convert_to_utc, convert_from_utc
 from timezone_field.rest_framework import TimeZoneSerializerField
-from pytz import UTC
 from datetime import datetime
-from pytz import timezone as pytz_timezone
-import pytz
-from zoneinfo import ZoneInfo
+from django.db.models import Sum
 
 
 logger = logging.getLogger(__name__)
@@ -150,6 +146,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
     company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     gem = serializers.IntegerField(read_only=True)
     league = serializers.SerializerMethodField()  # Use SerializerMethodField instead
+    follower_count = serializers.IntegerField(source='followers.count', read_only=True)
+    following_count = serializers.IntegerField(source='following.count', read_only=True)
+    is_following = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -171,6 +170,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'profile_picture_url',  # Custom field with logic
             'company',
             'league',
+            'follower_count',
+            'following_count',
+            'is_following',
         ]
 
     def get_league(self, obj):
@@ -192,6 +194,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # Fallback to a default image if neither is set
         # return '/static/images/default_avatar.png
 
+    def get_is_following(self, obj):
+        # Check if the current authenticated user follows the queried user
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return UserFollowing.objects.filter(follower=request.user, following=obj).exists()
+        return False
+
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
     timezone = TimeZoneSerializerField(use_pytz=False)  # Change to False if you want `zoneinfo` objects
@@ -199,6 +208,42 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ['username', 'bio', 'profile_picture', 'timezone'] 
 
+
+
+# Serializer for Feed model
+class FeedSerializer(serializers.ModelSerializer):
+    has_clapped = serializers.SerializerMethodField()
+    claps_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Feed
+        fields = ['id', 'user','feed_type', 'content', 'created_at', 'claps_count', 'has_clapped']
+
+    def get_has_clapped(self, obj):
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return Clap.objects.filter(user=user, feed=obj).exists()
+        return False
+
+
+# Serializer for Clap model
+class ClapSerializer(serializers.ModelSerializer):
+    user = UserProfileSerializer(read_only=True)
+
+    class Meta:
+        model = Clap
+        fields = ['id', 'user', 'feed', 'created_at']
+
+
+# Serializer for UserFollowing model
+class UserFollowingSerializer(serializers.ModelSerializer):
+    follower = UserProfileSerializer(read_only=True)
+    following = UserProfileSerializer(read_only=True)
+    followed_at = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = UserFollowing
+        fields = ['follower', 'following', 'followed_at']
 
 
 class NormalUserSignupSerializer(serializers.ModelSerializer):
@@ -380,6 +425,15 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 self.update_user_xp(user, local_date, new_xp, timestamp)
                 self.create_workout_activity(user, new_xp, timestamp)
 
+                # Query the total daily steps after updating/creating the entry
+                total_daily_step_count = DailySteps.objects.filter(user=user).aggregate(
+                    total_steps=Sum('step_count')
+                )['total_steps'] or 0
+                print(total_daily_step_count)
+
+                # Check milestones dynamically based on the total daily steps
+                self.check_dynamic_milestones(user, total_daily_step_count)
+
                 return daily_steps
             except Exception as e:
                 logger.error(f"Error creating/updating DailySteps for user {user.id}: {str(e)}")
@@ -467,6 +521,25 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                     )
             except IntegrityError:
                 raise serializers.ValidationError(f"An error occurred while recording steps workout activity for {timestamp}.")
+            
+    def check_dynamic_milestones(self, user, total_daily_step_count, milestone_increment=10000):
+        """
+        Check milestones dynamically and create a feed only if the milestone hasn't been reached before.
+        """
+        milestone = milestone_increment
+        last_feed = Feed.objects.filter(user=user, feed_type=Feed.MILESTONE).order_by('-created_at').first()
+        last_milestone = int(last_feed.content.split(" ")[-2]) if last_feed else 0
+        # print("last milestone", last_milestone)
+
+        while milestone <= total_daily_step_count:
+            if milestone > last_milestone:
+                Feed.objects.create(
+                    user=user,
+                    feed_type=Feed.MILESTONE,
+                    content=f"{user.username} has achieved a personal bonus of {milestone} steps!",
+                )
+                print(f"Feed created for {milestone}-step milestone.")
+            milestone += milestone_increment
 
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):

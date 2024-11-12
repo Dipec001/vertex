@@ -39,4 +39,7 @@ urlpatterns = [
     path('company/league-levels/', views.ApprovedLeaguesView.as_view(), name='approved-league-levels'),
     path('profile/<int:id>/', views.PublicUserProfileView.as_view(), name='public-user-profile'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
+    path('follow/<int:user_id>/', views.FollowToggleAPIView.as_view(), name='follow-toggle'),
+    path('clap/<int:feed_id>/', views.ClapToggleAPIView.as_view(), name='clap-toggle'),
+    path('feed/', views.FeedListView.as_view(), name='following-feed-list'),
 ]
