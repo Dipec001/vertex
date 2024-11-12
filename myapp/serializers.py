@@ -10,7 +10,7 @@ from rest_framework.validators import UniqueValidator
 from django.db import transaction, IntegrityError
 from .tasks import send_invitation_email_task
 from timezone_field.rest_framework import TimeZoneSerializerField
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.db.models import Sum
 
 
@@ -145,10 +145,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
     global_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     gem = serializers.IntegerField(read_only=True)
-    league = serializers.SerializerMethodField()  # Use SerializerMethodField instead
+    global_league = serializers.SerializerMethodField()
+    company_league = serializers.SerializerMethodField()
     follower_count = serializers.IntegerField(source='followers.count', read_only=True)
     following_count = serializers.IntegerField(source='following.count', read_only=True)
     is_following = serializers.SerializerMethodField()
+    weekly_xp = serializers.SerializerMethodField()
+    weekly_steps = serializers.SerializerMethodField()
+    weekly_workouts = serializers.SerializerMethodField()
+    total_xp_all_time = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -169,18 +174,30 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'date_joined', 
             'profile_picture_url',  # Custom field with logic
             'company',
-            'league',
+            'global_league',
+            'company_league',
             'follower_count',
             'following_count',
             'is_following',
+            'weekly_xp',
+            'weekly_steps',
+            'weekly_workouts',
+            'total_xp_all_time'
         ]
 
-    def get_league(self, obj):
-        # Get the UserLeague entry for the user
-        user_league_entry = UserLeague.objects.filter(user=obj).first()
+    def get_global_league(self, obj):
+        # Get the UserLeague entry for the user's global league
+        user_league_entry = UserLeague.objects.filter(user=obj, league_instance__company__isnull=True).first()
         if user_league_entry:
             return user_league_entry.league_instance.league.name  # Return the league name
-        return None  # Return None if no league is found
+        return None
+
+    def get_company_league(self, obj):
+        # Get the UserLeague entry for the user's company league
+        user_league_entry = UserLeague.objects.filter(user=obj, league_instance__company__isnull=False).first()
+        if user_league_entry:
+            return user_league_entry.league_instance.league.name  # Return the league name
+        return None
 
     def get_profile_picture_url(self, obj):
         # If the user has an uploaded profile picture, return its URL
@@ -200,6 +217,46 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return UserFollowing.objects.filter(follower=request.user, following=obj).exists()
         return False
+    
+    def get_weekly_xp(self, obj):
+        return self.get_weekly_data(obj, 'xp_records', 'totalXpToday')
+
+    def get_weekly_steps(self, obj):
+        return self.get_weekly_data(obj, 'daily_steps', 'step_count')
+
+    def get_weekly_workouts(self, obj):
+        return self.get_weekly_data(obj, 'workout_activity', 'duration')
+
+    def get_total_xp_all_time(self, obj):
+        # Summing all XP values across all time for the user
+        total_xp = Xp.objects.filter(user=obj).aggregate(total=Sum('totalXpToday'))['total'] or 0
+        return total_xp
+
+    def get_weekly_data(self, obj, related_field, value_field):
+        """Helper to get weekly XP, steps, or workouts data from Monday to Sunday."""
+        current_day = localtime(now()).date()
+        # Calculate the start and end of the week based on Monday as the start of the week
+        start_of_week = current_day - timedelta(days=current_day.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+        
+        # Initialize weekly data as a dictionary with days of the week as keys and 0 values
+        weekly_data = {day: 0 for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
+        
+        # Get the user's records for the current week, filter by date range
+        records = getattr(obj, related_field).filter(date__range=[start_of_week, end_of_week])
+
+        # Loop over the records and populate weekly data
+        for record in records:
+            record_day = record.date.weekday()  # Monday=0, Sunday=6
+            weekday_name = list(weekly_data.keys())[record_day]
+            weekly_data[weekday_name] = getattr(record, value_field, 0)
+
+        # For future days of the week, keep the values as 0
+        for day_offset in range(current_day.weekday() + 1, 7):
+            weekday_name = list(weekly_data.keys())[day_offset]
+            weekly_data[weekday_name] = 0
+
+        return weekly_data
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
