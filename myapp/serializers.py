@@ -294,6 +294,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 "xp": workout.xp,
                 "average_heart_rate": workout.average_heart_rate,
                 "distance": workout.distance,
+                "metadata": workout.metadata,
                 "start_datetime": workout.start_datetime,
                 "end_datetime": workout.end_datetime,
                 "device_type": workout.deviceType,
