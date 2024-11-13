@@ -214,7 +214,7 @@ def process_league_promotions():
     for league in expired_leagues:
         print('league end time', league.league_end)
         # Order users by global XP in descending order for promotions and demotions
-        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global')
+        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global', 'id')
         total_users = users_in_league.count()
 
         promotion_threshold = int(total_users * 0.30)  # Promote top 30%
@@ -281,7 +281,7 @@ def process_company_league_promotions():
 
     for league in expired_leagues:
         # Get users ordered by company XP for promotions and demotions
-        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_company')
+        users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_company', 'id')
 
         total_users = users_in_league.count()
         

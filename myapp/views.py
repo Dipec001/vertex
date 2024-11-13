@@ -1299,7 +1299,7 @@ class CompanyActiveLeagueView(APIView):
             return Response({"error": "No active company league found for the user"}, status=404)
 
         league_instance = user_league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
 
         # # Determine ranks, gems, and advancement status
         # rankings_data = []
