@@ -31,7 +31,7 @@ def promote_user(user):
                     league=next_league,
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
-                    max_participants=30
+                    max_participants=5
                 )
 
             # Attempt to create a new UserLeague entry for the user
@@ -57,7 +57,7 @@ def promote_user(user):
                     league=current_league,
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
-                    max_participants=30
+                    max_participants=5
                 )
 
             try:
@@ -155,7 +155,7 @@ def retain_user(user):
                 league=current_league,
                 league_start=timezone.now(),
                 league_end=timezone.now() + timezone.timedelta(hours=1),
-                max_participants=30
+                max_participants=5
             )
 
         # Attempt to create a new UserLeague entry for the user
@@ -212,7 +212,7 @@ def promote_company_user(user, current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=30
+                    max_participants=5
                 )
 
             try:
@@ -240,7 +240,7 @@ def promote_company_user(user, current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=30
+                    max_participants=5
                 )
 
             try:
@@ -280,7 +280,7 @@ def demote_company_user(user, current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=30
+                    max_participants=5
                 )
 
             UserLeague.objects.create(user=user, league_instance=previous_league_instance, xp_company=0)
@@ -301,7 +301,7 @@ def demote_company_user(user, current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=30
+                    max_participants=5
                 )
 
             try:
@@ -343,7 +343,7 @@ def retain_company_user(user, current_league_instance):
                 company=company,
                 league_start=timezone.now(),
                 league_end=timezone.now() + timezone.timedelta(hours=1),
-                max_participants=30
+                max_participants=5
             )
 
             print('creating new current league as not found')

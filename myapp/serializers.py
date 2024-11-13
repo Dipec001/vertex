@@ -226,43 +226,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return self.get_weekly_data(obj, 'daily_steps', 'step_count')
 
     def get_weekly_workouts(self, obj):
-        return self.get_weekly_data(obj, 'workout_activity', 'duration', use_timestamp=True)
+        return self.get_detailed_weekly_workouts(obj)
 
     def get_total_xp_all_time(self, obj):
         # Summing all XP values across all time for the user
         total_xp = Xp.objects.filter(user=obj).aggregate(total=Sum('totalXpToday'))['total'] or 0
         return total_xp
-
-    # def get_weekly_data(self, obj, related_field, value_field):
-    #     """Helper to get weekly XP, steps, or workouts data from Monday to Sunday."""
-    #     user_timezone = obj.timezone
-    #     # print(user_timezone)
-    #     current_utc_time = timezone.now()
-    #     user_local_time = current_utc_time.astimezone(user_timezone)
-    #     # print('user_local_time', user_local_time)
-    #     current_day = user_local_time.date()
-    #     # Calculate the start and end of the week based on Monday as the start of the week
-    #     start_of_week = current_day - timedelta(days=current_day.weekday())
-    #     end_of_week = start_of_week + timedelta(days=6)
-        
-    #     # Initialize weekly data as a dictionary with days of the week as keys and 0 values
-    #     weekly_data = {day: 0 for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
-        
-    #     # Get the user's records for the current week, filter by date range
-    #     records = getattr(obj, related_field).filter(date__range=[start_of_week, end_of_week])
-
-    #     # Loop over the records and populate weekly data
-    #     for record in records:
-    #         record_day = record.date.weekday()  # Monday=0, Sunday=6
-    #         weekday_name = list(weekly_data.keys())[record_day]
-    #         weekly_data[weekday_name] = getattr(record, value_field, 0)
-
-    #     # For future days of the week, keep the values as 0
-    #     for day_offset in range(current_day.weekday() + 1, 7):
-    #         weekday_name = list(weekly_data.keys())[day_offset]
-    #         weekly_data[weekday_name] = 0
-
-    #     return weekly_data
 
     def get_weekly_data(self, obj, related_field, value_field, use_timestamp=False):
         """Helper to get weekly data from Monday to Sunday, supports timestamp fields."""
@@ -301,6 +270,41 @@ class UserProfileSerializer(serializers.ModelSerializer):
             weekly_data[weekday_name] = 0
 
         return weekly_data
+    
+    def get_detailed_weekly_workouts(self, obj):
+        user_timezone = obj.timezone
+        current_utc_time = timezone.now()
+        user_local_time = current_utc_time.astimezone(user_timezone)
+        current_day = user_local_time.date()
+        
+        start_of_week = current_day - timedelta(days=current_day.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
+
+        weekly_workouts = {day: [] for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
+
+        workouts = obj.workout_activity.filter(start_datetime__date__range=[start_of_week, end_of_week])
+
+        for workout in workouts:
+            workout_day = workout.start_datetime.date().weekday()
+            weekday_name = list(weekly_workouts.keys())[workout_day]
+            weekly_workouts[weekday_name].append({
+                "activity_type": workout.activity_type,
+                "activity_name": workout.activity_name,
+                "duration": workout.duration,
+                "xp": workout.xp,
+                "average_heart_rate": workout.average_heart_rate,
+                "distance": workout.distance,
+                "start_datetime": workout.start_datetime,
+                "end_datetime": workout.end_datetime,
+                "device_type": workout.deviceType,
+            })
+
+        # Set future days of the week to an empty list
+        for day_offset in range(current_day.weekday() + 1, 7):
+            weekday_name = list(weekly_workouts.keys())[day_offset]
+            weekly_workouts[weekday_name] = []
+
+        return weekly_workouts
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):

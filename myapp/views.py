@@ -7,7 +7,8 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
-                     Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap)
+                     Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
+                     League)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
@@ -1178,7 +1179,7 @@ class GlobalActiveLeagueView(APIView):
             return Response({"error": "No active global league found for the user"}, status=404)
 
         league_instance = user_league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global', 'id')
 
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)  # Top 10%
@@ -1196,6 +1197,15 @@ class GlobalActiveLeagueView(APIView):
             else:
                 gems_obtained = 0  # Demoted users receive no gems
                 advancement = "Demoted"
+
+            # Handle cases with fewer users
+            if total_users <= 2:
+                if ul.xp_global == 0:
+                    advancement = "Demoted"
+                    gems_obtained = 0
+                else:
+                    advancement = "Retained"
+                    gems_obtained = 10
 
             # Prefix for S3 bucket URL
             s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
@@ -1218,6 +1228,7 @@ class GlobalActiveLeagueView(APIView):
         # Response data
         data = {
             "league_name": league_instance.league.name,
+            "league_level": 11-league_instance.league.order,
             "league_start": league_instance.league_start,
             "league_end": league_instance.league_end,
             "user_rank": user_rank,
@@ -1471,6 +1482,52 @@ class ApprovedLeaguesView(APIView):
         approved_leagues_data = list(approved_leagues)
 
         return Response({"approved_leagues": approved_leagues_data})
+    
+
+class ApprovedLeaguesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get the user's company
+        company = request.user.company
+
+        # Check if user has a company
+        if not company:
+            return Response({
+                "detail": "User does not belong to any company.",
+                "approved_leagues": [],
+                "global_leagues": []
+            })
+
+        # Retrieve approved leagues for the user's company
+        approved_leagues = (
+            LeagueInstance.objects
+            .filter(company=company, is_active=True)
+            .select_related('league')
+            .values("league__name", "league__order")
+            .order_by("league__order")  # Sort by league order
+        )
+        approved_leagues_data = list(approved_leagues)
+
+        # Retrieve all global leagues ordered by 'order'
+        global_leagues = (
+            League.objects
+            .all()
+            .values("name", "order")
+            .order_by("order")  # Sort by league order
+        )
+        global_leagues_data = list(global_leagues)
+
+        # Reverse the order numbers for global leagues
+        for index, league in enumerate(reversed(global_leagues_data), start=1):
+            league['order'] = index
+
+        # Return both approved and global leagues
+        return Response({
+            "company_leagues": approved_leagues_data,
+            "global_leagues": global_leagues_data
+        })
+
 
 
 class LogoutView(APIView):
