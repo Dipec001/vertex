@@ -353,13 +353,13 @@ class UserFollowingSerializer(serializers.ModelSerializer):
 
 class NormalUserSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True)
-    profile_picture = serializers.URLField(required=False, allow_null=True)
+    profile_picture = serializers.URLField(required=False, allow_blank=True, allow_null=True)
     invitation_id = serializers.IntegerField(required=True)  # Include invitation_id for validation
-    password = serializers.CharField(write_only=True, required=False, allow_null=True)  # Make password optional
+    password = serializers.CharField(write_only=True, required=False, allow_null=True, allow_blank=True)  # Make password optional
     login_type = serializers.ChoiceField(choices=CustomUser.LOGIN_TYPE_CHOICES, required=True)
-    uid = serializers.CharField(required=False, allow_null=True)  # UID for social logins
-    first_name = serializers.CharField(required=False, allow_null=True)
-    last_name = serializers.CharField(required=False, allow_null=True)
+    uid = serializers.CharField(required=False, allow_blank=True, allow_null=True)  # UID for social logins
+    first_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    last_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
     class Meta:
@@ -409,8 +409,8 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"A user with this {login_type} UID already exists.")
 
         # Create user based on login type
-        if login_type in ['google', 'facebook', 'apple']:
-            # social sign up
+        # if login_type in ['google', 'facebook', 'apple']:
+        #     # social sign up
             user = CustomUser.objects.create_user(
                 email=validated_data['email'],
                 password=None,  # Social users don't need a password

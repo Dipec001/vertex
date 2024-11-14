@@ -28,12 +28,9 @@ from django.db import transaction
 from .s3_utils import save_image_to_s3
 from django.utils import timezone
 from django.db.models import Sum
-from .timezone_converter import convert_from_utc, convert_to_utc
 from datetime import datetime
 from rest_framework.exceptions import PermissionDenied
-from zoneinfo import ZoneInfo
 from django.utils.dateparse import parse_date
-import pytz
 
 # Create your views here.
 
@@ -1459,29 +1456,29 @@ class GlobalPastDrawsAPIView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
-class ApprovedLeaguesView(APIView):
-    permission_classes = [IsAuthenticated]
+# class ApprovedLeaguesView(APIView):
+#     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        # Get the user's company
-        company = request.user.company
+#     def get(self, request):
+#         # Get the user's company
+#         company = request.user.company
 
-        # Check if user has a company
-        if not company:
-            return Response({"detail": "User does not belong to any company.", "approved_leagues": []})
+#         # Check if user has a company
+#         if not company:
+#             return Response({"detail": "User does not belong to any company.", "approved_leagues": []})
 
-        # Retrieve approved leagues for the user's company
-        approved_leagues = (
-            LeagueInstance.objects
-            .filter(company=company, is_active=True)
-            .select_related('league')  # Preload related league to avoid extra queries
-            .values("league__name", "league__order")
-        )
+#         # Retrieve approved leagues for the user's company
+#         approved_leagues = (
+#             LeagueInstance.objects
+#             .filter(company=company, is_active=True)
+#             .select_related('league')  # Preload related league to avoid extra queries
+#             .values("league__name", "league__order")
+#         )
 
-        # Format the leagues into a list of dictionaries
-        approved_leagues_data = list(approved_leagues)
+#         # Format the leagues into a list of dictionaries
+#         approved_leagues_data = list(approved_leagues)
 
-        return Response({"approved_leagues": approved_leagues_data})
+#         return Response({"approved_leagues": approved_leagues_data})
     
 
 class ApprovedLeaguesView(APIView):
@@ -1568,12 +1565,32 @@ class FollowToggleAPIView(APIView):
 
 class ClapToggleAPIView(APIView):
     def post(self, request, feed_id):
+        # Fetch the feed instance
         feed = get_object_or_404(Feed, id=feed_id)
-        clap_instance, created = Clap.objects.get_or_create(user=request.user, feed=feed)
+        feed_creator = feed.user
+        current_user = request.user
+
+        # Check if the current user is either following the feed creator or in the same company
+        is_following = UserFollowing.objects.filter(follower=current_user, following=feed_creator).exists()
+
+        is_in_same_company = (
+            current_user.company is not None and 
+            current_user.company == feed_creator.company
+        )
+
+        if not (is_following or is_in_same_company):
+            return Response(
+                {"detail": "You can only clap if you are following the user or are a member of the same company."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Toggle clap
+        clap_instance, created = Clap.objects.get_or_create(user=current_user, feed=feed)
         if not created:
             clap_instance.delete()
             return Response({"message": "Unclapped"}, status=status.HTTP_200_OK)
         return Response({"message": "Clapped"}, status=status.HTTP_201_CREATED)
+
 
 
 class FeedListView(APIView):
@@ -1587,4 +1604,23 @@ class FeedListView(APIView):
         # Serialize the feeds with the request context for `has_clapped`
         serializer = FeedSerializer(feeds, many=True, context={'request': request})
         
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class CompanyFeedListView(APIView):
+    def get(self, request):
+        # Check if the user belongs to a company
+        user_company = request.user.company
+        if not user_company:
+            return Response({"detail": "User is not part of a company"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get the list of users in the same company as the current user, excluding the current user
+        company_users = user_company.members.exclude(id=request.user.id).values_list('id', flat=True)
+
+        # Fetch all feeds from users in the same company as the current user, excluding their own posts
+        feeds = Feed.objects.filter(user__in=company_users).order_by('-created_at')
+
+        # Serialize the feeds with the request context for `has_clapped`
+        serializer = FeedSerializer(feeds, many=True, context={'request': request})
+
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -36,10 +36,11 @@ urlpatterns = [
     path('active-league/global/', views.GlobalActiveLeagueView.as_view(), name='global-active-league'),
     path('company-draws/', views.CompanyPastDrawsAPIView.as_view(), name='company-draws'),
     path('global-draws/', views.GlobalPastDrawsAPIView.as_view(), name='global-draws'),
-    path('company/league-levels/', views.ApprovedLeaguesView.as_view(), name='approved-league-levels'),
+    path('league-levels/', views.ApprovedLeaguesView.as_view(), name='approved-league-levels'),
     path('profile/<int:id>/', views.PublicUserProfileView.as_view(), name='public-user-profile'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
     path('follow/<int:user_id>/', views.FollowToggleAPIView.as_view(), name='follow-toggle'),
     path('clap/<int:feed_id>/', views.ClapToggleAPIView.as_view(), name='clap-toggle'),
-    path('feed/', views.FeedListView.as_view(), name='following-feed-list'),
+    path('following-feed/', views.FeedListView.as_view(), name='following-feed-list'),
+    path('company-feed/', views.CompanyFeedListView.as_view(), name='company-feed-list'),
 ]

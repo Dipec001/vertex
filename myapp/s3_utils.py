@@ -1,6 +1,8 @@
 import boto3
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
+import uuid
+import os
 
 def save_image_to_s3(image_file, folder_name):
     s3 = boto3.client(
@@ -11,12 +13,13 @@ def save_image_to_s3(image_file, folder_name):
     )
 
     try:
-        # Construct the S3 object key with the specified folder and image file name
-        s3_object_key = f'{folder_name}/{image_file.name}'
+        # Generate a unique file name using UUID and keep the original file extension
+        unique_filename = f"{uuid.uuid4()}{os.path.splitext(image_file.name)[1]}"
+        s3_object_key = f'{folder_name}/{unique_filename}'
         
         s3.upload_fileobj(image_file, settings.AWS_STORAGE_BUCKET_NAME, s3_object_key)
 
-        # Generate the URL of the uploaded image
-        return f'{s3_object_key}'
+        # Return the path or URL to the uploaded image
+        return s3_object_key
     except NoCredentialsError:
-        return None  # Handle the exception based on your application's requirements
+        return None  # Handle as needed
