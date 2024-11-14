@@ -241,26 +241,22 @@ def process_league_promotions():
                 # Handle cases with very few users separately
                 if user_league.xp_global == 0:
                     gems_obtained = 0
-                    demote_user(user)
+                    demote_user(user,gems_obtained)
                 else:
                     gems_obtained = 10
-                    retain_user(user)
+                    retain_user(user,gems_obtained)
             else:
                 # Standard promotion/retention/demotion logic
                 if rank <= promotion_threshold:
                     gems_obtained = 20 - (rank - 1) * 2  # Reward for promotion
-                    promote_user(user)
+                    promote_user(user,gems_obtained)
                 elif rank <= demotion_threshold:
                     gems_obtained = 10  # Base reward for retained users
-                    retain_user(user)
+                    retain_user(user,gems_obtained)
                 else:
                     gems_obtained = 0  # No reward for demoted users
-                    demote_user(user)
+                    demote_user(user,gems_obtained)
 
-            
-            # Update gems and reset user XP for the new league week
-            # user.gem += gems_obtained
-            # user.save()
             # Reset the user global XP for the new league week
             user_league.xp_global = 0
             user_league.save()

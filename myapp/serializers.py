@@ -161,6 +161,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         # Include all fields except the raw profile_picture and profile_picture_url
         fields = [
+            'id',
             'email', 
             'username',
             'first_name',

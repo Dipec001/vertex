@@ -1185,16 +1185,6 @@ class GlobalActiveLeagueView(APIView):
         rankings_data = []
         for index, ul in enumerate(rankings, start=1):
             # Determine advancement status
-            if index <= promotion_threshold:
-                gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
-                advancement = "Promoted"
-            elif index <= demotion_threshold:
-                gems_obtained = 10  # Retained users get a base reward
-                advancement = "Retained"
-            else:
-                gems_obtained = 0  # Demoted users receive no gems
-                advancement = "Demoted"
-
             # Handle cases with fewer users
             if total_users <= 2:
                 if ul.xp_global == 0:
@@ -1203,6 +1193,16 @@ class GlobalActiveLeagueView(APIView):
                 else:
                     advancement = "Retained"
                     gems_obtained = 10
+            else:
+                if index <= promotion_threshold:
+                    gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+                    advancement = "Promoted"
+                elif index <= demotion_threshold:
+                    gems_obtained = 10  # Retained users get a base reward
+                    advancement = "Retained"
+                else:
+                    gems_obtained = 0  # Demoted users receive no gems
+                    advancement = "Demoted"
 
             # Prefix for S3 bucket URL
             s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
@@ -1454,31 +1454,6 @@ class GlobalPastDrawsAPIView(APIView):
             })
 
         return Response(data, status=status.HTTP_200_OK)
-
-
-# class ApprovedLeaguesView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         # Get the user's company
-#         company = request.user.company
-
-#         # Check if user has a company
-#         if not company:
-#             return Response({"detail": "User does not belong to any company.", "approved_leagues": []})
-
-#         # Retrieve approved leagues for the user's company
-#         approved_leagues = (
-#             LeagueInstance.objects
-#             .filter(company=company, is_active=True)
-#             .select_related('league')  # Preload related league to avoid extra queries
-#             .values("league__name", "league__order")
-#         )
-
-#         # Format the leagues into a list of dictionaries
-#         approved_leagues_data = list(approved_leagues)
-
-#         return Response({"approved_leagues": approved_leagues_data})
     
 
 class ApprovedLeaguesView(APIView):

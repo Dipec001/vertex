@@ -4,7 +4,7 @@ from .models import UserLeague, LeagueInstance, League
 from django.utils import timezone
 
 
-def promote_user(user):
+def promote_user(user, gems_obtained):
     with transaction.atomic():
         # Find the user's current active league
         current_user_league = UserLeague.objects.select_related('league_instance__league').filter(
@@ -12,11 +12,16 @@ def promote_user(user):
 
         if not current_user_league:
             return f"{user.username} is not currently in an active league instance."
+        
+        user.gem += gems_obtained
+        user.save()
 
         current_league = current_user_league.league_instance.league
         next_league = League.objects.filter(order__gt=current_league.order).order_by('order').first()
 
+
         if next_league:
+            
             # Find or create an available LeagueInstance for the next league
             next_league_instance = (
                 LeagueInstance.objects
@@ -68,13 +73,16 @@ def promote_user(user):
                 return f"{user.username} is already in the target league instance."
 
 
-def demote_user(user):
+def demote_user(user, gems_obtained):
     with transaction.atomic():
         current_user_league = UserLeague.objects.select_related('league_instance__league').filter(
             user=user, league_instance__is_active=True).first()
 
         if not current_user_league:
             return f"{user.username} is not currently in an active league instance."
+        
+        user.gem += gems_obtained
+        user.save()
 
         current_league = current_user_league.league_instance.league
         previous_league = League.objects.filter(order__lt=current_league.order).order_by('-order').first()
@@ -129,7 +137,7 @@ def demote_user(user):
                 return f"{user.username} is already in the target league instance."
 
 
-def retain_user(user):
+def retain_user(user, gems_obtained):
     with transaction.atomic():
         # Find the user's current active league
         current_user_league = UserLeague.objects.select_related('league_instance__league').filter(
@@ -137,6 +145,9 @@ def retain_user(user):
 
         if not current_user_league:
             return f"{user.username} is not currently in an active league instance."
+        
+        user.gem += gems_obtained
+        user.save()
 
         current_league = current_user_league.league_instance.league
 
