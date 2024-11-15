@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Feed
+from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Feed, Gem
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from django.db.models import Count, F
@@ -147,27 +147,16 @@ def create_company_draw(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=Xp)
-def update_gems(sender, instance, **kwargs):
+def update_gem_for_xp(sender, instance, **kwargs):
     user = instance.user
-    total_xp_today = instance.totalXpToday
+    xp_today = instance.totalXpToday
+    # Calculate gems awarded based on XP (1 gem per 250 XP)
+    xp_gem = int(xp_today // 250)  # Calculate XP-based gems
 
-    # Calculate how many gems to award based on the total XP for today
-    new_gems_awarded = int(total_xp_today // 250)  # Ensure integer division for whole gems
-
-    # Check if `gems_awarded` needs updating
-    if instance.gems_awarded != new_gems_awarded:
-        instance.gems_awarded = new_gems_awarded
-        instance.save(update_fields=['gems_awarded'])
-
-    # Calculate total gems awarded (sum of gems_awarded from all Xp records)
-    total_gems_awarded = user.xp_records.aggregate(total_gems_awarded=Sum('gems_awarded'))['total_gems_awarded'] or 0
-    
-    # Calculate available gems (total awarded - gems spent)
-    # Calculate available gems, ensuring no negative values
-    user.gem = max(0, total_gems_awarded - user.gems_spent)
-    user.save(update_fields=['gem'])
-
-    # print(f"Updated {user.email}'s available gems to {user.gem} based on today's XP.")
+    # Try to create or update the Gem record for the user
+    gem, created = Gem.objects.get_or_create(user=user, date=instance.date)
+    gem.xp_gem = xp_gem
+    gem.save()
 
 
 @receiver(post_save, sender=Xp)

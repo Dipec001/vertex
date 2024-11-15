@@ -8,7 +8,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
-                     League)
+                     League, Gem)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
@@ -849,8 +849,16 @@ class ConvertGemView(APIView):
         gem_cost_per_item = self.GEM_COSTS[item_type]
         total_gem_cost = gem_cost_per_item * quantity
 
+        # Calculate the total available gems (sum of xp_gem and manual_gem for today)
+        total_xp_gem = Gem.objects.filter(user=user).aggregate(Sum('xp_gem'))['xp_gem__sum'] or 0
+        total_manual_gem = Gem.objects.filter(user=user).aggregate(Sum('manual_gem'))['manual_gem__sum'] or 0
+        
+        # Total available gems after subtracting the gems spent
+        total_available_gems = total_xp_gem + total_manual_gem - user.gems_spent
+        print(total_available_gems)
+
         # Check if the user has enough available gems
-        if user.gem < total_gem_cost:
+        if total_available_gems < total_gem_cost:
             return Response({
                 "error": f"Not enough gems. You need {total_gem_cost} gems for {quantity} {item_type}(s)."
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -858,7 +866,6 @@ class ConvertGemView(APIView):
         # Use a transaction to ensure atomicity
         with transaction.atomic():
             # Deduct the total gem cost
-            user.gem -= total_gem_cost
             user.gems_spent += total_gem_cost
 
             # Update the user's tickets or streak savers
@@ -893,7 +900,7 @@ class ConvertGemView(APIView):
                 entries = [DrawEntry(user=user, draw=company_draw) for _ in range(quantity)]
                 DrawEntry.objects.bulk_create(entries)
 
-            user.save(update_fields=['gem', 'gems_spent', 'streak_savers', 'global_tickets', 'company_tickets'])
+            user.save(update_fields=['gems_spent', 'streak_savers', 'global_tickets', 'company_tickets'])
 
             # Record the purchase
             purchase_data = {
@@ -910,7 +917,7 @@ class ConvertGemView(APIView):
 
         return Response({
             "message": f"You have successfully converted {total_gem_cost} gems for {quantity} {item_type}(s).",
-            "remaining_gem": user.gem
+            "remaining_gem": total_available_gems - total_gem_cost
         }, status=status.HTTP_200_OK)
 
 

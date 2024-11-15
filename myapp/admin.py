@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity, DailySteps, 
                      Purchase, Prize, Draw, DrawEntry, DrawWinner, League, LeagueInstance, UserLeague, Clap,
-                       UserFollowing, Feed)
+                       UserFollowing, Feed, Gem)
 # Register your models here.
 
 # Customizing the display and functionality of the CustomUser model in the admin interface
@@ -179,3 +179,11 @@ class ClapAdmin(admin.ModelAdmin):
     list_filter = ('created_at',)  # Filter by creation date of the clap
     ordering = ('-created_at',)  # Ordering by the most recent clap first
     list_per_page = 20  # Pagination, 20 entries per page
+
+
+@admin.register(Gem)
+class GemAdmin(admin.ModelAdmin):
+    list_display = ['user', 'date', 'xp_gem', 'manual_gem']
+    list_filter = ['user', 'date']
+    search_fields = ['user__email']
+

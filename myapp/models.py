@@ -30,7 +30,7 @@ class CustomUser(AbstractUser):
     global_tickets = models.PositiveIntegerField(default=0)  # Count of tickets
     streak_savers = models.PositiveIntegerField(default=0)  # Count of streak savers
     xp = models.PositiveIntegerField(default=0)
-    gem = models.PositiveIntegerField(default=0)  # Available gems (earned - spent)
+    # gem = models.PositiveIntegerField(default=0)  # Available gems (earned - spent)
     gems_spent = models.PositiveIntegerField(default=0)  # Total gems the user has spent
     # Add a foreign key to the company (a user can only belong to one company)
     company = models.ForeignKey(
@@ -41,7 +41,6 @@ class CustomUser(AbstractUser):
         blank=True  # Company must not be selected
     )
     timezone = TimeZoneField(default='UTC', use_pytz=False)
-    # league = models.ForeignKey('LeagueInstance', on_delete=models.SET_NULL, null=True, blank=True)
     
     def __str__(self):
         return self.email
@@ -93,6 +92,20 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f" Invite for {self.email} to {self.company}"
+    
+
+class Gem(models.Model):
+    # This is the gem model
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='gem_records')
+    date = models.DateField()
+    xp_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # XP-based gems for the day
+    manual_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # Manual gems awarded for promotions, etc.
+
+    class Meta:
+        unique_together = ('user', 'date')  # Ensure one entry per user per day
+
+    def __str__(self):
+        return f'{self.user.email} - Gems on {self.date}'
 
 
 class Xp(models.Model):
@@ -110,6 +123,7 @@ class Xp(models.Model):
         unique_together = ('user', 'date')  # Ensure one entry per user per day
     
     def save(self, *args, **kwargs):
+        self.gems_awarded = int (self.totalXpToday // 250)
         if not self.date:
             self.date = self.timeStamp.date()  # Set the date field based on timeStamp
         super(Xp, self).save(*args, **kwargs)

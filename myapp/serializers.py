@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, 
-                     DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing)
+                     DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing, Gem)
 import random
 import string
 from allauth.socialaccount.models import SocialAccount
@@ -145,7 +145,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     streak_savers = serializers.IntegerField(read_only=True)  # Include streak savers
     global_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
-    gem = serializers.IntegerField(read_only=True)
+    # gem = serializers.IntegerField(read_only=True)
+    gem = serializers.SerializerMethodField()  # Custom field to calculate the total gems
     global_league = serializers.SerializerMethodField()
     company_league = serializers.SerializerMethodField()
     follower_count = serializers.IntegerField(source='followers.count', read_only=True)
@@ -186,6 +187,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'weekly_workouts',
             'total_xp_all_time'
         ]
+
+    def get_gem(self, obj):
+        # Calculate the total gems from the Gem model
+        total_xp_gems = Gem.objects.filter(user=obj).aggregate(total_xp_gems=Sum('xp_gem'))['total_xp_gems'] or 0
+        total_manual_gems = Gem.objects.filter(user=obj).aggregate(total_manual_gems=Sum('manual_gem'))['total_manual_gems'] or 0
+        total_gems_spent = obj.gems_spent  # Assuming you have a `gems_spent` field in the user model
+
+        # Calculate total gems
+        total_gems = total_xp_gems + total_manual_gems - total_gems_spent
+        return max(0, total_gems)  # Ensure no negative gems
 
     def get_global_league(self, obj):
         # Get the UserLeague entry for the user's global league
@@ -571,25 +582,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             user_xp.totalXpToday = new_xp
             user_xp.totalXpAllTime += new_xp
             user_xp.save()
-
-    # def create_workout_activity(self, user, new_xp, timestamp):
-    #     if new_xp > 0:
-    #         try:
-    #             WorkoutActivity.objects.create(
-    #                 user=user,
-    #                 activity_type="movement",
-    #                 activity_name="steps",
-    #                 xp=new_xp,
-    #                 duration=0,
-    #                 distance=0,
-    #                 average_heart_rate=0,
-    #                 start_datetime=timestamp,
-    #                 end_datetime=timestamp,
-    #                 metadata='{}',
-    #                 deviceType=None
-    #             )
-    #         except IntegrityError:
-    #             raise serializers.ValidationError(f"Daily step with the start time {timestamp} already exists.")
 
     def create_workout_activity(self, user, new_xp, timestamp):
         if new_xp > 0:

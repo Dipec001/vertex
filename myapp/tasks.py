@@ -1,11 +1,11 @@
 from celery import shared_task
 from .email_utils import send_invitation_email
 from django.utils import timezone
-from .models import Streak, CustomUser, Xp, Draw, Company,LeagueInstance, UserLeague
+from .models import Streak, CustomUser, Xp, Draw, Company,LeagueInstance, UserLeague, Gem
 import logging
 from datetime import timedelta, datetime
 from django.utils import timezone as django_timezone
-from .league_service import promote_user, demote_user, promote_company_user, demote_company_user, retain_company_user, retain_user
+from .league_service import promote_user, demote_user, retain_user, promote_company_user, demote_company_user, retain_company_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -164,16 +164,51 @@ def create_global_draw():
         print(f"An unexpected error occurred: {e}")
 
 
+# @shared_task
+# def reset_gems_for_local_timezones():
+#     """This task resets the users' gem amount every Monday midnight in their local timezone."""
+#     now_utc = django_timezone.now()
+    
+#     batch_size = 100  # Adjust based on your needs
+#     offset = 0
+
+#     while True:
+#         users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gem', 'timezone')[offset:offset + batch_size]
+
+#         if not users:
+#             print("Processed all users successfully.")
+#             break
+
+#         for user in users:
+#             user_timezone = user['timezone']
+
+#             try:
+#                 # Convert UTC time to user's local time
+#                 user_local_time = now_utc.astimezone(user_timezone)
+                
+#                 # Check if it's Monday midnight in the user's local timezone
+#                 if user_local_time.weekday() == 0 and user_local_time.hour == 0:
+
+#                     # Reset the gem count to 0
+#                     CustomUser.objects.filter(id=user['id']).update(gem=0)
+            
+#             except Exception as e:
+#                 print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")
+
+#         offset += batch_size
+
+#     print("Gem reset task completed successfully.")
+
 @shared_task
 def reset_gems_for_local_timezones():
-    """This task resets the users' gem amount every Monday midnight in their local timezone."""
+    """This task resets the users' gem amount and gems spent every Monday midnight in their local timezone."""
     now_utc = django_timezone.now()
     
     batch_size = 100  # Adjust based on your needs
     offset = 0
 
     while True:
-        users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gem', 'timezone')[offset:offset + batch_size]
+        users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gem', 'gems_spent', 'timezone')[offset:offset + batch_size]
 
         if not users:
             print("Processed all users successfully.")
@@ -189,63 +224,20 @@ def reset_gems_for_local_timezones():
                 # Check if it's Monday midnight in the user's local timezone
                 if user_local_time.weekday() == 0 and user_local_time.hour == 0:
 
-                    # Reset the gem count to 0
-                    CustomUser.objects.filter(id=user['id']).update(gem=0)
-            
+                    # Reset the user's total gems and gems spent
+                    CustomUser.objects.filter(id=user['id']).update(gem=0, gems_spent=0)
+
+                    # Optionally, you can also delete the `Gem` records for the user, or you can reset them individually
+                    Gem.objects.filter(user=user).delete()  # This will remove all gem records for the user
+                    
+                    print(f"Reset gems and gems spent for user {user['email']}")
+
             except Exception as e:
                 print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")
 
         offset += batch_size
 
     print("Gem reset task completed successfully.")
-
-
-# @shared_task
-# def process_league_promotions():
-#     now = timezone.now()
-    
-#     # Mark all expired, non-company leagues as inactive (adjust filter as needed)
-#     LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=True).update(is_active=False)
-    
-#     # Process each league individually
-#     two_weeks_ago = timezone.now() - timedelta(weeks=2)
-#     expired_leagues = LeagueInstance.objects.filter(
-#         league_end__lte=now,
-#         league_end__gte=two_weeks_ago,
-#         is_active=False,
-#         company__isnull=True
-#     )
-    
-#     for league in expired_leagues:
-#         users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global', 'id')
-#         total_users = users_in_league.count()
-#         promotion_threshold = int(total_users * 0.30)
-#         demotion_threshold = int(total_users * 0.80)
-
-#         for rank, user_league in enumerate(users_in_league, start=1):
-#             user = user_league.user
-#             if total_users <= 3:
-#                 if user_league.xp_global == 0:
-#                     gems_obtained = 0
-#                     demote_user(user, gems_obtained)
-#                 else:
-#                     gems_obtained = 10
-#                     retain_user(user, gems_obtained)
-#             else:
-#                 if rank <= promotion_threshold:
-#                     gems_obtained = 20 - (rank - 1) * 2
-#                     promote_user(user, gems_obtained)
-#                 elif rank <= demotion_threshold:
-#                     gems_obtained = 10
-#                     retain_user(user, gems_obtained)
-#                 else:
-#                     gems_obtained = 0
-#                     demote_user(user, gems_obtained)
-
-#             # Reset user global XP for the new league week
-#             user_league.xp_global = 0
-#             user_league.save()
-
 
 
 @shared_task(acks_late=True)
@@ -327,21 +319,21 @@ def process_company_league_promotions():
                 # Handle cases with very few users separately
                 if user_league.xp_global == 0:
                     gems_obtained = 0
-                    demote_user(user,gems_obtained, league)
+                    demote_company_user(user,gems_obtained, league)
                 else:
                     gems_obtained = 10
-                    retain_user(user,gems_obtained, league)
+                    retain_company_user(user,gems_obtained, league)
             else:
                 # Standard promotion/retention/demotion logic
                 if rank <= promotion_threshold:
                     gems_obtained = 20 - (rank - 1) * 2  # Reward for promotion
-                    promote_user(user,gems_obtained, league)
+                    promote_company_user(user,gems_obtained, league)
                 elif rank <= demotion_threshold:
                     gems_obtained = 10  # Base reward for retained users
-                    retain_user(user,gems_obtained, league)
+                    retain_company_user(user,gems_obtained, league)
                 else:
                     gems_obtained = 0  # No reward for demoted users
-                    demote_user(user,gems_obtained, league)
+                    demote_company_user(user,gems_obtained, league)
 
 
             # Reset XP for the new league week

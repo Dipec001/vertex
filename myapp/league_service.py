@@ -2,6 +2,8 @@ from django.db import transaction, IntegrityError
 from django.db.models import Count, F
 from .models import UserLeague, LeagueInstance, League
 from django.utils import timezone
+from .utils import add_manual_gem
+
 
 
 def promote_user(user, gems_obtained, current_league_instance):
@@ -9,10 +11,7 @@ def promote_user(user, gems_obtained, current_league_instance):
         # Find the user's current active league
         current_league = current_league_instance.league
 
-        print('user gem count without adding',user.gem)
-        user.gem += gems_obtained
-        user.save()
-        print('user gem count after adding',user.gem)
+        add_manual_gem(user=user, manual_gem_count=gems_obtained, date=timezone.now().date())
 
         # current_league = current_user_league.league_instance.league
         next_league = League.objects.filter(order__gt=current_league.order).order_by('order').first()
@@ -81,10 +80,7 @@ def promote_user(user, gems_obtained, current_league_instance):
 def demote_user(user, gems_obtained, current_league_instance):
     with transaction.atomic():
         
-        print('user gem count without adding',user.gem)
-        user.gem += gems_obtained
-        user.save()
-        print('user gem count after adding',user.gem)
+        add_manual_gem(user=user, manual_gem_count=gems_obtained, date=timezone.now().date())
 
         current_league = current_league_instance.league
         previous_league = League.objects.filter(order__lt=current_league.order).order_by('-order').first()
@@ -200,11 +196,7 @@ def retain_user(user, gems_obtained, current_league_instance):
         # Get the user's current active league
         current_league = current_league_instance.league
         
-        print('user gem count without adding',user.gem)
-        # Add gems to the user
-        user.gem += gems_obtained
-        user.save()
-        print('user gem count after adding',user.gem)
+        add_manual_gem(user=user, manual_gem_count=gems_obtained, date=timezone.now().date())
 
         # current_league = current_user_league.league_instance.league
         print(f"In the retaining view, retaining user {user.username} in current league {current_league}")
@@ -279,10 +271,7 @@ def promote_company_user(user,gems_obtained, current_league_instance):
         print(f'highest company level {highest_company_level}')
         next_league = League.objects.filter(order__gt=current_league.order, order__lte=highest_company_level).order_by('order').first()
 
-        print('user gem count without adding',user.gem)
-        user.gem += gems_obtained
-        user.save()
-        print('user gem count after adding',user.gem)
+        add_manual_gem(user=user, manual_gem_count=gems_obtained, date=timezone.now().date())
 
 
         if next_league:
@@ -354,10 +343,7 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
         highest_company_level = get_highest_company_league_level(company)
         previous_league = League.objects.filter(order__lt=current_league.order, order__gte=highest_company_level).order_by('-order').first()
 
-        print('user gem count without adding',user.gem)
-        user.gem += gems_obtained
-        user.save()
-        print('user gem count after adding',user.gem)
+        add_manual_gem(user=user, manual_gem_count=gems_obtained, date=timezone.now().date())
 
         if previous_league:
             current_league_instance.userleague_set.filter(user=user).delete()
@@ -412,17 +398,12 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
 
 def retain_company_user(user,gems_obtained,  current_league_instance):
     with transaction.atomic():
-        print('in the reatincompany view')
+        print('in the retain company view')
         # Find the user's current active league instance associated with the company
         current_league = current_league_instance.league
         company = current_league_instance.company
 
-        print('user gem count without adding',user.gem)
-        user.gem += gems_obtained
-        user.save()
-        print('user gem count after adding',user.gem)
-
-
+        add_manual_gem(user=user, manual_gem_count=gems_obtained, date=timezone.now().date())
 
         # Find or create another active instance of the same league for the same company with available slots
         retain_league_instance = (
