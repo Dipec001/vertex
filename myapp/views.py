@@ -1233,8 +1233,8 @@ class GlobalActiveLeagueView(APIView):
         data = {
             "league_name": league_instance.league.name,
             "league_level": 11-league_instance.league.order,
-            "league_start": league_instance.league_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "league_end": league_instance.league_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "league_start": league_instance.league_start,
+            "league_end": league_instance.league_end,
             "user_rank": user_rank,
             "rankings": rankings_data
         }
@@ -1313,8 +1313,8 @@ class CompanyActiveLeagueView(APIView):
         # Response data
         data = {
             "league_name": league_instance.league.name,
-            "league_start": league_instance.league_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "league_end": league_instance.league_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "league_start": league_instance.league_start,
+            "league_end": league_instance.league_end,
             "user_rank": user_rank,
             "rankings": rankings_data
         }
