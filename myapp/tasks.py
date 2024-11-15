@@ -185,7 +185,6 @@ def reset_gems_for_local_timezones():
             try:
                 # Convert UTC time to user's local time
                 user_local_time = now_utc.astimezone(user_timezone)
-                print(user_local_time.weekday())
                 
                 # Check if it's Monday midnight in the user's local timezone
                 if user_local_time.weekday() == 0 and user_local_time.hour == 0:
@@ -201,15 +200,62 @@ def reset_gems_for_local_timezones():
     print("Gem reset task completed successfully.")
 
 
-@shared_task
+# @shared_task
+# def process_league_promotions():
+#     now = timezone.now()
+    
+#     # Mark all expired, non-company leagues as inactive (adjust filter as needed)
+#     LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=True).update(is_active=False)
+    
+#     # Process each league individually
+#     two_weeks_ago = timezone.now() - timedelta(weeks=2)
+#     expired_leagues = LeagueInstance.objects.filter(
+#         league_end__lte=now,
+#         league_end__gte=two_weeks_ago,
+#         is_active=False,
+#         company__isnull=True
+#     )
+    
+#     for league in expired_leagues:
+#         users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global', 'id')
+#         total_users = users_in_league.count()
+#         promotion_threshold = int(total_users * 0.30)
+#         demotion_threshold = int(total_users * 0.80)
+
+#         for rank, user_league in enumerate(users_in_league, start=1):
+#             user = user_league.user
+#             if total_users <= 3:
+#                 if user_league.xp_global == 0:
+#                     gems_obtained = 0
+#                     demote_user(user, gems_obtained)
+#                 else:
+#                     gems_obtained = 10
+#                     retain_user(user, gems_obtained)
+#             else:
+#                 if rank <= promotion_threshold:
+#                     gems_obtained = 20 - (rank - 1) * 2
+#                     promote_user(user, gems_obtained)
+#                 elif rank <= demotion_threshold:
+#                     gems_obtained = 10
+#                     retain_user(user, gems_obtained)
+#                 else:
+#                     gems_obtained = 0
+#                     demote_user(user, gems_obtained)
+
+#             # Reset user global XP for the new league week
+#             user_league.xp_global = 0
+#             user_league.save()
+
+
+
+@shared_task(acks_late=True)
 def process_league_promotions():
     # Get current time
     now = timezone.now()
     print(now)
     
     # Query leagues where the end date has passed but still active
-    expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True)
-    print('Expired league', expired_leagues)
+    expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=True)
     
     for league in expired_leagues:
         print('league end time', league.league_end)
@@ -220,42 +266,32 @@ def process_league_promotions():
         promotion_threshold = int(total_users * 0.30)  # Promote top 30%
         # demotion_threshold = total_users - int(total_users * 0.20)  # Demote bottom 20%
         demotion_threshold = int(total_users * 0.80)
-        
-        # for rank, user_league in enumerate(users_in_league):
-        #     if rank < 3:  # Promotion for the top 3 users
-        #         promote_user(user_league.user)
-        #     else:  # Demote other users
-        #         demote_user(user_league.user)
-        # for rank, user_league in enumerate(users_in_league, start=1):
-        #     user = user_league.user
-        #     if rank <= promotion_threshold:
-        #         promote_user(user)
-        #     elif rank >= demotion_threshold:
-        #         demote_user(user)
-        #     else:
-        #         retain_user(user)
+
         for rank, user_league in enumerate(users_in_league, start=1):
             user = user_league.user
+            print(f"current user is {user.username}")
             # Apply logic based on user count and rank position
-            if total_users <= 2:
+            if total_users <= 3:
                 # Handle cases with very few users separately
                 if user_league.xp_global == 0:
                     gems_obtained = 0
-                    demote_user(user,gems_obtained)
+                    demote_user(user,gems_obtained, league)
                 else:
+                    print(f"only {total_users} user. retaining")
                     gems_obtained = 10
-                    retain_user(user,gems_obtained)
+                    retain_user(user,gems_obtained, league)
             else:
+                print("total users not less than 3")
                 # Standard promotion/retention/demotion logic
                 if rank <= promotion_threshold:
                     gems_obtained = 20 - (rank - 1) * 2  # Reward for promotion
-                    promote_user(user,gems_obtained)
+                    promote_user(user,gems_obtained, league)
                 elif rank <= demotion_threshold:
                     gems_obtained = 10  # Base reward for retained users
-                    retain_user(user,gems_obtained)
+                    retain_user(user,gems_obtained, league)
                 else:
                     gems_obtained = 0  # No reward for demoted users
-                    demote_user(user,gems_obtained)
+                    demote_user(user,gems_obtained, league)
 
             # Reset the user global XP for the new league week
             user_league.xp_global = 0
@@ -282,23 +318,31 @@ def process_company_league_promotions():
         total_users = users_in_league.count()
         
         promotion_threshold = int(total_users * 0.30)
-        demotion_threshold = total_users - int(total_users * 0.20)
+        demotion_threshold = int(total_users * 0.80)
 
         for rank, user_league in enumerate(users_in_league, start=1):
             user = user_league.user
-            if rank <= promotion_threshold:
-                promote_company_user(user, league)
-            elif rank >= demotion_threshold:
-                demote_company_user(user, league)
-            else:
-                retain_company_user(user, league)
 
-        # # Promote the top 3 users if a higher league level exists within the company
-        # for rank, user_league in enumerate(users_in_league):
-        #     if rank < 3:
-        #         promote_company_user(user_league.user, league)
-        #     else:
-        #         demote_company_user(user_league.user, league)
+            if total_users <= 3:
+                # Handle cases with very few users separately
+                if user_league.xp_global == 0:
+                    gems_obtained = 0
+                    demote_user(user,gems_obtained, league)
+                else:
+                    gems_obtained = 10
+                    retain_user(user,gems_obtained, league)
+            else:
+                # Standard promotion/retention/demotion logic
+                if rank <= promotion_threshold:
+                    gems_obtained = 20 - (rank - 1) * 2  # Reward for promotion
+                    promote_user(user,gems_obtained, league)
+                elif rank <= demotion_threshold:
+                    gems_obtained = 10  # Base reward for retained users
+                    retain_user(user,gems_obtained, league)
+                else:
+                    gems_obtained = 0  # No reward for demoted users
+                    demote_user(user,gems_obtained, league)
+
 
             # Reset XP for the new league week
             user_league.xp_company = 0

@@ -189,14 +189,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_global_league(self, obj):
         # Get the UserLeague entry for the user's global league
-        user_league_entry = UserLeague.objects.filter(user=obj, league_instance__company__isnull=True).first()
+        user_league_entry = UserLeague.objects.filter(user=obj, league_instance__company__isnull=True, league_instance__is_active=True).first()
         if user_league_entry:
             return user_league_entry.league_instance.league.name  # Return the league name
         return None
 
     def get_company_league(self, obj):
         # Get the UserLeague entry for the user's company league
-        user_league_entry = UserLeague.objects.filter(user=obj, league_instance__company__isnull=False).first()
+        user_league_entry = UserLeague.objects.filter(user=obj, league_instance__company__isnull=False, league_instance__is_active=True).first()
         if user_league_entry:
             return user_league_entry.league_instance.league.name  # Return the league name
         return None

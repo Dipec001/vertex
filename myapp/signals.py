@@ -197,7 +197,7 @@ def add_to_first_league(sender, instance, **kwargs):
         # Find or create a new LeagueInstance for Pathfinder League with less than max participants
         pathfinder_instance = (
             LeagueInstance.objects
-            .filter(league=pathfinder_league, company=None, is_active=True)
+            .filter(league=pathfinder_league, company=None, is_active=True, league_end__gt=timezone.now())
             .annotate(participant_count=Count('userleague'))
             .filter(participant_count__lt=F('max_participants'))
             .first()
@@ -265,7 +265,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
         # Find an active Pathfinder instance with room or create a new one
         pathfinder_instance = (
             LeagueInstance.objects
-            .filter(league=pathfinder_league, company=company, is_active=True)
+            .filter(league=pathfinder_league, company=company, is_active=True, league_end__gt=timezone.now())
             .annotate(participant_count=Count('userleague'))
             .filter(participant_count__lt=F('max_participants'))
             .first()

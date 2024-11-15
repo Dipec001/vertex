@@ -1186,7 +1186,7 @@ class GlobalActiveLeagueView(APIView):
         for index, ul in enumerate(rankings, start=1):
             # Determine advancement status
             # Handle cases with fewer users
-            if total_users <= 2:
+            if total_users <= 3:
                 if ul.xp_global == 0:
                     advancement = "Demoted"
                     gems_obtained = 0
@@ -1245,7 +1245,7 @@ class CompanyActiveLeagueView(APIView):
         # Get the user's active company league instance
         user_league = (
             UserLeague.objects
-            .filter(user=user, league_instance__is_active=True, league_instance__league_end__gt=now, league_instance__company__isnull=False)
+            .filter(user=user, league_instance__is_active=True, league_instance__company__isnull=False)
             .select_related('league_instance', 'user')
             .first()
         )
