@@ -198,7 +198,7 @@ def add_to_first_league(sender, instance, **kwargs):
                 league=pathfinder_league,
                 league_start=timezone.now(),
                 league_end=timezone.now() + timezone.timedelta(hours=1),  # Example: set for a 1-week league duration
-                max_participants=5
+                max_participants=10
             )
 
         # Add user to the Pathfinder LeagueInstance
@@ -267,7 +267,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
                 company=company,
                 league_start=timezone.now(),
                 league_end=timezone.now() + timezone.timedelta(hours=1),
-                max_participants=5
+                max_participants=10
             )
 
         # Add the user to the Pathfinder league instance

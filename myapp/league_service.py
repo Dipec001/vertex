@@ -35,7 +35,7 @@ def promote_user(user, gems_obtained, current_league_instance):
                     league=next_league,
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
-                    max_participants=5
+                    max_participants=10
                 )
 
             # Attempt to create a new UserLeague entry for the user
@@ -65,7 +65,7 @@ def promote_user(user, gems_obtained, current_league_instance):
                     league=current_league,
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
-                    max_participants=5
+                    max_participants=10
                 )
 
             try:
@@ -104,7 +104,7 @@ def demote_user(user, gems_obtained, current_league_instance):
                     league=previous_league,
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
-                    max_participants=5
+                    max_participants=10
                 )
 
             UserLeague.objects.create(user=user, league_instance=previous_league_instance, xp_global=0)
@@ -130,7 +130,7 @@ def demote_user(user, gems_obtained, current_league_instance):
                     league=current_league,
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
-                    max_participants=5
+                    max_participants=10
                 )
 
             try:
@@ -220,7 +220,7 @@ def retain_user(user, gems_obtained, current_league_instance):
                 league=current_league,
                 league_start=timezone.now(),
                 league_end=timezone.now() + timezone.timedelta(hours=1),
-                max_participants=5
+                max_participants=10
             )
             print('Created new retain league instance:', retain_league_instance)
 
@@ -290,7 +290,7 @@ def promote_company_user(user,gems_obtained, current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=5
+                    max_participants=10
                 )
 
             try:
@@ -319,7 +319,7 @@ def promote_company_user(user,gems_obtained, current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=5
+                    max_participants=10
                 )
 
             try:
@@ -362,7 +362,7 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=5
+                    max_participants=10
                 )
 
             UserLeague.objects.create(user=user, league_instance=previous_league_instance, xp_company=0)
@@ -384,7 +384,7 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
                     league_start=timezone.now(),
                     league_end=timezone.now() + timezone.timedelta(hours=1),
                     company=company,
-                    max_participants=5
+                    max_participants=10
                 )
 
             try:
@@ -423,7 +423,7 @@ def retain_company_user(user,gems_obtained,  current_league_instance):
                 company=company,
                 league_start=timezone.now(),
                 league_end=timezone.now() + timezone.timedelta(hours=1),
-                max_participants=5
+                max_participants=10
             )
 
             print('creating new current league as not found')
