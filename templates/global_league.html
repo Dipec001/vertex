@@ -55,7 +55,7 @@
 
     <script>
         const leagueId = 153; // Replace with the current league ID from your context
-        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/league/153/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNTAxMzA3LCJpYXQiOjE3MzE4OTY1MDcsImp0aSI6Ijc2ZWRkNTM3MzAyZDQyNmRhZDFlYmMxZGRlYzRmYTMwIiwidXNlcl9pZCI6MTh9.x2lMIYNahCX6IU_0EnylB0ue6_WEWFGQkale55sTaj4`);
+        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/league/153/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNTQ5MDA4LCJpYXQiOjE3MzE5NDQyMDgsImp0aSI6IjRjNTNkMDFiMWE0MjQ0YmM5MmM4YTgzZjJjYzgxZWJlIiwidXNlcl9pZCI6MTJ9.0slaJSxizs2rT_OAkoXhebVcl6UQfjNH4vGx8EZ0bxI`);
 
         socket.onopen = function(event) {
             console.log("WebSocket connection established!", event);

@@ -3,6 +3,8 @@ import jwt
 from django.apps import apps
 from django.conf import settings
 from channels.db import database_sync_to_async
+from django.contrib.auth.models import AnonymousUser
+
 
 class CustomResponseMiddleware:
     """
@@ -80,4 +82,6 @@ class TokenAuthMiddleware:
         try:
             return CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
-            return None
+            print('no user')
+            return AnonymousUser()  # Return an AnonymousUser instead of None
+        
