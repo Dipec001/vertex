@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 import jwt
-from myapp.models import CustomUser
+from django.apps import apps
 from django.conf import settings
 from channels.db import database_sync_to_async
 
@@ -75,6 +75,8 @@ class TokenAuthMiddleware:
 
     @database_sync_to_async
     def get_user(self, user_id):
+        # Dynamically fetch the CustomUser model
+        CustomUser = apps.get_model('myapp', 'CustomUser')
         try:
             return CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
