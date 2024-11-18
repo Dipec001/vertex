@@ -6,6 +6,7 @@ import logging
 from datetime import timedelta, datetime
 from django.utils import timezone as django_timezone
 from .league_service import promote_user, demote_user, retain_user, promote_company_user, demote_company_user, retain_company_user
+from dateutil.relativedelta import relativedelta  # For precise next-month calculation
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -86,20 +87,32 @@ def run_company_draws():
             active_draw.is_active = False
             active_draw.save()
 
-        # Optionally, create a new draw for the next month at 3 PM UTC
-        next_draw_date = timezone.now() + timedelta(days=30)  # Approximation for the next month
-        
-        # Set the time to 3 PM UTC
-        next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
+        # Calculate the start and end of the "next month" window
+        current_date = timezone.now()
+        next_month_start = (current_date + relativedelta(months=1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month_end = (next_month_start + relativedelta(months=1)) - timedelta(seconds=1)
 
-        Draw.objects.create(
-            draw_name=f"Monthly Draw for {company.name}",
+        # Check if there's already an active draw for the next month
+        existing_next_month_draw = Draw.objects.filter(
             company=company,
             draw_type='company',
-            draw_date=next_draw_date,
-            number_of_winners=3,  # Number of winners
-            is_active=True,  # Activate the new draw
-        )
+            is_active=True,
+            draw_date__range=(next_month_start, next_month_end)
+        ).exists()
+
+        if not existing_next_month_draw:
+            # Create a new draw for the next month at 3 PM UTC
+            next_draw_date = next_month_start.replace(hour=15)
+
+            Draw.objects.create(
+                draw_name=f"Monthly Draw for {company.name}",
+                company=company,
+                draw_type='company',
+                draw_date=next_draw_date,
+                number_of_winners=3,  # Example number of winners
+                is_active=True,  # Activate the new draw
+            )
+
 
 
 
