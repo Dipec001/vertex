@@ -3,7 +3,6 @@ import jwt
 from django.apps import apps
 from django.conf import settings
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import AnonymousUser
 
 
 class CustomResponseMiddleware:
@@ -77,11 +76,11 @@ class TokenAuthMiddleware:
 
     @database_sync_to_async
     def get_user(self, user_id):
-        # Dynamically fetch the CustomUser model
+        # Dynamically import AnonymousUser and fetch the CustomUser model
+        from django.contrib.auth.models import AnonymousUser  # Import here to avoid early import issues
         CustomUser = apps.get_model('myapp', 'CustomUser')
         try:
             return CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
-            print('no user')
+            print('No user found, returning AnonymousUser')
             return AnonymousUser()  # Return an AnonymousUser instead of None
-        
