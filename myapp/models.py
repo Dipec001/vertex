@@ -26,8 +26,6 @@ class CustomUser(AbstractUser):
     # URLField for external profile picture URLs (from Google, etc.)
     profile_picture_url = models.URLField(max_length=2000, blank=True, null=True)
     date_joined = models.DateTimeField(auto_now_add=True)  # Automatically set when the user is created
-    company_tickets = models.PositiveIntegerField(default=0)
-    global_tickets = models.PositiveIntegerField(default=0)  # Count of tickets
     streak_savers = models.PositiveIntegerField(default=0)  # Count of streak savers
     xp = models.PositiveIntegerField(default=0)
     # gem = models.PositiveIntegerField(default=0)  # Available gems (earned - spent)
@@ -236,12 +234,28 @@ class Draw(models.Model):
         if entries.count() == 0:
             return  # No entries to pick from
 
+        # Get available prizes for the draw
+        # prizes = list(Prize.objects.filter(draw=self, quantity__gt=0).order_by('-value'))  # Prioritize by value or other criteria
+        prizes = list(Prize.objects.filter(draw=self, quantity__gt=0))
+
         # Randomly pick winners from the list of entries
         winners = random.sample(list(entries), min(self.number_of_winners, entries.count()))
 
-        # Save the winners in the DrawWinner table
-        for entry in winners:
-            DrawWinner.objects.create(user=entry.user, draw=self)
+        # Assign prizes to winners
+        for i, entry in enumerate(winners):
+            if prizes:  # If there are remaining prizes
+                prize = prizes.pop(0)  # Get the first prize from the list
+                prize.quantity -= 1  # Reduce prize quantity
+                prize.save()
+
+                # If there are still quantities left, add it back to the list
+                if prize.quantity > 0:
+                    prizes.append(prize)
+            else:
+                prize = None  # No prize available for this winner
+
+            # Create the DrawWinner entry
+            DrawWinner.objects.create(user=entry.user, draw=self, prize=prize)
 
         # Mark draw as inactive
         self.is_active = False
@@ -267,7 +281,9 @@ class DrawWinner(models.Model):
     win_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user} won {self.prize.name} in {self.draw.draw_name}"
+        prize_name = self.prize.name if self.prize else "But No Prize Allocated"
+        return f"{self.user} won {prize_name} in {self.draw.draw_name}"
+
     
 
 

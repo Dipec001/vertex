@@ -7,6 +7,7 @@ from . import views
 
 urlpatterns = [
     # path('sentry-debug/', trigger_error),
+    path('test-league-rankings/', views.test_league_rankings, name='test-league-rankings'),
     path('validate-email-password/', views.ValidateEmailPasswordView.as_view(), name='validate_email_password'),
     path('validate-company-association/', views.ValidateCompanyAssociationView.as_view(), name='validate_company_association'),
     path('create-user/', views.NormalUserSignupView.as_view(), name='create_user'),
@@ -28,8 +29,6 @@ urlpatterns = [
     path('draws/global/<int:pk>/', views.GlobalDrawEditView.as_view(), name='edit-global-draw'),
     path('draws/company/<int:pk>/', views.CompanyDrawEditView.as_view(), name='edit-company-draw'),
     path('draws/history/', views.DrawHistoryAndWinnersView.as_view(), name='draw history and winners'),
-    # path('draw/<int:pk>/enter/', views.EnterDrawView.as_view(), name='enter_company_draw'),
-    # path('draw/<int:pk>/exit/', views.ExitDrawView.as_view(), name='exit_company_draw'),
     path('active-company-draws/', views.CompanyDrawListView.as_view(), name='active-company-draw-list'),
     path('active-global-draws/', views.GetAllGlobalView.as_view(), name='active-global-draw-list'),
     path('active-league/company/', views.CompanyActiveLeagueView.as_view(), name='company-active-league'),

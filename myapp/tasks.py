@@ -72,8 +72,12 @@ def run_company_draws():
     companies = Company.objects.all()
 
     for company in companies:
-        # Fetch the active draw for the company
-        active_draw = Draw.objects.filter(company=company, is_active=True).first()
+        # Fetch the active draw for the company whose draw_date has passed
+        active_draw = Draw.objects.filter(
+            company=company,
+            is_active=True,
+            draw_date__lte=timezone.now()  # Only include draws where the date has passed
+        ).first()
 
         if active_draw:
             # Pick winners for the active draw
@@ -83,7 +87,7 @@ def run_company_draws():
             active_draw.save()
 
         # Optionally, create a new draw for the next month at 3 PM UTC
-        next_draw_date = timezone.now() + timedelta(days=30)  # Approximation for next month
+        next_draw_date = timezone.now() + timedelta(days=30)  # Approximation for the next month
         
         # Set the time to 3 PM UTC
         next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
@@ -93,10 +97,46 @@ def run_company_draws():
             company=company,
             draw_type='company',
             draw_date=next_draw_date,
-            number_of_winners=3,  # Example
+            number_of_winners=3,  # Number of winners
             is_active=True,  # Activate the new draw
         )
 
+
+
+# @shared_task
+# def run_company_draws():
+#     """
+#     Celery task to run company-specific draws for all companies.
+#     This is executed monthly.
+#     """
+#     # Get all active companies
+#     companies = Company.objects.all()
+
+#     for company in companies:
+#         # Fetch the active draw for the company
+#         active_draw = Draw.objects.filter(company=company, is_active=True).first()
+
+#         if active_draw:
+#             # Pick winners for the active draw
+#             active_draw.pick_winners()
+#             # Mark the draw as inactive after picking winners
+#             active_draw.is_active = False
+#             active_draw.save()
+
+#         # Optionally, create a new draw for the next month at 3 PM UTC
+#         next_draw_date = timezone.now() + timedelta(days=30)  # Approximation for next month
+        
+#         # Set the time to 3 PM UTC
+#         next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
+
+#         Draw.objects.create(
+#             draw_name=f"Monthly Draw for {company.name}",
+#             company=company,
+#             draw_type='company',
+#             draw_date=next_draw_date,
+#             number_of_winners=3,  # Example
+#             is_active=True,  # Activate the new draw
+#         )
 
 
 @shared_task
@@ -105,27 +145,67 @@ def run_global_draw():
     Task to run the global draw.
     Only one active global draw at a time.
     """
+    # Fetch the active global draw whose draw_date has passed
+    draw = Draw.objects.filter(
+        draw_type='global', 
+        is_active=True, 
+        draw_date__lte=timezone.now()  # Only get draws where the draw_date is less than or equal to the current time
+    ).first()
+    
+    print(draw)
 
-    # Fetch the active global draw
-    draw = Draw.objects.filter(is_global=True, is_active=True).first()
     if draw:
+        # Execute the draw logic if the draw date has passed
         draw.pick_winners()
         draw.is_active = False
         draw.save()
 
-    # Create a new global draw for the next quarter at 3 PM UTC
-    next_draw_date = timezone.now() + timedelta(days=90)  # Approximation for a quarter (3 months)
-    
-    # Set the time to 3 PM UTC
-    next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
+        # Create a new global draw for the next quarter at 3 PM UTC
+        next_draw_date = timezone.now() + timedelta(days=90)  # Approximation for a quarter (3 months)
+        # Set the time to 3 PM UTC
+        next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
 
-    Draw.objects.create(
-        name="Quarterly Global Draw",
-        draw_type='global',
-        draw_date=next_draw_date,
-        number_of_winners=3,  # Example number of winners
-        is_active=True,
-    )
+        # Create a new global draw
+        Draw.objects.create(
+            draw_name="Quarterly Global Draw",
+            draw_type='global',
+            draw_date=next_draw_date,
+            number_of_winners=3,  # Number of winners
+            is_active=True,
+        )
+    else:
+        # Log or handle case when no active global draw has passed
+        print("No active global draw with a passed date found.")
+
+
+# @shared_task
+# def run_global_draw():
+#     """
+#     Task to run the global draw.
+#     Only one active global draw at a time.
+#     """
+
+#     # Fetch the active global draw
+#     draw = Draw.objects.filter(draw_type='global', is_active=True).first()
+#     print(draw)
+#     if draw:
+#         draw.pick_winners()
+#         draw.is_active = False
+#         draw.save()
+
+#     # Create a new global draw for the next quarter at 3 PM UTC
+#     next_draw_date = timezone.now() + timedelta(days=90)  # Approximation for a quarter (3 months)
+    
+#     # Set the time to 3 PM UTC
+#     next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
+
+#     Draw.objects.create(
+#         draw_name="Quarterly Global Draw",
+#         draw_type='global',
+#         draw_date=next_draw_date,
+#         number_of_winners=3,  # Example number of winners
+#         is_active=True,
+#     )
 
 
 @shared_task
@@ -151,7 +231,7 @@ def create_global_draw():
 
             # Create the Draw instance
             Draw.objects.create(
-                name="Global Draw",
+                draw_name="Global Draw",
                 draw_type="global",
                 draw_date=draw_date,
                 number_of_winners=3,  # Example number
@@ -208,7 +288,7 @@ def reset_gems_for_local_timezones():
     offset = 0
 
     while True:
-        users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gem', 'gems_spent', 'timezone')[offset:offset + batch_size]
+        users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gems_spent', 'timezone')[offset:offset + batch_size]
 
         if not users:
             print("Processed all users successfully.")

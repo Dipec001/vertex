@@ -143,8 +143,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(read_only=True)
     streak = serializers.IntegerField(read_only=True)
     streak_savers = serializers.IntegerField(read_only=True)  # Include streak savers
-    global_tickets = serializers.IntegerField(read_only=True)  # Include tickets
-    company_tickets = serializers.IntegerField(read_only=True)  # Include tickets
     # gem = serializers.IntegerField(read_only=True)
     gem = serializers.SerializerMethodField()  # Custom field to calculate the total gems
     global_league = serializers.SerializerMethodField()
@@ -171,8 +169,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'gem',
             'streak', 
             'streak_savers',
-            'global_tickets',
-            'company_tickets',
             'bio', 
             'date_joined', 
             'profile_picture_url',  # Custom field with logic

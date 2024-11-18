@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>League Rankings</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .profile-picture {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+    <h1>Global League Rankings</h1>
+    <p><strong>League Name:</strong> <span id="league-name">Loading...</span></p>
+    <p><strong>League Level:</strong> <span id="league-level">Loading...</span></p>
+    <p><strong>Your Rank:</strong> <span id="user-rank">Loading...</span></p>
+
+    <h2>Rankings</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Rank</th>
+                <th>Profile</th>
+                <th>Username</th>
+                <th>XP</th>
+                <th>Streaks</th>
+                <th>Gems Obtained</th>
+                <th>Advancement</th>
+            </tr>
+        </thead>
+        <tbody id="ranking-table">
+            <!-- Rankings will be dynamically populated here -->
+        </tbody>
+    </table>
+
+    <script>
+        const leagueId = 153; // Replace with the current league ID from your context
+        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/league/153/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNTAxMzA3LCJpYXQiOjE3MzE4OTY1MDcsImp0aSI6Ijc2ZWRkNTM3MzAyZDQyNmRhZDFlYmMxZGRlYzRmYTMwIiwidXNlcl9pZCI6MTh9.x2lMIYNahCX6IU_0EnylB0ue6_WEWFGQkale55sTaj4`);
+
+        socket.onopen = function(event) {
+            console.log("WebSocket connection established!", event);
+        };
+
+        console.log('hello world here');
+
+        socket.onmessage = function(event) {
+            console.log("Message received from server:", event.data);
+            const data = JSON.parse(event.data);
+            console.log(data);
+
+            // Update league details
+            document.getElementById('league-name').textContent = data.league_name;
+            document.getElementById('league-level').textContent = `Level: ${data.league_level}`;
+            document.getElementById('user-rank').textContent = `Your Rank: ${data.user_rank}`;
+
+            // Update rankings
+            const rankingTable = document.getElementById('ranking-table');
+            rankingTable.innerHTML = ''; // Clear existing rankings
+
+            data.rankings.forEach(rank => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${rank.rank}</td>
+                    <td><img src="${rank.profile_picture || '/default-profile.png'}" alt="${rank.username}'s profile" class="profile-picture" /></td>
+                    <td>${rank.username}</td>
+                    <td>${rank.xp}</td>
+                    <td>${rank.streaks}</td>
+                    <td>${rank.gems_obtained}</td>
+                    <td>${rank.advancement}</td>
+                `;
+                rankingTable.appendChild(row);
+            });
+        };
+
+        socket.onclose = function(event) {
+            console.log("WebSocket connection closed!", event);
+        };
+
+        socket.onerror = function(error) {
+            console.error("WebSocket error:", error);
+        };
+    </script>
+</body>
+</html>

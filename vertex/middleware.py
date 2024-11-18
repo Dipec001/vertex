@@ -1,4 +1,8 @@
 from django.http import JsonResponse
+import jwt
+from myapp.models import CustomUser
+from django.conf import settings
+from channels.db import database_sync_to_async
 
 class CustomResponseMiddleware:
     """
@@ -30,3 +34,48 @@ class CustomResponseMiddleware:
             return JsonResponse(data, status=response.status_code)
         # For regular Django HTTP Responses
         return response
+
+class TokenAuthMiddleware:
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        token = None
+        query_string = scope.get('query_string', b'').decode()  # Decode from bytes to string
+
+        # Now we can check for 'token' in the query string
+        if 'token' in query_string:
+            token = query_string.split('=')[1]  # Extract token after '='
+
+        if token:
+            try:
+                # Decode the token and verify it
+                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                user_id = payload.get('user_id')
+                if user_id:
+                    scope['user'] = await self.get_user(user_id)
+                else:
+                    raise ValueError("User ID not found in token.")
+            except jwt.ExpiredSignatureError:
+                await send({"type": "websocket.close"})
+                return
+            except jwt.DecodeError:
+                await send({"type": "websocket.close"})
+                return
+            except ValueError:
+                await send({"type": "websocket.close"})
+                return
+
+        # If token is missing or invalid, close the connection
+        if not token or 'user' not in scope:
+            await send({"type": "websocket.close"})
+            return
+
+        await self.inner(scope, receive, send)
+
+    @database_sync_to_async
+    def get_user(self, user_id):
+        try:
+            return CustomUser.objects.get(id=user_id)
+        except CustomUser.DoesNotExist:
+            return None

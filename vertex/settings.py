@@ -40,6 +40,8 @@ ALLOWED_HOSTS = ['127.0.0.1','vertexx-85dc684c56f3.herokuapp.com']
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne", # Daphne for the ASGI version of the runserver command
+    "channels", # Django Channels for WebSockets, etc.
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -117,8 +119,22 @@ ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_UNIQUE_EMAIL = True
 SOCIALACCOUNT_QUERY_EMAIL = True
 
+# For synchronous handling (default for most Django setups)
 WSGI_APPLICATION = "vertex.wsgi.application"
 
+# For asynchronous handling (used by Django Channels)
+ASGI_APPLICATION = "vertex.asgi.application"
+
+
+# Channels
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -297,11 +313,13 @@ CELERY_BEAT_SCHEDULE = {
     },
     'run-company-draws-every-month': {
         'task': 'myapp.tasks.run_company_draws',
-        'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
+        # 'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
+        'schedule': crontab(minute='*'),
     },
     'run-global-draw-every-quarter': {
         'task': 'myapp.tasks.run_global_draw',
-        'schedule': crontab(month_of_year='*/3', day_of_month=1, hour=15, minute=0), # every 1st of 3 months at 3pm utc
+        # 'schedule': crontab(month_of_year='*/3', day_of_month=1, hour=15, minute=0), # every 1st of 3 months at 3pm utc
+        'schedule': crontab(minute='*'),
     },
     'run-global-draw-every-day': {
         'task': 'myapp.tasks.create_global_draw',

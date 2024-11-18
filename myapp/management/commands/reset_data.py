@@ -23,8 +23,6 @@ class Command(BaseCommand):
         # Reset specified fields in CustomUser
         CustomUser.objects.update(
             streak=0,
-            company_tickets=0,
-            global_tickets=0,
             streak_savers=0,
             xp=0,
             gem=0,
