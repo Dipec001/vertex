@@ -127,14 +127,44 @@ ASGI_APPLICATION = "vertex.asgi.application"
 
 
 # Channels
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379')],
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379')],
+#         },
+#     },
+# }
+# Check if we're in debug mode (local environment) or production (Heroku)
+if os.getenv('DEBUG', 'False') == 'True':
+    # Local development
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [('redis://127.0.0.1:6379')],  # Redis URL for local development
+            },
         },
-    },
-}
+    }
+else:
+    # Production environment (Heroku)
+    redis_url = os.getenv('REDIS_URL')  # Heroku Redis URL
+
+    # For Channels configuration (use SSL in production)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [
+                    {
+                        'address': redis_url.split('://')[1],  # Extract host and port from REDIS_URL
+                        'password': redis_url.split(':')[2].split('@')[0] if '@' in redis_url else None,  # Extract password if available
+                        'ssl': True,  # Use SSL for production
+                    }
+                ],
+            },
+        },
+    }
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
