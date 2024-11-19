@@ -36,7 +36,7 @@ from rest_framework.throttling import UserRateThrottle
 
 
 class StreakRateThrottle(UserRateThrottle):
-    rate = "5/min"  # 1 request per 2 mins
+    rate = "1/min"  # 1 request per  mins
 
 
 
