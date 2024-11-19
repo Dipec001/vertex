@@ -84,6 +84,12 @@ CORS_ALLOWED_ORIGINS = [
     "https://vertexx-85dc684c56f3.herokuapp.com"
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://vertexx-85dc684c56f3.herokuapp.com",
+    "https://frabjous-beijinho-4b366a.netlify.app",
+]
+
+
 CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = "vertex.urls"
@@ -182,22 +188,22 @@ CHANNEL_LAYERS = {
 #     }
 # }
 
-# if DEBUG:
-#     DATABASES = {
-#     "default": {
-#         "ENGINE": os.getenv("DB_ENGINE"),
-#         "NAME": os.getenv("DB_NAME"),
-#         "USER": os.getenv("DB_USER"),
-#         "PASSWORD": os.getenv("DB_PASSWORD"),
-#         "HOST": os.getenv("DB_HOST"),
-#         "PORT": os.getenv("DB_PORT"),
-#         "CONN_MAX_AGE": 0,  # Maximum connection age in seconds (e.g., 5 minutes)
-#         'CONN_MAX_NUM': 20,   # Maximum number of connections in the pool
-#     }
-# } 
-# else:
-DATABASES = {
-'default': dj_database_url.config(conn_max_age=0, conn_health_checks=True)
+if DEBUG:
+    DATABASES = {
+    "default": {
+        "ENGINE": os.getenv("DB_ENGINE"),
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
+        "CONN_MAX_AGE": 0,  # Maximum connection age in seconds (e.g., 5 minutes)
+        'CONN_MAX_NUM': 20,   # Maximum number of connections in the pool
+    }
+} 
+else:
+    DATABASES = {
+    'default': dj_database_url.config(conn_max_age=0, conn_health_checks=True)
 }
 
 # Password validation
