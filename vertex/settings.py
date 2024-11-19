@@ -127,20 +127,28 @@ ASGI_APPLICATION = "vertex.asgi.application"
 
 
 # Channels
+import os
+from urllib.parse import urlparse
+
+# Fetch the Redis URL from environment variables
+redis_url = os.getenv('REDIS_URL', 'redis://localhost:6379')
+
+# Parse the Redis URL to extract connection parameters
+url = urlparse(redis_url)
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_KWARGS': {
-                'ssl_cert_reqs': None  # Disables SSL verification
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {
+                "ssl_cert_reqs": None  # Disables SSL verification (if needed)
             },
-        "CONFIG": {
-            "hosts": [('rediss://:p7db66ecbbc9fa16fe8e2ff70b1b8037dcb05ed6d7fbc24ecb2088a6de37bba89@ec2-107-23-186-192.compute-1.amazonaws.com:7070')],
+            "hosts": [(url.hostname, url.port)],  # Extracts host and port from the URL
         },
-        }
     },
 }
+
 # Check if we're in debug mode (local environment) or production (Heroku)
 # if os.getenv('DEBUG', 'False') == 'True':
 #     # Local development
