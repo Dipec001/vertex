@@ -130,14 +130,15 @@ ASGI_APPLICATION = "vertex.asgi.application"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        # 'OPTIONS': {
-        #     'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        #     'CONNECTION_POOL_KWARGS': {
-        #         'ssl_cert_reqs': None  # Disables SSL verification
-        #     },
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {
+                'ssl_cert_reqs': None  # Disables SSL verification
+            },
         "CONFIG": {
-            "hosts": [('redis://127.0.0.1:6379')],
+            "hosts": [('rediss://:p7db66ecbbc9fa16fe8e2ff70b1b8037dcb05ed6d7fbc24ecb2088a6de37bba89@ec2-107-23-186-192.compute-1.amazonaws.com:7070')],
         },
+        }
     },
 }
 # Check if we're in debug mode (local environment) or production (Heroku)
@@ -366,26 +367,26 @@ CELERY_BEAT_SCHEDULE = {
     },
     'process_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_league_promotions',
-        'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
-        # 'schedule': crontab(minute='*'),
+        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
+        'schedule': crontab(minute='*'),
     },
     'process_company_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_company_league_promotions',
-        'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
-        # 'schedule': crontab(minute='*'),
+        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
+        'schedule': crontab(minute='*'),
     },
 }
 
 
-sentry_sdk.init(
-    dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
-    # Set traces_sample_rate to 1.0 to capture 100%
-    # of transactions for tracing.
-    traces_sample_rate=1.0,
-    _experiments={
-        # Set continuous_profiling_auto_start to True
-        # to automatically start the profiler on when
-        # possible.
-        "continuous_profiling_auto_start": True,
-    },
-)
+# sentry_sdk.init(
+#     dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
+#     # Set traces_sample_rate to 1.0 to capture 100%
+#     # of transactions for tracing.
+#     traces_sample_rate=1.0,
+#     _experiments={
+#         # Set continuous_profiling_auto_start to True
+#         # to automatically start the profiler on when
+#         # possible.
+#         "continuous_profiling_auto_start": True,
+#     },
+# )
