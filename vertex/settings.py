@@ -133,15 +133,32 @@ WSGI_APPLICATION = "vertex.wsgi.application"
 ASGI_APPLICATION = "vertex.asgi.application"
 
 
-# Channels
+import os
+
+# Retrieve the Redis URL from environment variables
+REDIS_URL = os.getenv('REDIS_URL')  # This is usually set by your cloud provider like Heroku
+
+# If REDIS_URL is available (e.g., from Heroku), use it directly
+if REDIS_URL:
+    # Ensure we use SSL if the URL is rediss://
+    if 'rediss://' in REDIS_URL:
+        # For Redis over SSL, we add ssl_cert_reqs=none
+        redis_url = f"{REDIS_URL}?ssl_cert_reqs=none"
+    else:
+        redis_url = REDIS_URL  # If it's a non-SSL connection, use as-is
+else:
+    # Fallback in case the environment variable is not set (local development)
+    redis_url = 'redis://localhost:6379'
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [('rediss://:p7db66ecbbc9fa16fe8e2ff70b1b8037dcb05ed6d7fbc24ecb2088a6de37bba89@ec2-107-23-186-192.compute-1.amazonaws.com:7070?ssl_cert_reqs=none')],
+            "hosts": [redis_url],  # Dynamically set the Redis URL
         },
     },
 }
+
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
