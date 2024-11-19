@@ -134,10 +134,20 @@ ASGI_APPLICATION = "vertex.asgi.application"
 
 
 # Channels
-import django_heroku 
-import ssl 
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379') 
-CHANNEL_LAYERS = { "default": { "BACKEND": "channels_redis.core.RedisChannelLayer", "CONFIG": { "hosts": [REDIS_URL], }, }, }
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {
+                'ssl_cert_reqs': None  # Disables SSL verification
+            },
+        },
+        "CONFIG": {
+            "hosts": [('rediss://:p7db66ecbbc9fa16fe8e2ff70b1b8037dcb05ed6d7fbc24ecb2088a6de37bba89@ec2-107-23-186-192.compute-1.amazonaws.com:7070')],
+        },
+    },
+}
 # Check if we're in debug mode (local environment) or production (Heroku)
 # if os.getenv('DEBUG', 'False') == 'True':
 #     # Local development
@@ -387,6 +397,3 @@ CELERY_BEAT_SCHEDULE = {
 #         "continuous_profiling_auto_start": True,
 #     },
 # )
-
-# Activate Django-Heroku. 
-django_heroku.settings(locals())
