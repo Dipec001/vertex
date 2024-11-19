@@ -137,47 +137,12 @@ ASGI_APPLICATION = "vertex.asgi.application"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_KWARGS': {
-                'ssl_cert_reqs': None  # Disables SSL verification
-            },
-        },
         "CONFIG": {
             "hosts": [('rediss://:p7db66ecbbc9fa16fe8e2ff70b1b8037dcb05ed6d7fbc24ecb2088a6de37bba89@ec2-107-23-186-192.compute-1.amazonaws.com:7070?ssl_cert_reqs=none')],
         },
     },
 }
-# Check if we're in debug mode (local environment) or production (Heroku)
-# if os.getenv('DEBUG', 'False') == 'True':
-#     # Local development
-#     CHANNEL_LAYERS = {
-#         'default': {
-#             'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#             'CONFIG': {
-#                 "hosts": [('redis://127.0.0.1:6379')],  # Redis URL for local development
-#             },
-#         },
-#     }
-# else:
-#     # Production environment (Heroku)
-#     redis_url = os.getenv('REDIS_URL')  # Heroku Redis URL
 
-#     # For Channels configuration (use SSL in production)
-#     CHANNEL_LAYERS = {
-#         'default': {
-#             'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#             'OPTIONS': {
-#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-#             'CONNECTION_POOL_KWARGS': {
-#                 'ssl_cert_reqs': None  # Disables SSL verification
-#             },
-#             'CONFIG': {
-#                 'hosts': [os.getenv('REDIS_URL')],
-#             },
-#         },
-#     }
-# }
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
