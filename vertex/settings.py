@@ -154,18 +154,17 @@ else:
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {
+                'ssl_cert_reqs': None  # Disables SSL verification
+            },
             'CONFIG': {
-                'hosts': [
-                    {
-                        'address': redis_url.split('://')[1],  # Extract host and port from REDIS_URL
-                        'password': redis_url.split(':')[2].split('@')[0] if '@' in redis_url else None,  # Extract password if available
-                        'ssl': True,  # Use SSL for production
-                    }
-                ],
+                'hosts': [os.getenv('REDIS_URL')],
             },
         },
     }
-
+}
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
@@ -191,7 +190,7 @@ if DEBUG:
 } 
 else:
     DATABASES = {
-    'default': dj_database_url.config(conn_max_age=600, conn_health_checks=True)
+    'default': dj_database_url.config(conn_max_age=300, conn_health_checks=True)
 }
 
 # Password validation
@@ -343,13 +342,13 @@ CELERY_BEAT_SCHEDULE = {
     },
     'run-company-draws-every-month': {
         'task': 'myapp.tasks.run_company_draws',
-        # 'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
-        'schedule': crontab(minute='*'),
+        'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
+        # 'schedule': crontab(minute='*'),
     },
     'run-global-draw-every-quarter': {
         'task': 'myapp.tasks.run_global_draw',
-        # 'schedule': crontab(month_of_year='*/3', day_of_month=1, hour=15, minute=0), # every 1st of 3 months at 3pm utc
-        'schedule': crontab(minute='*'),
+        'schedule': crontab(month_of_year='*/3', day_of_month=1, hour=15, minute=0), # every 1st of 3 months at 3pm utc
+        # 'schedule': crontab(minute='*'),
     },
     'run-global-draw-every-day': {
         'task': 'myapp.tasks.create_global_draw',
@@ -361,13 +360,13 @@ CELERY_BEAT_SCHEDULE = {
     },
     'process_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_league_promotions',
-        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
-        'schedule': crontab(minute='*'),
+        'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
+        # 'schedule': crontab(minute='*'),
     },
     'process_company_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_company_league_promotions',
-        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
-        'schedule': crontab(minute='*'),
+        'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
+        # 'schedule': crontab(minute='*'),
     },
 }
 
