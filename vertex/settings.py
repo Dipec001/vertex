@@ -130,16 +130,15 @@ ASGI_APPLICATION = "vertex.asgi.application"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_KWARGS': {
-                'ssl_cert_reqs': None  # Disables SSL verification
-            },
+        # 'OPTIONS': {
+        #     'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        #     'CONNECTION_POOL_KWARGS': {
+        #         'ssl_cert_reqs': None  # Disables SSL verification
+        #     },
         "CONFIG": {
-            "hosts": [os.getenv('REDIS_URL')],
+            "hosts": [('redis://127.0.0.1:6379')],
         },
     },
-}
 }
 # Check if we're in debug mode (local environment) or production (Heroku)
 # if os.getenv('DEBUG', 'False') == 'True':
@@ -196,7 +195,7 @@ if DEBUG:
 } 
 else:
     DATABASES = {
-    'default': dj_database_url.config(conn_max_age=300, conn_health_checks=True)
+    'default': dj_database_url.config(conn_max_age=600, conn_health_checks=True)
 }
 
 # Password validation

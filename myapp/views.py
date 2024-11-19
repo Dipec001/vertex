@@ -32,6 +32,12 @@ from datetime import datetime
 from rest_framework.exceptions import PermissionDenied
 from django.utils.dateparse import parse_date
 from django.contrib.auth.decorators import login_required
+from rest_framework.throttling import UserRateThrottle
+
+
+class StreakRateThrottle(UserRateThrottle):
+    rate = "5/min"  # 1 request per 2 mins
+
 
 
 # Create your views here.
@@ -679,6 +685,7 @@ class WorkoutActivityView(APIView):
     
 
 class StreakRecordsView(APIView):
+    throttle_classes = [StreakRateThrottle]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
