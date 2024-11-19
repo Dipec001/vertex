@@ -26,10 +26,15 @@ django-allauth==64.2.1
 django-cors-headers==4.5.0
 django-db-geventpool==4.0.7
 django-filter==24.3
+django-heroku==0.3.1
 django-storages==1.14.4
 django-timezone-field==7.0
 djangorestframework==3.15.2
 djangorestframework-simplejwt==5.3.1
+dnspython==2.7.0
+eventlet==0.37.0
+gevent==24.11.1
+greenlet==3.1.1
 gunicorn==23.0.0
 hyperlink==21.0.0
 idna==3.10
@@ -44,7 +49,7 @@ pillow==10.4.0
 prompt_toolkit==3.0.48
 psycopg==3.2.3
 psycopg-binary==3.2.3
-psycopg2==2.9.9
+psycopg2==2.9.10
 pyasn1==0.6.1
 pyasn1_modules==0.4.1
 pycparser==2.22
@@ -69,4 +74,5 @@ urllib3==2.2.3
 vine==5.1.0
 wcwidth==0.2.13
 whitenoise==6.7.0
+zope.event==5.0
 zope.interface==7.1.1
