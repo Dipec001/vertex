@@ -286,89 +286,89 @@ def add_to_first_company_league(sender, instance, **kwargs):
 
 
 
-@receiver(post_save, sender=Xp)
-def broadcast_global_league_ranking_update(sender, instance, **kwargs):
-    user = instance.user
+# @receiver(post_save, sender=Xp)
+# def broadcast_global_league_ranking_update(sender, instance, **kwargs):
+#     user = instance.user
 
-    # Get the user's active global league instance
-    user_league = (
-        UserLeague.objects
-        .filter(user=user, league_instance__is_active=True, league_instance__company__isnull=True)
-        .select_related('league_instance', 'user')
-        .first()
-    )
+#     # Get the user's active global league instance
+#     user_league = (
+#         UserLeague.objects
+#         .filter(user=user, league_instance__is_active=True, league_instance__company__isnull=True)
+#         .select_related('league_instance', 'user')
+#         .first()
+#     )
 
-    if not user_league:
-        return  # No active global league found, exit early
+#     if not user_league:
+#         return  # No active global league found, exit early
 
-    league_instance = user_league.league_instance
-    print(league_instance.id)
+#     league_instance = user_league.league_instance
+#     print(league_instance.id)
 
-    # Fetch all users in the league and calculate rankings
-    rankings = UserLeague.objects.filter(
-        league_instance=league_instance
-    ).select_related('user').order_by('-xp_global', 'id')
+#     # Fetch all users in the league and calculate rankings
+#     rankings = UserLeague.objects.filter(
+#         league_instance=league_instance
+#     ).select_related('user').order_by('-xp_global', 'id')
 
-    total_users = rankings.count()
-    promotion_threshold = int(total_users * 0.30)  # Top 30%
-    demotion_threshold = int(total_users * 0.80)  # Bottom 20%
+#     total_users = rankings.count()
+#     promotion_threshold = int(total_users * 0.30)  # Top 30%
+#     demotion_threshold = int(total_users * 0.80)  # Bottom 20%
 
-    rankings_data = []
-    for index, ul in enumerate(rankings, start=1):
-        # Determine advancement status
-        if total_users <= 3:
-            if ul.xp_global == 0:
-                advancement = "Demoted"
-                gems_obtained = 0
-            else:
-                advancement = "Retained"
-                gems_obtained = 10
-        else:
-            if index <= promotion_threshold:
-                gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
-                advancement = "Promoted"
-            elif index <= demotion_threshold:
-                gems_obtained = 10  # Retained users get a base reward
-                advancement = "Retained"
-            else:
-                gems_obtained = 0  # Demoted users receive no gems
-                advancement = "Demoted"
+#     rankings_data = []
+#     for index, ul in enumerate(rankings, start=1):
+#         # Determine advancement status
+#         if total_users <= 3:
+#             if ul.xp_global == 0:
+#                 advancement = "Demoted"
+#                 gems_obtained = 0
+#             else:
+#                 advancement = "Retained"
+#                 gems_obtained = 10
+#         else:
+#             if index <= promotion_threshold:
+#                 gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+#                 advancement = "Promoted"
+#             elif index <= demotion_threshold:
+#                 gems_obtained = 10  # Retained users get a base reward
+#                 advancement = "Retained"
+#             else:
+#                 gems_obtained = 0  # Demoted users receive no gems
+#                 advancement = "Demoted"
 
-        # Prefix for S3 bucket URL
-        s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
+#         # Prefix for S3 bucket URL
+#         s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
 
-        # User data for each ranking
-        rankings_data.append({
-            "user_id": ul.user.id,
-            "username": ul.user.username,
-            "profile_picture": f"{s3_bucket_url}{ul.user.profile_picture}" if ul.user.profile_picture else None,
-            "xp": ul.xp_global,
-            "streaks": ul.user.streak,
-            "gems_obtained": gems_obtained,
-            "rank": index,
-            "advancement": advancement,
-        })
+#         # User data for each ranking
+#         rankings_data.append({
+#             "user_id": ul.user.id,
+#             "username": ul.user.username,
+#             "profile_picture": f"{s3_bucket_url}{ul.user.profile_picture}" if ul.user.profile_picture else None,
+#             "xp": ul.xp_global,
+#             "streaks": ul.user.streak,
+#             "gems_obtained": gems_obtained,
+#             "rank": index,
+#             "advancement": advancement,
+#         })
 
-    # Find the current user's rank
-    user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
+#     # Find the current user's rank
+#     user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
 
-    # Prepare data to send
-    data = {
-        "league_name": league_instance.league.name,
-        "league_level": 11 - league_instance.league.order,
-        "league_start": league_instance.league_start.isoformat(),
-        "league_end": league_instance.league_end.isoformat(),
-        "user_rank": user_rank,
-        "rankings": rankings_data,
-    }
+#     # Prepare data to send
+#     data = {
+#         "league_name": league_instance.league.name,
+#         "league_level": 11 - league_instance.league.order,
+#         "league_start": league_instance.league_start.isoformat(),
+#         "league_end": league_instance.league_end.isoformat(),
+#         "user_rank": user_rank,
+#         "rankings": rankings_data,
+#     }
 
-    print(data,' data from enw singnal')
-    # Send the data to the WebSocket group
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f'league_{league_instance.id}',
-        {
-            'type': 'send_league_update',
-            'data': data,
-        }
-    )
+#     print(data,' data from enw singnal')
+#     # Send the data to the WebSocket group
+#     channel_layer = get_channel_layer()
+#     async_to_sync(channel_layer.group_send)(
+#         f'league_{league_instance.id}',
+#         {
+#             'type': 'send_league_update',
+#             'data': data,
+#         }
+#     )
