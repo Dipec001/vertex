@@ -10,6 +10,13 @@ from django.db import transaction
 import pytz
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.db import connection
+from django.core.signals import request_finished
+from django.dispatch import receiver
+
+@receiver(request_finished)
+def close_db_connection(sender, **kwargs):
+    connection.close()
 
 
 

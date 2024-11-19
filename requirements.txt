@@ -24,6 +24,7 @@ dj-database-url==2.2.0
 Django==5.1.1
 django-allauth==64.2.1
 django-cors-headers==4.5.0
+django-db-geventpool==4.0.7
 django-filter==24.3
 django-storages==1.14.4
 django-timezone-field==7.0
@@ -41,6 +42,8 @@ oauthlib==3.2.2
 packaging==24.1
 pillow==10.4.0
 prompt_toolkit==3.0.48
+psycopg==3.2.3
+psycopg-binary==3.2.3
 psycopg2==2.9.9
 pyasn1==0.6.1
 pyasn1_modules==0.4.1
