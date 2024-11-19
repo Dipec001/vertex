@@ -136,7 +136,7 @@ CHANNEL_LAYERS = {
                 'ssl_cert_reqs': None  # Disables SSL verification
             },
         "CONFIG": {
-            "hosts": ['rediss://:p7db66ecbbc9fa16fe8e2ff70b1b8037dcb05ed6d7fbc24ecb2088a6de37bba89@ec2-107-23-186-192.compute-1.amazonaws.com:7070'],
+            "hosts": [os.getenv('REDIS_URL')],
         },
     },
 }
