@@ -80,7 +80,8 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8080",
     "http://localhost:8080",  # In case you're using localhost without the 
-    "https://frabjous-beijinho-4b366a.netlify.app"
+    "https://frabjous-beijinho-4b366a.netlify.app",
+    "https://vertexx-85dc684c56f3.herokuapp.com"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
