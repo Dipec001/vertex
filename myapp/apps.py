@@ -8,3 +8,4 @@ class MyappConfig(AppConfig):
     def ready(self):
         # Import your signals to ensure they're connected
         import myapp.signals
+        import myapp.websocket_signals

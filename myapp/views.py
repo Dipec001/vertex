@@ -58,6 +58,19 @@ def test_league_rankings(request):
     league_id = user_league.league_instance.id
     return render(request, 'global_league.html', {'league_id': league_id})
 
+@login_required
+def test_streak_view(request):
+    return render(request, 'test_streak.html', {'user_id': request.user.id})
+
+
+@login_required
+def test_gem_view(request):
+    return render(request, 'test_gem.html', {'user_id': request.user.id})
+
+@login_required
+def test_feed_view(request):
+    return render(request, 'test_feed.html', {'user_id': request.user.id})
+
 class ValidateEmailPasswordView(APIView):
     permission_classes = [AllowAny]
 

@@ -57,13 +57,7 @@ class TokenAuthMiddleware:
                     scope['user'] = await self.get_user(user_id)
                 else:
                     raise ValueError("User ID not found in token.")
-            except jwt.ExpiredSignatureError:
-                await send({"type": "websocket.close"})
-                return
-            except jwt.DecodeError:
-                await send({"type": "websocket.close"})
-                return
-            except ValueError:
+            except (jwt.ExpiredSignatureError, jwt.DecodeError, ValueError):
                 await send({"type": "websocket.close"})
                 return
 

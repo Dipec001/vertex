@@ -54,14 +54,12 @@
     </table>
 
     <script>
-        const leagueId = 153; // Replace with the current league ID from your context
-        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/league/153/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNTQ5MDA4LCJpYXQiOjE3MzE5NDQyMDgsImp0aSI6IjRjNTNkMDFiMWE0MjQ0YmM5MmM4YTgzZjJjYzgxZWJlIiwidXNlcl9pZCI6MTJ9.0slaJSxizs2rT_OAkoXhebVcl6UQfjNH4vGx8EZ0bxI`);
+        const leagueId = 3; // Replace with the current league ID from your context
+        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/league/153/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNjcyMTk0LCJpYXQiOjE3MzIwNjczOTQsImp0aSI6ImExNWEwNmUzMTVlYTRkMjZiNGYzYjU5MjgwYzkyMDBkIiwidXNlcl9pZCI6MzV9.vCrs2OsFi0bjP5lJbXCcTtmCBgYWl4X6yhUdJyRsPN8`);
 
         socket.onopen = function(event) {
             console.log("WebSocket connection established!", event);
         };
-
-        console.log('hello world here');
 
         socket.onmessage = function(event) {
             console.log("Message received from server:", event.data);

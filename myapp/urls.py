@@ -8,6 +8,9 @@ from . import views
 urlpatterns = [
     # path('sentry-debug/', trigger_error),
     path('test-league-rankings/', views.test_league_rankings, name='test-league-rankings'),
+    path('test-streak/', views.test_streak_view, name='test_streak'),
+    path('test-gem/', views.test_gem_view, name='test_gem'),
+    path('test-feed/', views.test_feed_view, name='test_feed'),
     path('validate-email-password/', views.ValidateEmailPasswordView.as_view(), name='validate_email_password'),
     path('validate-company-association/', views.ValidateCompanyAssociationView.as_view(), name='validate_company_association'),
     path('create-user/', views.NormalUserSignupView.as_view(), name='create_user'),

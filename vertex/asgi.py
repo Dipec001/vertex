@@ -43,6 +43,7 @@ application = ProtocolTypeRouter({
     "websocket": TokenAuthMiddleware(  # Use the custom JWT middleware here
         AuthMiddlewareStack(  # Stack the Django authentication middleware
             URLRouter(websocket_urlpatterns)
+            
         )
     ),
 })

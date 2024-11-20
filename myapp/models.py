@@ -4,6 +4,7 @@ from timezone_field import TimeZoneField
 import pytz
 import random
 from django.utils import timezone
+from django.db.models import Sum
 # Create your models here.
 
 TIMEZONES = tuple(zip(pytz.all_timezones, pytz.all_timezones))
@@ -39,6 +40,16 @@ class CustomUser(AbstractUser):
         blank=True  # Company must not be selected
     )
     timezone = TimeZoneField(default='UTC', use_pytz=False)
+
+    def get_gem_count(self):
+        # Calculate total gems (XP-based + manual gems)
+        total_xp_gems = Gem.objects.filter(user=self).aggregate(total_xp_gems=Sum('xp_gem'))['total_xp_gems'] or 0
+        total_manual_gems = Gem.objects.filter(user=self).aggregate(total_manual_gems=Sum('manual_gem'))['total_manual_gems'] or 0
+        total_gems_spent = self.gems_spent  # Assuming you have a `gems_spent` field
+
+        # Calculate total gems and ensure no negative gems
+        total_gems = total_xp_gems + total_manual_gems - total_gems_spent
+        return max(0, total_gems)  # Ensure no negative gems
     
     def __str__(self):
         return self.email

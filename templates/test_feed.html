@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Feed Updates</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .feed { margin: 20px 0; }
+        .feed div { margin: 5px 0; }
+        #userFeed, #companyFeed { border: 1px solid #ccc; padding: 10px; }
+        #userFeed { background-color: #e7f3fe; }
+        #companyFeed { background-color: #f2e7fe; }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Feed Updates</h1>
+    <div class="feed" id="userFeed">
+        <h2>User Feed</h2>
+        <div id="userFeedContent">Waiting for updates...</div>
+    </div>
+    <div class="feed" id="companyFeed">
+        <h2>Company Feed</h2>
+        <div id="companyFeedContent">Waiting for updates...</div>
+    </div>
+    
+    <script>
+        // Mock functions to get user ID, company ID, and token
+        function getCurrentUserId() { return 35; }
+        function getCompanyId() { return 9; }
+        function getToken() { return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNjk0NzYzLCJpYXQiOjE3MzIwODk5NjMsImp0aSI6ImRlNzEyMjk5M2JiZTRlMTI4NjliZTVjMDUzZjQwYjUyIiwidXNlcl9pZCI6MzZ9.YtP3He3vcvSQLI-Rb8omYwCPgcEJARbQ27wSscTpFRE'; }
+
+        const user_id = getCurrentUserId();
+        const company_id = getCompanyId();
+        const token = getToken();
+
+        // Connect to user feed WebSocket
+        const userFeedUrl = `ws://${window.location.host}/ws/feed/user/${user_id}/?token=${token}`;
+        const userFeedSocket = new WebSocket(userFeedUrl);
+
+        // Connect to company feed WebSocket
+        const companyFeedUrl = `ws://${window.location.host}/ws/feed/company/${company_id}/?token=${token}`;
+        const companyFeedSocket = new WebSocket(companyFeedUrl);
+
+        // Handle user feed WebSocket messages
+        userFeedSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const userFeedContent = document.getElementById('userFeedContent');
+            userFeedContent.innerHTML = `<div>Type: ${data.feed_type} | Content: ${data.content} | Claps: ${data.claps_count} | Created: ${data.created_at}</div>` + userFeedContent.innerHTML;
+        };
+
+        userFeedSocket.onclose = function(event) {
+            const userFeedContent = document.getElementById('userFeedContent');
+            if (event.wasClean) {
+                userFeedContent.innerHTML = `<div>WebSocket closed cleanly, code=${event.code}, reason=${event.reason}</div>` + userFeedContent.innerHTML;
+            } else {
+                userFeedContent.innerHTML = `<div>WebSocket connection closed unexpectedly</div>` + userFeedContent.innerHTML;
+            }
+        };
+
+        // Handle company feed WebSocket messages
+        companyFeedSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const companyFeedContent = document.getElementById('companyFeedContent');
+            companyFeedContent.innerHTML = `<div>Type: ${data.feed_type} | Content: ${data.content} | Claps: ${data.claps_count} | Created: ${data.created_at}</div>` + companyFeedContent.innerHTML;
+        };
+
+        companyFeedSocket.onclose = function(event) {
+            const companyFeedContent = document.getElementById('companyFeedContent');
+            if (event.wasClean) {
+                companyFeedContent.innerHTML = `<div>WebSocket closed cleanly, code=${event.code}, reason=${event.reason}</div>` + companyFeedContent.innerHTML;
+            } else {
+                companyFeedContent.innerHTML = `<div>WebSocket connection closed unexpectedly</div>` + companyFeedContent.innerHTML;
+            }
+        };
+
+        // Ensure the connections close properly when not needed
+        window.onbeforeunload = function() {
+            userFeedSocket.close();
+            companyFeedSocket.close();
+        };
+    </script>
+</body>
+</html>

@@ -543,7 +543,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 total_daily_step_count = DailySteps.objects.filter(user=user).aggregate(
                     total_steps=Sum('step_count')
                 )['total_steps'] or 0
-                print(total_daily_step_count)
 
                 # Check milestones dynamically based on the total daily steps
                 self.check_dynamic_milestones(user, total_daily_step_count)

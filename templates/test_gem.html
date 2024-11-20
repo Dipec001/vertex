@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gem Update Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        #gem-count {
+            font-size: 24px;
+            font-weight: bold;
+            color: green;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Real-time Gem Count</h1>
+<p>Welcome! This page listens for real-time gem count updates.</p>
+
+<div>
+    <strong>Current Gem Count:</strong> <span id="gem-count">Loading...</span>
+</div>
+
+<div id="error-message" class="error" style="display: none;">
+    Error: Could not connect to WebSocket.
+</div>
+
+<script>
+    const userId = 35;  // Replace this with the actual user ID, or dynamically pass it
+    const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNjcyMTk0LCJpYXQiOjE3MzIwNjczOTQsImp0aSI6ImExNWEwNmUzMTVlYTRkMjZiNGYzYjU5MjgwYzkyMDBkIiwidXNlcl9pZCI6MzV9.vCrs2OsFi0bjP5lJbXCcTtmCBgYWl4X6yhUdJyRsPN8";
+    const gemCountElement = document.getElementById("gem-count");
+    const errorMessageElement = document.getElementById("error-message");
+
+    // Construct the WebSocket URL
+    const socketUrl = `ws://${window.location.host}/ws/gem/${userId}/?token=${token}`;
+    const socket = new WebSocket(socketUrl);
+
+    // Handle WebSocket connection open
+    socket.onopen = function() {
+        console.log("WebSocket connection established.");
+        errorMessageElement.style.display = "none";  // Hide error message if connection is successful
+    };
+
+    // Handle WebSocket messages (gem updates)
+    socket.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.gem_count !== undefined) {
+            gemCountElement.textContent = data.gem_count;
+        }
+    };
+
+    // Handle WebSocket errors
+    socket.onerror = function() {
+        console.error("WebSocket error.");
+        errorMessageElement.style.display = "block";  // Show error message
+        gemCountElement.textContent = "Error loading gem count.";
+    };
+
+    // Handle WebSocket connection close
+    socket.onclose = function(event) {
+        console.log("WebSocket connection closed:", event);
+    };
+</script>
+
+</body>
+</html>

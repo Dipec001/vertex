@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streak Update Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .streak-display {
+            font-size: 2rem;
+            margin: 20px 0;
+            color: #333;
+        }
+
+        .status {
+            font-size: 1rem;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Streak Updates</h1>
+    <div class="streak-display" id="streak">Streak Count: 0</div>
+    <div class="status" id="status">Connecting...</div>
+
+    <script>
+        // Replace with your actual user ID and token
+        const userId = 35; // The user's ID
+        const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNjcyMTk0LCJpYXQiOjE3MzIwNjczOTQsImp0aSI6ImExNWEwNmUzMTVlYTRkMjZiNGYzYjU5MjgwYzkyMDBkIiwidXNlcl9pZCI6MzV9.vCrs2OsFi0bjP5lJbXCcTtmCBgYWl4X6yhUdJyRsPN8"; // Replace with a valid token
+
+        // Construct the WebSocket URL with the token
+        const wsUrl = `ws://${window.location.host}/ws/streak/${userId}/?token=${token}`;
+
+        // Establish WebSocket connection
+        const streakSocket = new WebSocket(wsUrl);
+
+        // Handle WebSocket connection open
+        streakSocket.onopen = function () {
+            document.getElementById('status').textContent = "Connected to WebSocket!";
+        };
+
+        // Handle incoming messages
+        streakSocket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            document.getElementById('streak').textContent = `Streak Count: ${data.streak_count}`;
+        };
+
+        // Handle WebSocket errors
+        streakSocket.onerror = function (error) {
+            console.error("WebSocket Error:", error);
+            document.getElementById('status').textContent = "WebSocket Error!";
+        };
+
+        // Handle WebSocket connection close
+        streakSocket.onclose = function () {
+            document.getElementById('status').textContent = "Disconnected from WebSocket!";
+        };
+    </script>
+</body>
+</html>
