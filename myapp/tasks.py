@@ -247,15 +247,15 @@ def reset_gems_for_local_timezones():
             try:
                 # Convert UTC time to user's local time
                 user_local_time = now_utc.astimezone(user_timezone)
-                
+
                 # Check if it's Monday midnight in the user's local timezone
                 if user_local_time.weekday() == 0 and user_local_time.hour == 0:
-
+                    
                     # Reset the user's total gems and gems spent
-                    CustomUser.objects.filter(id=user['id']).update(gem=0, gems_spent=0)
+                    CustomUser.objects.filter(id=user['id']).update(gems_spent=0)
 
                     # Optionally, you can also delete the `Gem` records for the user, or you can reset them individually
-                    Gem.objects.filter(user=user).delete()  # This will remove all gem records for the user
+                    Gem.objects.filter(user=user['id']).delete()  # This will remove all gem records for the user
                     
                     print(f"Reset gems and gems spent for user {user['email']}")
 

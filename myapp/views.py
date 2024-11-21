@@ -28,7 +28,7 @@ from django.db import transaction
 from .s3_utils import save_image_to_s3
 from django.utils import timezone
 from django.db.models import Sum
-from datetime import datetime
+from datetime import datetime, timedelta
 from rest_framework.exceptions import PermissionDenied
 from django.utils.dateparse import parse_date
 from django.contrib.auth.decorators import login_required
@@ -701,33 +701,88 @@ class WorkoutActivityView(APIView):
 
     
 
+# class StreakRecordsView(APIView):
+#     throttle_classes = [StreakRateThrottle]
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         user = request.user
+#         start_date = request.query_params.get('start_date')
+#         end_date = request.query_params.get('end_date', timezone.now().date())
+
+#         if not start_date:
+#             return Response({"error": "Please provide a start date."}, status=400)
+
+#         # Query streak records in the date range for the user
+#         streak_in_range = Streak.objects.filter(
+#             user=user,
+#             timeStamp__date__range=[start_date, end_date]
+#         ).values('timeStamp__date').annotate(current_streak=Sum('currentStreak')).order_by('timeStamp__date')
+
+#         # Prepare the data
+#         streak_data = [{'date': streak['timeStamp__date'], 'current_streak': streak['current_streak']} for streak in streak_in_range]
+
+#         current_streak = user.streak
+
+#         return Response({
+#             'streak_per_day': streak_data,
+#             'overall_current_streak': current_streak
+#         })
+
+
+from django.utils.timezone import localtime, now
+import pytz
+
 class StreakRecordsView(APIView):
     throttle_classes = [StreakRateThrottle]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
+        user_timezone = getattr(user, 'timezone', 'UTC')  # Assume 'UTC' if no timezone is set
+        user_tz = pytz.timezone(user_timezone.key)
+
+        # Get start and end dates from query parameters
         start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date', timezone.now().date())
+        end_date = request.query_params.get('end_date', localtime(now(), user_tz).date())
 
         if not start_date:
             return Response({"error": "Please provide a start date."}, status=400)
 
-        # Query streak records in the date range for the user
+        # Convert dates to user timezone
+        today_date = localtime(now(), user_tz).date()
+        yesterday_date = today_date - timedelta(days=1)
+
+        # Query streak records in the user's local date range
         streak_in_range = Streak.objects.filter(
             user=user,
-            timeStamp__date__range=[start_date, end_date]
-        ).values('timeStamp__date').annotate(current_streak=Sum('currentStreak')).order_by('timeStamp__date')
+            date__range=[start_date, end_date]
+        ).values('date').annotate(current_streak=Sum('currentStreak')).order_by('date')
 
-        # Prepare the data
-        streak_data = [{'date': streak['timeStamp__date'], 'current_streak': streak['current_streak']} for streak in streak_in_range]
+        # Prepare streak data for each day
+        streak_data = [{'date': streak['date'], 'current_streak': streak['current_streak']} for streak in streak_in_range]
 
+        # Get yesterday's streak
+        yesterday_streak_record = Streak.objects.filter(user=user, date=yesterday_date).first()
+        yesterday_streak = yesterday_streak_record.currentStreak if yesterday_streak_record else 0
+
+        # Check if today's streak exists
+        today_streak = next((entry['current_streak'] for entry in streak_data if entry['date'] == today_date), None)
+
+        # Add today's streak dynamically if not found
+        if today_streak is None:
+            today_streak = yesterday_streak if yesterday_streak > 0 else 0
+            streak_data.append({'date': today_date, 'current_streak': today_streak})
+
+        # Current streak value for overall
         current_streak = user.streak
 
         return Response({
             'streak_per_day': streak_data,
-            'overall_current_streak': current_streak
+            'overall_current_streak': current_streak,
         })
+
+
 
 
 
