@@ -30,73 +30,106 @@
     </style>
 </head>
 <body>
-    <h1>Global League Rankings</h1>
-    <p><strong>League Name:</strong> <span id="league-name">Loading...</span></p>
-    <p><strong>League Level:</strong> <span id="league-level">Loading...</span></p>
-    <p><strong>Your Rank:</strong> <span id="user-rank">Loading...</span></p>
+    <h1>League Rankings</h1>
+    
+    <div id="global-league">
+        <h2>Global League</h2>
+        <p><strong>League Name:</strong> <span id="global-league-name">Loading...</span></p>
+        <p><strong>League Level:</strong> <span id="global-league-level">Loading...</span></p>
+        <p><strong>Your Rank:</strong> <span id="global-user-rank">Loading...</span></p>
 
-    <h2>Rankings</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Rank</th>
-                <th>Profile</th>
-                <th>Username</th>
-                <th>XP</th>
-                <th>Streaks</th>
-                <th>Gems Obtained</th>
-                <th>Advancement</th>
-            </tr>
-        </thead>
-        <tbody id="ranking-table">
-            <!-- Rankings will be dynamically populated here -->
-        </tbody>
-    </table>
+        <h3>Rankings</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Profile</th>
+                    <th>Username</th>
+                    <th>XP</th>
+                    <th>Streaks</th>
+                    <th>Gems Obtained</th>
+                    <th>Advancement</th>
+                </tr>
+            </thead>
+            <tbody id="global-ranking-table">
+                <!-- Global league rankings will be dynamically populated here -->
+            </tbody>
+        </table>
+    </div>
+
+    <div id="company-league">
+        <h2>Company League</h2>
+        <p><strong>League Name:</strong> <span id="company-league-name">Loading...</span></p>
+        <p><strong>League Level:</strong> <span id="company-league-level">Loading...</span></p>
+        <p><strong>Your Rank:</strong> <span id="company-user-rank">Loading...</span></p>
+
+        <h3>Rankings</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Profile</th>
+                    <th>Username</th>
+                    <th>XP</th>
+                    <th>Streaks</th>
+                    <th>Gems Obtained</th>
+                    <th>Advancement</th>
+                </tr>
+            </thead>
+            <tbody id="company-ranking-table">
+                <!-- Company league rankings will be dynamically populated here -->
+            </tbody>
+        </table>
+    </div>
 
     <script>
-        const leagueId = 3; // Replace with the current league ID from your context
-        const socket = new WebSocket(`ws://127.0.0.1:8000/ws/league/153/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNjcyMTk0LCJpYXQiOjE3MzIwNjczOTQsImp0aSI6ImExNWEwNmUzMTVlYTRkMjZiNGYzYjU5MjgwYzkyMDBkIiwidXNlcl9pZCI6MzV9.vCrs2OsFi0bjP5lJbXCcTtmCBgYWl4X6yhUdJyRsPN8`);
+        function connectWebSocket(url, leagueType) {
+            const socket = new WebSocket(url);
 
-        socket.onopen = function(event) {
-            console.log("WebSocket connection established!", event);
-        };
+            socket.onopen = function(event) {
+                console.log(`${leagueType} WebSocket connection established!`, event);
+            };
 
-        socket.onmessage = function(event) {
-            console.log("Message received from server:", event.data);
-            const data = JSON.parse(event.data);
-            console.log(data);
+            socket.onmessage = function(event) {
+                console.log(`Message received from ${leagueType} server:`, event.data);
+                const data = JSON.parse(event.data);
 
-            // Update league details
-            document.getElementById('league-name').textContent = data.league_name;
-            document.getElementById('league-level').textContent = `Level: ${data.league_level}`;
-            document.getElementById('user-rank').textContent = `Your Rank: ${data.user_rank}`;
+                // Update league details
+                document.getElementById(`${leagueType}-league-name`).textContent = data.league_name;
+                document.getElementById(`${leagueType}-league-level`).textContent = `Level: ${data.league_level}`;
+                document.getElementById(`${leagueType}-user-rank`).textContent = `Your Rank: ${data.user_rank}`;
 
-            // Update rankings
-            const rankingTable = document.getElementById('ranking-table');
-            rankingTable.innerHTML = ''; // Clear existing rankings
+                // Update rankings
+                const rankingTable = document.getElementById(`${leagueType}-ranking-table`);
+                rankingTable.innerHTML = ''; // Clear existing rankings
 
-            data.rankings.forEach(rank => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${rank.rank}</td>
-                    <td><img src="${rank.profile_picture || '/default-profile.png'}" alt="${rank.username}'s profile" class="profile-picture" /></td>
-                    <td>${rank.username}</td>
-                    <td>${rank.xp}</td>
-                    <td>${rank.streaks}</td>
-                    <td>${rank.gems_obtained}</td>
-                    <td>${rank.advancement}</td>
-                `;
-                rankingTable.appendChild(row);
-            });
-        };
+                data.rankings.forEach(rank => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${rank.rank}</td>
+                        <td><img src="${rank.profile_picture || '/default-profile.png'}" alt="${rank.username}'s profile" class="profile-picture" /></td>
+                        <td>${rank.username}</td>
+                        <td>${rank.xp}</td>
+                        <td>${rank.streaks}</td>
+                        <td>${rank.gems_obtained}</td>
+                        <td>${rank.advancement}</td>
+                    `;
+                    rankingTable.appendChild(row);
+                });
+            };
 
-        socket.onclose = function(event) {
-            console.log("WebSocket connection closed!", event);
-        };
+            socket.onclose = function(event) {
+                console.log(`${leagueType} WebSocket connection closed!`, event);
+            };
 
-        socket.onerror = function(error) {
-            console.error("WebSocket error:", error);
-        };
+            socket.onerror = function(error) {
+                console.error(`${leagueType} WebSocket error:`, error);
+            };
+        }
+
+        // Connect to both global and company league WebSockets
+        connectWebSocket('ws://127.0.0.1:8000/ws/league/global/153/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNzUzMTk0LCJpYXQiOjE3MzIxNDgzOTQsImp0aSI6ImYxZDlhNDRjMWE4NjQzYjI4ZDI4NmM5YTA3YzBmMDkxIiwidXNlcl9pZCI6MzV9.CIkvXm3nTLaSpShQmBhCjIJx6zslqMlV872zbwO-S2A', 'global');
+        connectWebSocket('ws://127.0.0.1:8000/ws/league/company/175/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNzUzMTk0LCJpYXQiOjE3MzIxNDgzOTQsImp0aSI6ImYxZDlhNDRjMWE4NjQzYjI4ZDI4NmM5YTA3YzBmMDkxIiwidXNlcl9pZCI6MzV9.CIkvXm3nTLaSpShQmBhCjIJx6zslqMlV872zbwO-S2A', 'company');
     </script>
 </body>
 </html>

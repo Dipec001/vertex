@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Draw Updates</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .updates { margin: 20px 0; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
+        .update-item { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Live Draw Updates</h1>
+    <div class="updates" id="drawUpdates">Waiting for updates...</div>
+    
+    <script>
+        function getToken() { return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzMyNzE4OTA5LCJpYXQiOjE3MzIxMTQxMDksImp0aSI6ImYxMTA5NGMxM2IyZTRjOTI4YjcwMzZhZTdhYWM5N2NlIiwidXNlcl9pZCI6MzR9.pGRitlscimZnm_0PlZWUrVKBI_O9-Q5C855JfUKqlAw'; }
+        const drawId = 3;  // Replace with the actual draw ID
+        const token = getToken();
+
+        const drawUpdatesUrl = `ws://${window.location.host}/ws/draw/${drawId}/?token=${token}`;
+        const drawUpdatesSocket = new WebSocket(drawUpdatesUrl);
+
+        drawUpdatesSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const drawUpdates = document.getElementById('drawUpdates');
+            drawUpdates.innerHTML = `<div class="update-item">Winner: ${data.winner} | Prize: ${data.prize} | Draw: ${data.draw_name} | Date: ${data.draw_date}</div>` + drawUpdates.innerHTML;
+        };
+
+        drawUpdatesSocket.onclose = function(event) {
+            if (event.wasClean) {
+                console.log(`WebSocket closed cleanly, code=${event.code}, reason=${event.reason}`);
+            } else {
+                console.log(`WebSocket connection closed unexpectedly`);
+            }
+        };
+
+        window.onbeforeunload = function() {
+            drawUpdatesSocket.close();
+        };
+    </script>
+</body>
+</html>

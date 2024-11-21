@@ -71,6 +71,10 @@ def test_gem_view(request):
 def test_feed_view(request):
     return render(request, 'test_feed.html', {'user_id': request.user.id})
 
+@login_required
+def test_draw_view(request):
+    return render(request, 'test_draw.html', {'user_id': request.user.id})
+
 class ValidateEmailPasswordView(APIView):
     permission_classes = [AllowAny]
 

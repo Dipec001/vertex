@@ -7,6 +7,8 @@ from datetime import timedelta, datetime
 from django.utils import timezone as django_timezone
 from .league_service import promote_user, demote_user, retain_user, promote_company_user, demote_company_user, retain_company_user
 from dateutil.relativedelta import relativedelta  # For precise next-month calculation
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -114,44 +116,6 @@ def run_company_draws():
             )
 
 
-
-
-# @shared_task
-# def run_company_draws():
-#     """
-#     Celery task to run company-specific draws for all companies.
-#     This is executed monthly.
-#     """
-#     # Get all active companies
-#     companies = Company.objects.all()
-
-#     for company in companies:
-#         # Fetch the active draw for the company
-#         active_draw = Draw.objects.filter(company=company, is_active=True).first()
-
-#         if active_draw:
-#             # Pick winners for the active draw
-#             active_draw.pick_winners()
-#             # Mark the draw as inactive after picking winners
-#             active_draw.is_active = False
-#             active_draw.save()
-
-#         # Optionally, create a new draw for the next month at 3 PM UTC
-#         next_draw_date = timezone.now() + timedelta(days=30)  # Approximation for next month
-        
-#         # Set the time to 3 PM UTC
-#         next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
-
-#         Draw.objects.create(
-#             draw_name=f"Monthly Draw for {company.name}",
-#             company=company,
-#             draw_type='company',
-#             draw_date=next_draw_date,
-#             number_of_winners=3,  # Example
-#             is_active=True,  # Activate the new draw
-#         )
-
-
 @shared_task
 def run_global_draw():
     """
@@ -189,36 +153,6 @@ def run_global_draw():
     else:
         # Log or handle case when no active global draw has passed
         print("No active global draw with a passed date found.")
-
-
-# @shared_task
-# def run_global_draw():
-#     """
-#     Task to run the global draw.
-#     Only one active global draw at a time.
-#     """
-
-#     # Fetch the active global draw
-#     draw = Draw.objects.filter(draw_type='global', is_active=True).first()
-#     print(draw)
-#     if draw:
-#         draw.pick_winners()
-#         draw.is_active = False
-#         draw.save()
-
-#     # Create a new global draw for the next quarter at 3 PM UTC
-#     next_draw_date = timezone.now() + timedelta(days=90)  # Approximation for a quarter (3 months)
-    
-#     # Set the time to 3 PM UTC
-#     next_draw_date = next_draw_date.replace(hour=15, minute=0, second=0, microsecond=0)
-
-#     Draw.objects.create(
-#         draw_name="Quarterly Global Draw",
-#         draw_type='global',
-#         draw_date=next_draw_date,
-#         number_of_winners=3,  # Example number of winners
-#         is_active=True,
-#     )
 
 
 @shared_task
@@ -337,24 +271,20 @@ def reset_gems_for_local_timezones():
 def process_league_promotions():
     # Get current time
     now = timezone.now()
-    print(now)
     
     # Query leagues where the end date has passed but still active
     expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=True)
     
     for league in expired_leagues:
-        print('league end time', league.league_end)
         # Order users by global XP in descending order for promotions and demotions
         users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global', 'id')
         total_users = users_in_league.count()
 
         promotion_threshold = int(total_users * 0.30)  # Promote top 30%
-        # demotion_threshold = total_users - int(total_users * 0.20)  # Demote bottom 20%
         demotion_threshold = int(total_users * 0.80)
 
         for rank, user_league in enumerate(users_in_league, start=1):
             user = user_league.user
-            print(f"current user is {user.username}")
             # Apply logic based on user count and rank position
             if total_users <= 3:
                 # Handle cases with very few users separately
@@ -362,11 +292,9 @@ def process_league_promotions():
                     gems_obtained = 0
                     demote_user(user,gems_obtained, league)
                 else:
-                    print(f"only {total_users} user. retaining")
                     gems_obtained = 10
                     retain_user(user,gems_obtained, league)
             else:
-                print("total users not less than 3")
                 # Standard promotion/retention/demotion logic
                 if rank <= promotion_threshold:
                     gems_obtained = 20 - (rank - 1) * 2  # Reward for promotion
@@ -381,6 +309,45 @@ def process_league_promotions():
             # Reset the user global XP for the new league week
             user_league.xp_global = 0
             user_league.save()
+
+            # Broadcast gem update 
+            new_gem_count = user.get_gem_count() 
+            channel_layer = get_channel_layer() 
+            async_to_sync(channel_layer.group_send)( 
+                f'gem_{user.id}', 
+                { 
+                    'type': 'send_gem_update', 
+                    'gem_count': new_gem_count, 
+                } 
+            )
+        
+        # Broadcast league update 
+        rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_global', 'id') 
+        rankings_data = [] 
+        for idx, ul in enumerate(rankings, start=1): 
+            rankings_data.append({ 
+                "user_id": ul.user.id, 
+                "username": ul.user.username, 
+                "profile_picture": ul.user.profile_picture.url if ul.user.profile_picture else None, 
+                "xp": ul.xp_global, 
+                "streaks": ul.user.streak, 
+                "rank": idx, 
+                "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted", 
+            }) 
+        data = { 
+            "league_name": league.league.name, 
+            "league_level": 11 - league.league.order, 
+            "league_start": league.league_start.isoformat(), 
+            "league_end": league.league_end.isoformat(), 
+            "rankings": rankings_data, 
+        } 
+        async_to_sync(channel_layer.group_send)( 
+            f'league_{league.id}', 
+            { 
+                'type': 'send_league_update', 
+                'data': data, 
+            }
+        )
 
         # Mark this league instance as inactive
         league.is_active = False
@@ -432,6 +399,45 @@ def process_company_league_promotions():
             # Reset XP for the new league week
             user_league.xp_company = 0
             user_league.save()
+
+           # Broadcast gem update 
+            new_gem_count = user.get_gem_count() 
+            channel_layer = get_channel_layer() 
+            async_to_sync(channel_layer.group_send)( 
+                f'gem_{user.id}', 
+                { 
+                    'type': 'send_gem_update', 
+                    'gem_count': new_gem_count, 
+                } 
+            )
+        
+        # Broadcast league update 
+        rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', 'id') 
+        rankings_data = [] 
+        for idx, ul in enumerate(rankings, start=1): 
+            rankings_data.append({ 
+                "user_id": ul.user.id, 
+                "username": ul.user.username, 
+                "profile_picture": ul.user.profile_picture.url if ul.user.profile_picture else None, 
+                "xp": ul.xp_global, 
+                "streaks": ul.user.streak, 
+                "rank": idx, 
+                "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted", 
+            }) 
+        data = { 
+            "league_name": league.league.name, 
+            "league_level": 11 - league.league.order, 
+            "league_start": league.league_start.isoformat(), 
+            "league_end": league.league_end.isoformat(), 
+            "rankings": rankings_data, 
+        } 
+        async_to_sync(channel_layer.group_send)( 
+            f'league_{league.id}', 
+            { 
+                'type': 'send_league_update', 
+                'data': data, 
+            }
+        )
 
         # Mark the league instance as inactive
         league.is_active = False

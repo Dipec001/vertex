@@ -26,34 +26,10 @@ class TestConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({"message": f"You said: {text_data}"}))
 
 
-# class LeagueConsumer(AsyncWebsocketConsumer):
-#     async def connect(self):
-#         # Get the league_id from the URL route
-#         self.league_id = self.scope['url_route']['kwargs']['league_id']
-#         print(f"Connecting to league: {self.league_id}")
-#         self.group_name = f'league_{self.league_id}'
-
-#         # Add the client to the WebSocket group for this league
-#         await self.channel_layer.group_add(self.group_name, self.channel_name)
-
-#         # Accept the WebSocket connection
-#         await self.accept()
-#         print("WebSocket connection accepted.")
-
-#     async def disconnect(self, close_code):
-#         # Remove the client from the WebSocket group when disconnected
-#         await self.channel_layer.group_discard(self.group_name, self.channel_name)
-
-#     async def send_league_update(self, event):
-#         # Send the ranking update to all users in the league
-#         print(f"Sending data to all users in league {self.league_id}: {event['data']}")
-#         await self.send(text_data=json.dumps(event['data']))
-
 class LeagueConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.league_id = self.scope['url_route']['kwargs']['league_id']
         self.user = self.scope['user']
-        print(self.user)
         self.group_name = f'league_{self.league_id}'
 
         # Validate if the league exists and is active
@@ -176,9 +152,6 @@ class GemConsumer(AsyncWebsocketConsumer):
         }))
 
 
-from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncWebsocketConsumer
-import json
 
 class FeedConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -223,3 +196,52 @@ class FeedConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def is_company_member(self, company_id):
         return self.user.company and self.user.company.id == company_id
+    
+
+class DrawConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope['user']
+        self.draw_id = self.scope['url_route']['kwargs']['draw_id']
+        self.group_name = f'draw_{self.draw_id}'
+
+        # Validate draw ID 
+        draw_exists = await self.draw_exists(self.draw_id) 
+        if not draw_exists: 
+            await self.close(code=4004, reason="Invalid draw ID") 
+            return
+
+        # Check if the user has entries in the draw
+        has_entry = await self.user_has_entry(self.draw_id)
+        if not has_entry:
+            print('user has no entry')
+            await self.close(code=4003, reason="User not entered in this draw")
+            return
+
+        # Add this channel to the group
+        await self.channel_layer.group_add(
+            self.group_name,
+            self.channel_name
+        )
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        # Remove this channel from the group
+        await self.channel_layer.group_discard(
+            self.group_name,
+            self.channel_name
+        )
+
+    async def send_draw_update(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    @database_sync_to_async 
+    def draw_exists(self, draw_id):
+        from myapp.models import Draw
+        print("Draw exists")
+        return Draw.objects.filter(id=draw_id).exists()
+
+    @database_sync_to_async
+    def user_has_entry(self, draw_id):
+        from  myapp.models import DrawEntry
+        print("user has entry")
+        return DrawEntry.objects.filter(draw_id=draw_id, user=self.user).exists()
