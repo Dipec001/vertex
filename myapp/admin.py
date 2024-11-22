@@ -139,8 +139,8 @@ class LeagueAdmin(admin.ModelAdmin):
 @admin.register(LeagueInstance)
 class LeagueInstanceAdmin(admin.ModelAdmin):
     list_display = ('id', 'league', 'league_start', 'league_end', 'company', 'max_participants')  # Fields to display
-    search_fields = ('league__name',)  # Search by league name
-    list_filter = ('company', 'league_start', 'league_end')  # Filter options
+    search_fields = ('league__name', 'company__name')  # Search by league name
+    list_filter = ('company', 'league_start', 'league_end', 'is_active')  # Filter options
     ordering = ('league_start',)  # Ordering of the list
     list_per_page = 20  # Pagination
 
