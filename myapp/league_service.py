@@ -323,7 +323,6 @@ def promote_company_user(user,gems_obtained, current_league_instance):
 
             try:
                 UserLeague.objects.create(user=user, league_instance=current_instance, xp_company=0)
-                print(f"User {user.username} promoted to league {next_league_instance.league}")
                 current_league_instance.userleague_set.filter(user=user).delete()
                 print('current league instance deleted')
                 return f"{user.username} is reassigned within the highest league level: {current_league.name}."
