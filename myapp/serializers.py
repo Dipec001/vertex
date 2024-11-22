@@ -722,9 +722,12 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
                 elif duration >= 30:
                     movement_xp += 100
             elif data['activity_name'] == 'Mind and Body':
-                if data['metadata'] == 'Moment of Silence':
-                    movement_xp += 20 * duration
-                elif data['metadata'] == 'Meditation':
+                metadata = data.get('metadata', '') 
+                
+                # Default to empty string if metadata is not provided 
+                if metadata == 'Moment of Silence': 
+                    movement_xp += 20 * duration 
+                elif metadata == 'Meditation': 
                     movement_xp += 100 * (duration // 10)
         return movement_xp
 
