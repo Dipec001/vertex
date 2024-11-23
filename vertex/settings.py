@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 import dj_database_url
 from celery.schedules import crontab
 import sentry_sdk
+from firebase_admin import initialize_app
 
 
 load_dotenv()
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.apple',
     'timezone_field',
     'corsheaders',
+    "fcm_django",
 ]
 
 MIDDLEWARE = [
@@ -379,3 +381,29 @@ CELERY_BEAT_SCHEDULE = {
 #         "continuous_profiling_auto_start": True,
 #     },
 # )
+
+
+# Optional ONLY IF you have initialized a firebase app already:
+# Visit https://firebase.google.com/docs/admin/setup/#python
+# for more options for the following:
+# Store an environment variable called GOOGLE_APPLICATION_CREDENTIALS
+# which is a path that point to a json file with your credentials.
+# Additional arguments are available: credentials, options, name
+FIREBASE_APP = initialize_app()
+# To learn more, visit the docs here:
+# https://cloud.google.com/docs/authentication/getting-started>
+
+FCM_DJANGO_SETTINGS = {
+     # an instance of firebase_admin.App to be used as default for all fcm-django requests
+     # default: None (the default Firebase app)
+    "DEFAULT_FIREBASE_APP": None,
+     # default: _('FCM Django')
+    "APP_VERBOSE_NAME": "My Notification Service",
+     # true if you want to have only one active device per registered user at a time
+     # default: False
+    "ONE_DEVICE_PER_USER": True,
+     # devices to which notifications cannot be sent,
+     # are deleted upon receiving error response from FCM
+     # default: False
+    "DELETE_INACTIVE_DEVICES": True,
+}

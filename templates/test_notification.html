@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FCM Push Notification Test</title>
+    <script src="https://www.gstatic.com/firebasejs/4.1.2/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/4.1.2/firebase-messaging.js"></script>
+</head>
+<body>
+    <h1>FCM Push Notification Test</h1>
+
+    <div>
+        <h2>Register Device</h2>
+        <button id="register">Register Device</button>
+    </div>
+
+    <div>
+        <h2>Send Notification</h2>
+        <form id="sendNotificationForm">
+            <label for="title">Title:</label>
+            <input type="text" id="title" name="title" required><br><br>
+            <label for="body">Body:</label>
+            <input type="text" id="body" name="body" required><br><br>
+            <button type="submit">Send Notification</button>
+        </form>
+    </div>
+
+    <script>
+        // Your Firebase project's configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCPeGq8aR-34Djgb75UF-W38Ik2F1QdF1M",
+            authDomain: "vertex-3d035.firebaseapp.com",
+            projectId: "vertex-3d035",
+            storageBucket: "vertex-3d035.appspot.com",
+            messagingSenderId: "611847207213",
+            appId: "1:611847207213:web:a9f31c53745fb6399d7ba4",
+            measurementId: "G-141KGLWXNH"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const messaging = firebase.messaging();
+
+        // Register device for push notifications
+        document.getElementById('register').addEventListener('click', () => {
+            messaging.requestPermission()
+                .then(() => messaging.getToken())
+                .then(token => {
+                    // Send the token to your server to register the device
+                    fetch('http://localhost:8000/devices', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ registration_id: token, type: 'web' }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Device registered:', data);
+                    })
+                    .catch(error => {
+                        console.error('Error registering device:', error);
+                    });
+                })
+                .catch(error => {
+                    console.error('Permission denied:', error);
+                });
+        });
+
+        // Register the service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./static/firebase-messaging-sw.js')
+                .then(registration => {
+                    console.log('ServiceWorker registration successful with scope:', registration.scope);
+                })
+                .catch(error => {
+                    console.error('ServiceWorker registration failed:', error);
+                });
+        }
+
+        // Send test notification
+        document.getElementById('sendNotificationForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const title = document.getElementById('title').value;
+            const body = document.getElementById('body').value;
+
+            fetch('http://localhost:8000/send-notification', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ title, body }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Notification sent:', data);
+            })
+            .catch(error => {
+                console.error('Error sending notification:', error);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -75,6 +75,10 @@ def test_feed_view(request):
 def test_draw_view(request):
     return render(request, 'test_draw.html', {'user_id': request.user.id})
 
+@login_required
+def test_notification_view(request):
+    return render(request, 'test_notification.html', {'user_id': request.user.id})
+
 class ValidateEmailPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -1169,6 +1173,7 @@ class GlobalActiveLeagueView(APIView):
 
         # Response data
         data = {
+            "league_id": league_instance.id,
             "league_name": league_instance.league.name,
             "league_level": 11-league_instance.league.order,
             "league_start": league_instance.league_start,
@@ -1250,6 +1255,7 @@ class CompanyActiveLeagueView(APIView):
 
         # Response data
         data = {
+            "league_id": league_instance.id,
             "league_name": league_instance.league.name,
             "league_start": league_instance.league_start,
             "league_end": league_instance.league_end,

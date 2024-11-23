@@ -14,7 +14,7 @@ urlpatterns = [
     path('test-gem/', views.test_gem_view, name='test_gem'),
     path('test-feed/', views.test_feed_view, name='test_feed'),
     path('test-draw/', views.test_draw_view, name='test_draw'),
-
+    path('test-notification/', views.test_notification_view, name='test_noti'),
 
     path('validate-email-password/', views.ValidateEmailPasswordView.as_view(), name='validate_email_password'),
     path('validate-company-association/', views.ValidateCompanyAssociationView.as_view(), name='validate_company_association'),
