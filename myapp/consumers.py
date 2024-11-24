@@ -28,6 +28,14 @@ class TestConsumer(AsyncWebsocketConsumer):
 
 class LeagueConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        # Log initial connection data
+        print("DEBUG - WebSocket connect called")
+        print(f"Path: {self.scope['path']}")
+        print(f"Query String: {self.scope['query_string'].decode('utf-8')}")
+        print(f"URL Route: {self.scope['url_route']['kwargs']}")
+        print(f"Headers: {dict(self.scope['headers'])}")
+        print(f"User: {self.scope['user']}")
+
         self.league_id = self.scope['url_route']['kwargs']['league_id']
         self.user = self.scope['user']
         self.group_name = f'league_{self.league_id}'
@@ -35,6 +43,7 @@ class LeagueConsumer(AsyncWebsocketConsumer):
         # Validate if the league exists and is active
         is_league_active = await database_sync_to_async(self.league_exists_and_active)(self.league_id)
         if not is_league_active:
+            print(f"DEBUG - League {self.league_id} is not active or does not exist")
             # Close the WebSocket connection with a reason
             await self.close(code=4002, reason="The league does not exist or is not active.")
             return
@@ -42,6 +51,7 @@ class LeagueConsumer(AsyncWebsocketConsumer):
         # Validate the league and user membership
         is_member = await database_sync_to_async(self.user_is_in_league)(self.user, self.league_id)
         if not is_member:
+            print(f"DEBUG - User {self.user} is not a member of league {self.league_id}")
             # Close the WebSocket connection with a reason
             await self.close(code=4001, reason="User is not a member of this league.")
             return
@@ -53,6 +63,7 @@ class LeagueConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
+        print(f"DEBUG - User {self.user} disconnected from league group {self.group_name} with code {close_code}")
         # Remove the client from the WebSocket group when disconnected
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
