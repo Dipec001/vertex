@@ -193,14 +193,14 @@ def create_global_draw():
 
 # @shared_task
 # def reset_gems_for_local_timezones():
-#     """This task resets the users' gem amount every Monday midnight in their local timezone."""
+#     """This task resets the users' gem amount and gems spent every Monday midnight in their local timezone."""
 #     now_utc = django_timezone.now()
     
 #     batch_size = 100  # Adjust based on your needs
 #     offset = 0
 
 #     while True:
-#         users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gem', 'timezone')[offset:offset + batch_size]
+#         users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gems_spent', 'timezone')[offset:offset + batch_size]
 
 #         if not users:
 #             print("Processed all users successfully.")
@@ -212,13 +212,18 @@ def create_global_draw():
 #             try:
 #                 # Convert UTC time to user's local time
 #                 user_local_time = now_utc.astimezone(user_timezone)
-                
+
 #                 # Check if it's Monday midnight in the user's local timezone
 #                 if user_local_time.weekday() == 0 and user_local_time.hour == 0:
+                    
+#                     # Reset the user's total gems and gems spent
+#                     CustomUser.objects.filter(id=user['id']).update(gems_spent=0)
 
-#                     # Reset the gem count to 0
-#                     CustomUser.objects.filter(id=user['id']).update(gem=0)
-            
+#                     # Optionally, you can also delete the `Gem` records for the user, or you can reset them individually
+#                     Gem.objects.filter(user=user['id']).delete()  # This will remove all gem records for the user
+                    
+#                     print(f"Reset gems and gems spent for user {user['email']}")
+
 #             except Exception as e:
 #                 print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")
 
@@ -228,13 +233,16 @@ def create_global_draw():
 
 @shared_task
 def reset_gems_for_local_timezones():
-    """This task resets the users' gem amount and gems spent every Monday midnight in their local timezone."""
+    """
+    This task resets the users' gem amount and gems spent every day at midnight in their local timezone.
+    """
     now_utc = django_timezone.now()
     
     batch_size = 100  # Adjust based on your needs
     offset = 0
 
     while True:
+        # Fetch users with timezones in batches
         users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gems_spent', 'timezone')[offset:offset + batch_size]
 
         if not users:
@@ -248,15 +256,14 @@ def reset_gems_for_local_timezones():
                 # Convert UTC time to user's local time
                 user_local_time = now_utc.astimezone(user_timezone)
 
-                # Check if it's Monday midnight in the user's local timezone
-                if user_local_time.weekday() == 0 and user_local_time.hour == 0:
-                    
+                # Check if it's midnight (0 hour) in the user's local timezone
+                if user_local_time.hour == 0:
                     # Reset the user's total gems and gems spent
                     CustomUser.objects.filter(id=user['id']).update(gems_spent=0)
 
-                    # Optionally, you can also delete the `Gem` records for the user, or you can reset them individually
-                    Gem.objects.filter(user=user['id']).delete()  # This will remove all gem records for the user
-                    
+                    # Optionally, reset gem records for the user
+                    Gem.objects.filter(user=user['id']).delete()  # Deletes all gem records for the user
+
                     print(f"Reset gems and gems spent for user {user['email']}")
 
             except Exception as e:

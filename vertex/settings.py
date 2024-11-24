@@ -354,7 +354,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     'reset-gems-every-monday-midnight': {
         'task': 'myapp.tasks.reset_gems_for_local_timezones',
-        'schedule': crontab(minute='*/10'),  # Every 10 minutes
+        'schedule': crontab(minute='*/30'),  # Every 10 minutes
     },
     'process_league_promotions_every_6_hours': {
         'task': 'myapp.tasks.process_league_promotions',
@@ -383,15 +383,15 @@ CELERY_BEAT_SCHEDULE = {
 # )
 
 
-# Optional ONLY IF you have initialized a firebase app already:
-# Visit https://firebase.google.com/docs/admin/setup/#python
-# for more options for the following:
-# Store an environment variable called GOOGLE_APPLICATION_CREDENTIALS
-# which is a path that point to a json file with your credentials.
-# Additional arguments are available: credentials, options, name
-FIREBASE_APP = initialize_app()
-# To learn more, visit the docs here:
-# https://cloud.google.com/docs/authentication/getting-started>
+import firebase_admin
+from firebase_admin import credentials
+
+# Path to the service account file
+SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'vertex-3d035-firebase-adminsdk-6an7v-0ef36d7759.json')
+
+# Initialize Firebase Admin with the service account credentials
+cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
+firebase_admin.initialize_app(cred)
 
 FCM_DJANGO_SETTINGS = {
      # an instance of firebase_admin.App to be used as default for all fcm-django requests
