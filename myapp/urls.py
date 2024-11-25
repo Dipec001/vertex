@@ -49,4 +49,5 @@ urlpatterns = [
     path('clap/<int:feed_id>/', views.ClapToggleAPIView.as_view(), name='clap-toggle'),
     path('following-feed/', views.FeedListView.as_view(), name='following-feed-list'),
     path('company-feed/', views.CompanyFeedListView.as_view(), name='company-feed-list'),
+    path('user-gem-status/', views.UserGemStatusView.as_view(), name='user-gem-status'),
 ]

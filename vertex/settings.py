@@ -334,10 +334,10 @@ APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 
 
 CELERY_BEAT_SCHEDULE = {
-    'reset-daily-streaks-every-midnight': {
-        'task': 'myapp.tasks.reset_daily_streaks',
-        'schedule': crontab(minute='*/25'),  # Run the task every 25 minutes
-    },
+    # 'reset-daily-streaks-every-midnight': {
+    #     'task': 'myapp.tasks.reset_daily_streaks',
+    #     'schedule': crontab(minute='*/25'),  # Run the task every 25 minutes
+    # },
     'run-company-draws-every-month': {
         'task': 'myapp.tasks.run_company_draws',
         'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
@@ -383,27 +383,27 @@ CELERY_BEAT_SCHEDULE = {
 # )
 
 
-import firebase_admin
-from firebase_admin import credentials
+# import firebase_admin
+# from firebase_admin import credentials
 
-# Path to the service account file
-SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'vertex-3d035-firebase-adminsdk-6an7v-0ef36d7759.json')
+# # Path to the service account file
+# SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'vertex-3d035-firebase-adminsdk-6an7v-0ef36d7759.json')
 
-# Initialize Firebase Admin with the service account credentials
-cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
-firebase_admin.initialize_app(cred)
+# # Initialize Firebase Admin with the service account credentials
+# cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
+# firebase_admin.initialize_app(cred)
 
-FCM_DJANGO_SETTINGS = {
-     # an instance of firebase_admin.App to be used as default for all fcm-django requests
-     # default: None (the default Firebase app)
-    "DEFAULT_FIREBASE_APP": None,
-     # default: _('FCM Django')
-    "APP_VERBOSE_NAME": "My Notification Service",
-     # true if you want to have only one active device per registered user at a time
-     # default: False
-    "ONE_DEVICE_PER_USER": True,
-     # devices to which notifications cannot be sent,
-     # are deleted upon receiving error response from FCM
-     # default: False
-    "DELETE_INACTIVE_DEVICES": True,
-}
+# FCM_DJANGO_SETTINGS = {
+#      # an instance of firebase_admin.App to be used as default for all fcm-django requests
+#      # default: None (the default Firebase app)
+#     "DEFAULT_FIREBASE_APP": None,
+#      # default: _('FCM Django')
+#     "APP_VERBOSE_NAME": "My Notification Service",
+#      # true if you want to have only one active device per registered user at a time
+#      # default: False
+#     "ONE_DEVICE_PER_USER": True,
+#      # devices to which notifications cannot be sent,
+#      # are deleted upon receiving error response from FCM
+#      # default: False
+#     "DELETE_INACTIVE_DEVICES": True,
+# }

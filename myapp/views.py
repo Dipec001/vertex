@@ -25,7 +25,7 @@ from .facebook_validate import validate_facebook_token
 import requests
 from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
-from .s3_utils import save_image_to_s3
+from .s3_utils import save_file_to_s3
 from django.utils import timezone
 from django.db.models import Sum
 from datetime import datetime, timedelta
@@ -33,11 +33,16 @@ from rest_framework.exceptions import PermissionDenied
 from django.utils.dateparse import parse_date
 from django.contrib.auth.decorators import login_required
 from rest_framework.throttling import UserRateThrottle
+from channels.layers import get_channel_layer 
+from asgiref.sync import async_to_sync
+from django.utils.timezone import localtime, now
+from .tasks import upload_file_task 
+import tempfile
+import os
 
 
 class StreakRateThrottle(UserRateThrottle):
-    rate = "1/min"  # 1 request per  mins
-
+    rate = "5/min"  # 1 request per  mins
 
 
 # Create your views here.
@@ -527,15 +532,16 @@ class UserProfileView(APIView):
         if serializer.is_valid():
             profile_picture = request.FILES.get('profile_picture')
             if profile_picture:
-                image_url = save_image_to_s3(profile_picture, 'profile_pictures')
-                if image_url:
-                    serializer.save(profile_picture=image_url)  # Save the URL instead
-                else:
-                    return Response({"error": "Failed to upload image to S3"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(profile_picture.name)[1]) as temp_file: 
+                    temp_file.write(profile_picture.read()) 
+                    temp_file_path = temp_file.name 
+                
+                upload_file_task.delay(temp_file_path, 'profile_pictures', 'image', user_id=user.id) 
+                serializer.save(profile_picture="uploading")
             else:
                 serializer.save()  # Save without updating the profile picture
 
-            return Response({"success": "Profile updated successfully"}, status=status.HTTP_200_OK)
+            return Response({"success": "Profile updated initiated successfully"}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -730,17 +736,22 @@ class WorkoutActivityView(APIView):
 #         })
 
 
-from django.utils.timezone import localtime, now
-import pytz
-
 class StreakRecordsView(APIView):
+    """
+    This view returns the streak records for the authenticated user over a specified date range.
+    
+    The response includes:
+    - streak_per_day: A list of streak records per day within the specified date range.
+    - overall_current_streak: The user's current streak value.
+
+    The user's local time is used to determine the dates for querying streak records.
+    """
     throttle_classes = [StreakRateThrottle]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        user_timezone = getattr(user, 'timezone', 'UTC')  # Assume 'UTC' if no timezone is set
-        user_tz = pytz.timezone(user_timezone.key)
+        user_tz = user.timezone
 
         # Get start and end dates from query parameters
         start_date = request.query_params.get('start_date')
@@ -751,7 +762,6 @@ class StreakRecordsView(APIView):
 
         # Convert dates to user timezone
         today_date = localtime(now(), user_tz).date()
-        yesterday_date = today_date - timedelta(days=1)
 
         # Query streak records in the user's local date range
         streak_in_range = Streak.objects.filter(
@@ -762,16 +772,12 @@ class StreakRecordsView(APIView):
         # Prepare streak data for each day
         streak_data = [{'date': streak['date'], 'current_streak': streak['current_streak']} for streak in streak_in_range]
 
-        # Get yesterday's streak
-        yesterday_streak_record = Streak.objects.filter(user=user, date=yesterday_date).first()
-        yesterday_streak = yesterday_streak_record.currentStreak if yesterday_streak_record else 0
-
         # Check if today's streak exists
         today_streak = next((entry['current_streak'] for entry in streak_data if entry['date'] == today_date), None)
 
         # Add today's streak dynamically if not found
         if today_streak is None:
-            today_streak = yesterday_streak if yesterday_streak > 0 else 0
+            today_streak = 0
             streak_data.append({'date': today_date, 'current_streak': today_streak})
 
         # Current streak value for overall
@@ -781,9 +787,6 @@ class StreakRecordsView(APIView):
             'streak_per_day': streak_data,
             'overall_current_streak': current_streak,
         })
-
-
-
 
 
 class XpRecordsView(APIView):
@@ -896,13 +899,15 @@ class ConvertGemView(APIView):
 
             # Update the user's tickets or streak savers
             if item_type == 'streak_saver':
-                user.streak_savers += quantity
+                if user.streak_savers + quantity > 3:  # Check the total after adding the quantity
+                    return Response({"error": "You can own 3 streak savers at most."}, status=status.HTTP_400_BAD_REQUEST)
+                
+                user.streak_savers += quantity  # Properly increment the streak savers count
 
             elif item_type == 'ticket_global':
 
                 # Ensure there is an active global draw
                 global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
-                print(global_draw)
                 if not global_draw:
                     return Response({"error": "No active global draw available."}, status=status.HTTP_400_BAD_REQUEST)
                 
@@ -939,10 +944,26 @@ class ConvertGemView(APIView):
             else:
                 return Response(purchase_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+            # Broadcast the updated gem count 
+            self.broadcast_gem_update(user)
+
         return Response({
             "message": f"You have successfully converted {total_gem_cost} gems for {quantity} {item_type}(s).",
             "remaining_gem": total_available_gems - total_gem_cost
         }, status=status.HTTP_200_OK)
+    
+    def broadcast_gem_update(self, user): 
+        new_gem_count = user.get_gem_count() # Use the `get_gem_count` method to get the total gems 
+        print('new gem count', new_gem_count)
+        # Get the channel layer and send the updated gem count to the WebSocket 
+        channel_layer = get_channel_layer() 
+        async_to_sync(channel_layer.group_send)( 
+            f'gem_{user.id}', # Group name based on user_id 
+            { 
+                'type': 'send_gem_update', 
+                'gem_count': new_gem_count, # Send the new gem count 
+            } 
+        )
 
 
 
@@ -1029,15 +1050,18 @@ class GlobalDrawEditView(APIView):
         if serializer.is_valid():
             video = request.FILES.get('video')
             if video:
-                image_url = save_image_to_s3(video, 'draw_videos')
-                if image_url:
-                    serializer.save(video=image_url)  # Save the URL instead
-                else:
-                    return Response({"error": "Failed to upload image to S3"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                if video: 
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(video.name)[1]) as temp_file: 
+                        temp_file.write(video.read()) 
+                        temp_file_path = temp_file.name 
+                    
+                    upload_file_task.delay(temp_file_path, 'draw_videos', 'video', draw_id=draw.id)
+
+                    serializer.save(video='uploading')
             else:
                 serializer.save()  # Save without updating the profile picture
 
-            return Response({"success": "Draw updated successfully"}, status=status.HTTP_200_OK)
+            return Response({"success": "Draw updated initiated successfully"}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1075,6 +1099,33 @@ class CompanyDrawEditView(APIView):
             raise PermissionDenied("You do not have permission to access or manage this draw.")
 
 
+# class CompanyDrawListView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         try:
+#             # Fetch the user's single membership to get their company
+#             membership = Membership.objects.get(user=request.user)
+            
+#             # Get the company from the membership
+#             user_company = membership.company
+
+#             # Query all active draws for the user's company that are yet to happen
+#             draws = Draw.objects.filter(
+#                 company=user_company,
+#                 is_active=True,
+#                 # Uncomment the line below to only fetch future draws
+#                 # draw_date__gte=timezone.now()  
+#             )
+#             serializer = DrawSerializer(draws, many=True, context={'request': request})
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+
+#         except Membership.DoesNotExist:
+#             return Response({"error": "User does not belong to any company."}, status=status.HTTP_400_BAD_REQUEST)
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class CompanyDrawListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1093,13 +1144,23 @@ class CompanyDrawListView(APIView):
                 # Uncomment the line below to only fetch future draws
                 # draw_date__gte=timezone.now()  
             )
-            serializer = DrawSerializer(draws, many=True, context={'request': request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
+
+            # Serialize the draws
+            serialized_draws = DrawSerializer(draws, many=True, context={'request': request}).data
+
+            # Add user's ticket IDs (draw entries) to each draw
+            for draw_data in serialized_draws:
+                draw_id = draw_data['id']
+                user_entries = DrawEntry.objects.filter(draw_id=draw_id, user=request.user).values_list('id', flat=True)
+                draw_data['user_ticket_ids'] = list(user_entries)
+
+            return Response(serialized_draws, status=status.HTTP_200_OK)
 
         except Membership.DoesNotExist:
             return Response({"error": "User does not belong to any company."}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class GlobalActiveLeagueView(APIView):
@@ -1460,3 +1521,112 @@ class CompanyFeedListView(APIView):
         serializer = FeedSerializer(feeds, many=True, context={'request': request})
 
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# class UserGemStatusView(APIView):
+#     """ This view returns the gem status for the authenticated user. 
+    
+#     The response includes: 
+#         - total_gems: The total number of gems the user currently has. 
+#         - xp_gems_earned_today: The number of XP gems the user has earned today. 
+#         - remaining_gems_today: The number of remaining gems the user can earn today, with a maximum of 5 per day. 
+        
+#     The user's local time is used to determine today's date for querying the gem records. 
+#     Permission: User must be authenticated. 
+#     """
+#     permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+
+#     def get(self, request):
+#         user = request.user
+
+#         # Fetch today's date in the user's local time
+        # user_timezone = user.timezone
+        # user_local_time = now().astimezone(user_timezone)
+        # today = user_local_time.date()
+#         print(today)
+
+#         # Fetch today's gem record
+#         gem_record = Gem.objects.filter(user=user, date=today).first()
+
+#         # Total gems the user currently has
+#         total_gems = user.get_gem_count()
+
+#         # Gems the user has earned today
+#         gems_earned_today = gem_record.xp_gem if gem_record else 0
+
+#         # Remaining gems the user can earn today
+#         remaining_gems_today = max(0, 5 - gems_earned_today)
+
+#         return Response({
+#             "total_gems": total_gems,
+#             "xp_gems_earned_today": gems_earned_today,
+#             "remaining_gems_today": remaining_gems_today,
+#         })
+
+
+
+class UserGemStatusView(APIView):
+    """
+    This view returns the gem status for the authenticated user.
+    
+    The response includes:
+    - total_gems: The total number of gems the user currently has.
+    - xp_gems_earned_today: The number of XP gems the user has earned today.
+    - remaining_gems_today: The number of remaining gems the user can earn today, with a maximum of 5 per day.
+    - all_time_gems: The total number of gems the user has earned all-time.
+    - gems_per_day: A list of gems earned per day within the specified date range.
+
+    The user's local time is used to determine the dates for querying the gem records.
+    Permission: User must be authenticated.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Retrieve the user's timezone and calculate the current local date for the user
+        user_timezone = user.timezone
+        user_local_time = now().astimezone(user_timezone)
+        today = user_local_time.date()
+
+        # Get start and end dates from query parameters
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date', today)
+
+        if not start_date:
+            return Response({"error": "Please provide a start date."}, status=400)
+
+        # Fetch today's gem record
+        gem_record = Gem.objects.filter(user=user, date=today).first()
+
+        # Total gems the user currently has
+        total_gems = user.get_gem_count()
+
+        # Gems the user has earned today
+        gems_earned_today = gem_record.xp_gem if gem_record else 0
+
+        # Remaining gems the user can earn today
+        remaining_gems_today = max(0, 5 - gems_earned_today)
+
+        # Fetch all-time gems
+        all_time_gems = Gem.objects.filter(user=user).aggregate(total_gems=Sum('xp_gem') + Sum('manual_gem'))['total_gems'] or 0
+
+        # Query gem records in the user's local date range
+        gem_records = Gem.objects.filter(
+            user=user,
+            date__range=[start_date, end_date]
+        ).values('date').annotate(
+            xp_gems=Sum('xp_gem'),
+            manual_gems=Sum('manual_gem')
+        ).order_by('date')
+
+        # Prepare gem data for each day
+        gems_per_day = [{'date': record['date'], 'xp_gems': record['xp_gems'], 'manual_gems': record['manual_gems']} for record in gem_records]
+
+        return Response({
+            "total_gems": total_gems,
+            "xp_gems_earned_today": gems_earned_today,
+            "remaining_gems_today": remaining_gems_today,
+            "all_time_gems": all_time_gems,
+            "gems_per_day": gems_per_day,
+        })

@@ -29,7 +29,6 @@ class CustomUser(AbstractUser):
     date_joined = models.DateTimeField(auto_now_add=True)  # Automatically set when the user is created
     streak_savers = models.PositiveIntegerField(default=0)  # Count of streak savers
     xp = models.PositiveIntegerField(default=0)
-    # gem = models.PositiveIntegerField(default=0)  # Available gems (earned - spent)
     gems_spent = models.PositiveIntegerField(default=0)  # Total gems the user has spent
     # Add a foreign key to the company (a user can only belong to one company)
     company = models.ForeignKey(

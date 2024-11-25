@@ -9,6 +9,9 @@ from .league_service import promote_user, demote_user, retain_user, promote_comp
 from dateutil.relativedelta import relativedelta  # For precise next-month calculation
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.db.models import Max
+from .s3_utils import save_file_to_s3
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -20,49 +23,145 @@ logger = logging.getLogger(__name__)
 def send_invitation_email_task(invite_code, company_name, inviter_name, to_email):
     return send_invitation_email(invite_code, company_name, inviter_name, to_email)
 
+
 @shared_task
-def reset_daily_streaks():
-    # Batch size for processing users
-    batch_size = 100  # Adjust based on your needs
-    offset = 0
+def upload_file_task(file_path, folder_name, file_type, user_id=None, draw_id=None):
+    with open(file_path, 'rb') as file:
+        s3_url = save_file_to_s3(file_path, folder_name, file_type)
 
-    while True:
-        # Fetch users who have a timezone set and whose current streak is greater than 0
-        users = CustomUser.objects.exclude(timezone=None).filter(
-            streak__gt=0
-        )[offset:offset + batch_size]
+    if user_id:
+        user = CustomUser.objects.get(id=user_id)
+        user.profile_picture = s3_url
+        user.save()
+    elif draw_id:
+        draw = Draw.objects.get(id=draw_id)
+        draw.video = s3_url
+        draw.save()
+
+    os.remove(file_path)  # Clean up the temporary file
+
+
+# @shared_task
+# def reset_daily_streaks():
+#     # Batch size for processing users
+#     batch_size = 100  # Adjust based on your needs
+#     offset = 0
+
+#     while True:
+#         # Fetch users who have a timezone set and whose current streak is greater than 0
+#         users = CustomUser.objects.exclude(timezone=None).filter(
+#             streak__gt=0
+#         )[offset:offset + batch_size]
         
-        if not users:  # Exit if no more users are left
-            logger.info("Processed all users successfully.")
-            break
+#         if not users:  # Exit if no more users are left
+#             logger.info("Processed all users successfully.")
+#             break
 
-        for user in users:
-            # Get the current time in the user's timezone
-            current_utc_time = timezone.now()
-            user_local_time = current_utc_time.astimezone(user.timezone)
+#         for user in users:
+#             # Get the current time in the user's timezone
+#             current_utc_time = timezone.now()
+#             user_local_time = current_utc_time.astimezone(user.timezone)
 
-            # Check if the current time is midnight in the user's local time
-            if user_local_time.hour == 0 and user_local_time.minute < 60:
-                # Define yesterday's start and end times in UTC
-                yesterday_start = user_local_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
-                yesterday_end = yesterday_start + timedelta(days=1)
+#             # Check if the current time is midnight in the user's local time
+#             if user_local_time.hour == 0 and user_local_time.minute < 60:
+#                 # Define yesterday's start and end times in UTC
+#                 yesterday_start = user_local_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+#                 yesterday_end = yesterday_start + timedelta(days=1)
                 
 
-                # Retrieve the previous day's XP record
-                previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start, yesterday_end)).last()  
+#                 # Retrieve the previous day's XP record
+#                 previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start, yesterday_end)).last()  
 
-                # Get the total XP for yesterday, defaulting to 0 if no entry exists
-                daily_xp = previous_xp.totalXpToday if previous_xp else 0
+#                 # Get the total XP for yesterday, defaulting to 0 if no entry exists
+#                 daily_xp = previous_xp.totalXpToday if previous_xp else 0
 
-                # Only reset the streak if yesterday's XP is less than 500
-                if daily_xp < 500:
-                    # Update the streak in the CustomUser model
-                    user.streak = 0  # Reset the streak to 0
-                    user.save()  # Save the changes to the CustomUser model
+#                 # Only reset the streak if yesterday's XP is less than 500
+#                 if daily_xp < 500:
+#                     # Update the streak in the CustomUser model
+#                     user.streak = 0  # Reset the streak to 0
+#                     user.save()  # Save the changes to the CustomUser model
 
-        offset += batch_size  # Move to the next batch
+#         offset += batch_size  # Move to the next batch
 
-    logger.info("Streaks reset task completed successfully.")
+#     logger.info("Streaks reset task completed successfully.")
+
+
+# @shared_task
+# def reset_daily_streaks():
+#     # Batch size for processing users
+#     batch_size = 100  # Adjust based on your needs
+#     offset = 0
+
+#     while True:
+#         # Fetch users who have a timezone set and whose current streak is greater than 0
+#         users = CustomUser.objects.exclude(timezone=None).filter(
+#             streak__gt=0
+#         )[offset:offset + batch_size]
+        
+#         if not users:  # Exit if no more users are left
+#             logger.info("Processed all users successfully.")
+#             break
+
+#         for user in users:
+#             # Get the current time in the user's timezone
+#             current_utc_time = timezone.now()
+#             user_local_time = current_utc_time.astimezone(user.timezone)
+#             print(user_local_time)
+
+#             # Check if the current time is midnight in the user's local time
+#             if user_local_time.hour == 0 and user_local_time.minute < 60:
+#                 # Define yesterday's start and end times in UTC
+#                 yesterday_start = user_local_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+#                 yesterday_end = yesterday_start + timedelta(days=1)
+#                 day_before_yesterday_start = yesterday_start - timedelta(days=1) 
+
+#                 # Retrieve the previous day's XP record
+#                 previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start, yesterday_end)).last()  
+
+#                 # Check if there's already a streak record for yesterday 
+#                 existing_streak = Streak.objects.filter(user=user, date=yesterday_start.date()).exists() 
+#                 if existing_streak: 
+#                     # If there is already a record for yesterday, it means the streak saver was used or XP was sufficient 
+#                     logger.info(f"Streak record for {user.email} already exists for {yesterday_start.date()}. Skipping.") 
+#                     continue
+
+#                 # Retrieve the day before yesterday's streak record
+#                 previous_streak = Streak.objects.filter(user=user, date=day_before_yesterday_start.date()).last()
+
+#                 # Get the total XP for yesterday, defaulting to 0 if no entry exists
+#                 daily_xp = previous_xp.totalXpToday if previous_xp else 0
+
+#                 # Calculate the highest streak value up to today 
+#                 highest_streak = Streak.objects.filter(user=user).aggregate(max_streak=Max('highestStreak'))['max_streak'] or 0
+
+#                 # Only reset the streak if yesterday's XP is less than 250
+#                 if daily_xp < 250:
+#                     if user.streak_savers > 0:
+#                         # Use a streak saver
+#                         user.streak_savers -= 1
+#                         # Create the streak record for yesterday 
+#                         current_streak = (previous_streak.currentStreak if previous_streak else 0) + 1 
+                        
+#                         Streak.objects.create( 
+#                             user=user, 
+#                             date=yesterday_start.date(), 
+#                             timeStamp=yesterday_start, 
+#                             currentStreak=current_streak, 
+#                             highestStreak=max(highest_streak + 1, current_streak) 
+#                         )
+                        
+#                         logger.info(f"Used a streak saver for user {user.email}. Remaining streak savers: {user.streak_savers}")
+#                     else:
+#                         # Reset the streak to 0
+#                         user.streak = 0
+#                         logger.info(f"Reset streak for user {user.email} to 0.")
+                    
+#                     user.save(update_fields=['streak', 'streak_savers'])
+
+#         offset += batch_size  # Move to the next batch
+
+#     logger.info("Streaks reset task completed successfully.")
+
 
 
 @shared_task
