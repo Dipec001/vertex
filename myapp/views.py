@@ -1314,6 +1314,7 @@ class CompanyActiveLeagueView(APIView):
         data = {
             "league_id": league_instance.id,
             "league_name": league_instance.league.name,
+            "league_level": league_instance.league.order,
             "league_start": league_instance.league_start,
             "league_end": league_instance.league_end,
             "user_rank": user_rank,
