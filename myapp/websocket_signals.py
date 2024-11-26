@@ -196,21 +196,6 @@ def broadcast_streak_update(sender, instance, **kwargs):
     )
 
 
-# @receiver(post_save, sender=Gem)
-# def broadcast_gem_update(sender, instance, **kwargs):
-#     user = instance.user
-#     new_gem_count = user.get_gem_count()  # Use the `get_gem_count` method to get the total gems
-
-#     # Get the channel layer and send the updated gem count to the WebSocket
-#     channel_layer = get_channel_layer()
-#     async_to_sync(channel_layer.group_send)(
-#         f'gem_{user.id}',  # Group name based on user_id
-#         {
-#             'type': 'send_gem_update',
-#             'gem_count': new_gem_count,  # Send the new gem count
-#         }
-#     )
-
 
 @receiver(post_save, sender=Gem)
 def broadcast_gem_update(sender, instance, **kwargs):

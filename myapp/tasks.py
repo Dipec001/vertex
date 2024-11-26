@@ -12,6 +12,7 @@ from channels.layers import get_channel_layer
 from django.db.models import Max
 from .s3_utils import save_file_to_s3
 import os
+import pytz
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -85,82 +86,89 @@ def upload_file_task(file_path, folder_name, file_type, user_id=None, draw_id=No
 
 #     logger.info("Streaks reset task completed successfully.")
 
+@shared_task
+def reset_daily_streaks():
+    # Batch size for processing users
+    batch_size = 100  # Adjust based on your needs
+    offset = 0
 
-# @shared_task
-# def reset_daily_streaks():
-#     # Batch size for processing users
-#     batch_size = 100  # Adjust based on your needs
-#     offset = 0
-
-#     while True:
-#         # Fetch users who have a timezone set and whose current streak is greater than 0
-#         users = CustomUser.objects.exclude(timezone=None).filter(
-#             streak__gt=0
-#         )[offset:offset + batch_size]
+    while True:
+        # Fetch users who have a timezone set and whose current streak is greater than 0
+        users = CustomUser.objects.exclude(timezone=None).filter(streak__gt=0)[offset:offset + batch_size]
         
-#         if not users:  # Exit if no more users are left
-#             logger.info("Processed all users successfully.")
-#             break
+        if not users:  # Exit if no more users are left
+            logger.info("Processed all users successfully.")
+            break
 
-#         for user in users:
-#             # Get the current time in the user's timezone
-#             current_utc_time = timezone.now()
-#             user_local_time = current_utc_time.astimezone(user.timezone)
-#             print(user_local_time)
+        for user in users:
+            # Get the current time in the user's timezone
+            current_utc_time = timezone.now()
+            user_local_time = current_utc_time.astimezone(user.timezone)
+            print(f'{user} local time', user_local_time)
+            print(f'{user} local hour', user_local_time.hour)
 
-#             # Check if the current time is midnight in the user's local time
-#             if user_local_time.hour == 0 and user_local_time.minute < 60:
-#                 # Define yesterday's start and end times in UTC
-#                 yesterday_start = user_local_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
-#                 yesterday_end = yesterday_start + timedelta(days=1)
-#                 day_before_yesterday_start = yesterday_start - timedelta(days=1) 
+            # Check if the current time is midnight in the user's local time
+            if user_local_time.hour == 0 and user_local_time.minute < 60:
+                # Define yesterday's start and end times in the user's local timezone
+                yesterday_start_local = (user_local_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)).replace(tzinfo=None)
+                yesterday_end_local = (user_local_time.replace(hour=23, minute=59, second=59, microsecond=999999) - timedelta(days=1)).replace(tzinfo=None)
+                day_before_yesterday_start_local = (yesterday_start_local - timedelta(days=1)).replace(tzinfo=None)
 
-#                 # Retrieve the previous day's XP record
-#                 previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start, yesterday_end)).last()  
+                # Retrieve the previous day's XP record
+                previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start_local, yesterday_end_local)).last()
+                if previous_xp:
+                    # If there is already a record for yesterday, it means the streak saver was used or XP was sufficient
+                    logger.info(f"Xp record for {user.email} already exists for {yesterday_start_local.date()}.")
 
-#                 # Check if there's already a streak record for yesterday 
-#                 existing_streak = Streak.objects.filter(user=user, date=yesterday_start.date()).exists() 
-#                 if existing_streak: 
-#                     # If there is already a record for yesterday, it means the streak saver was used or XP was sufficient 
-#                     logger.info(f"Streak record for {user.email} already exists for {yesterday_start.date()}. Skipping.") 
-#                     continue
+                # Check if there's already a streak record for yesterday
+                existing_streak = Streak.objects.filter(user=user, date=yesterday_start_local.date()).exists()
+                if existing_streak:
+                    # If there is already a record for yesterday, it means the streak saver was used or XP was sufficient
+                    logger.info(f"Streak record for {user.email} already exists for {yesterday_start_local.date()}. Skipping.")
+                    continue
 
-#                 # Retrieve the day before yesterday's streak record
-#                 previous_streak = Streak.objects.filter(user=user, date=day_before_yesterday_start.date()).last()
+                # Retrieve the day before yesterday's streak record
+                previous_streak = Streak.objects.filter(user=user, date=day_before_yesterday_start_local.date()).last()
+                if previous_streak:
+                    # If there is already a streak record for the day before yesterday, it means the streak saver
+                    # was used or XP was sufficient
+                    logger.info(f"Streak record for {user.email} already exists for day before yesterday {day_before_yesterday_start_local.date()}")
 
-#                 # Get the total XP for yesterday, defaulting to 0 if no entry exists
-#                 daily_xp = previous_xp.totalXpToday if previous_xp else 0
+                # Get the total XP for yesterday, defaulting to 0 if no entry exists
+                daily_xp = previous_xp.totalXpToday if previous_xp else 0
 
-#                 # Calculate the highest streak value up to today 
-#                 highest_streak = Streak.objects.filter(user=user).aggregate(max_streak=Max('highestStreak'))['max_streak'] or 0
+                # Calculate the highest streak value up to today
+                highest_streak = Streak.objects.filter(user=user).aggregate(max_streak=Max('highestStreak'))['max_streak'] or 0
 
-#                 # Only reset the streak if yesterday's XP is less than 250
-#                 if daily_xp < 250:
-#                     if user.streak_savers > 0:
-#                         # Use a streak saver
-#                         user.streak_savers -= 1
-#                         # Create the streak record for yesterday 
-#                         current_streak = (previous_streak.currentStreak if previous_streak else 0) + 1 
+                # Only reset the streak if yesterday's XP is less than 250
+                if daily_xp < 250:
+                    if user.streak_savers > 0:
+                        # Use a streak saver
+                        user.streak_savers -= 1
+                        # Create the streak record for yesterday
+                        current_streak = (previous_streak.currentStreak if previous_streak else 0) + 1
                         
-#                         Streak.objects.create( 
-#                             user=user, 
-#                             date=yesterday_start.date(), 
-#                             timeStamp=yesterday_start, 
-#                             currentStreak=current_streak, 
-#                             highestStreak=max(highest_streak + 1, current_streak) 
-#                         )
                         
-#                         logger.info(f"Used a streak saver for user {user.email}. Remaining streak savers: {user.streak_savers}")
-#                     else:
-#                         # Reset the streak to 0
-#                         user.streak = 0
-#                         logger.info(f"Reset streak for user {user.email} to 0.")
+                        Streak.objects.create(
+                            user=user,
+                            date=yesterday_start_local.date(),
+                            timeStamp=yesterday_end_local,
+                            currentStreak=current_streak,
+                            highestStreak=max(highest_streak + 1, current_streak)
+                        )
+                        
+                        logger.info(f"Used a streak saver for user {user.email}. Remaining streak savers: {user.streak_savers}")
+                        user.streak = current_streak
+                    else:
+                        # Reset the streak to 0
+                        user.streak = 0
+                        logger.info(f"Reset streak for user {user.email} to 0.")
                     
-#                     user.save(update_fields=['streak', 'streak_savers'])
+                    user.save(update_fields=['streak', 'streak_savers'])
 
-#         offset += batch_size  # Move to the next batch
+        offset += batch_size  # Move to the next batch
 
-#     logger.info("Streaks reset task completed successfully.")
+    logger.info("Streaks reset task completed successfully.")
 
 
 

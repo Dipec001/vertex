@@ -334,10 +334,10 @@ APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 
 
 CELERY_BEAT_SCHEDULE = {
-    # 'reset-daily-streaks-every-midnight': {
-    #     'task': 'myapp.tasks.reset_daily_streaks',
-    #     'schedule': crontab(minute='*/25'),  # Run the task every 25 minutes
-    # },
+    'reset-daily-streaks-every-midnight': {
+        'task': 'myapp.tasks.reset_daily_streaks',
+        'schedule': crontab(minute='*/20'),  # Run the task every 25 minutes
+    },
     'run-company-draws-every-month': {
         'task': 'myapp.tasks.run_company_draws',
         'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
