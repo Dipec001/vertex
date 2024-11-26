@@ -40,51 +40,7 @@ def upload_file_task(file_path, folder_name, file_type, user_id=None, draw_id=No
         draw.save()
 
     os.remove(file_path)  # Clean up the temporary file
-
-
-# @shared_task
-# def reset_daily_streaks():
-#     # Batch size for processing users
-#     batch_size = 100  # Adjust based on your needs
-#     offset = 0
-
-#     while True:
-#         # Fetch users who have a timezone set and whose current streak is greater than 0
-#         users = CustomUser.objects.exclude(timezone=None).filter(
-#             streak__gt=0
-#         )[offset:offset + batch_size]
-        
-#         if not users:  # Exit if no more users are left
-#             logger.info("Processed all users successfully.")
-#             break
-
-#         for user in users:
-#             # Get the current time in the user's timezone
-#             current_utc_time = timezone.now()
-#             user_local_time = current_utc_time.astimezone(user.timezone)
-
-#             # Check if the current time is midnight in the user's local time
-#             if user_local_time.hour == 0 and user_local_time.minute < 60:
-#                 # Define yesterday's start and end times in UTC
-#                 yesterday_start = user_local_time.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
-#                 yesterday_end = yesterday_start + timedelta(days=1)
-                
-
-#                 # Retrieve the previous day's XP record
-#                 previous_xp = Xp.objects.filter(user=user, timeStamp__range=(yesterday_start, yesterday_end)).last()  
-
-#                 # Get the total XP for yesterday, defaulting to 0 if no entry exists
-#                 daily_xp = previous_xp.totalXpToday if previous_xp else 0
-
-#                 # Only reset the streak if yesterday's XP is less than 500
-#                 if daily_xp < 500:
-#                     # Update the streak in the CustomUser model
-#                     user.streak = 0  # Reset the streak to 0
-#                     user.save()  # Save the changes to the CustomUser model
-
-#         offset += batch_size  # Move to the next batch
-
-#     logger.info("Streaks reset task completed successfully.")
+    
 
 @shared_task
 def reset_daily_streaks():
