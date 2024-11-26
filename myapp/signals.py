@@ -168,19 +168,6 @@ def create_company_draw(sender, instance, created, **kwargs):
             )
 
 
-# @receiver(post_save, sender=Xp)
-# def update_gem_for_xp(sender, instance, **kwargs):
-#     user = instance.user
-#     xp_today = instance.totalXpToday
-#     # Calculate gems awarded based on XP (1 gem per 250 XP)
-#     xp_gem = int(xp_today // 250)  # Calculate XP-based gems
-
-#     # Try to create or update the Gem record for the user
-#     gem, created = Gem.objects.get_or_create(user=user, date=instance.date)
-#     gem.xp_gem = xp_gem
-#     gem.save()
-
-
 @receiver(post_save, sender=Xp)
 def update_gem_for_xp(sender, instance, **kwargs):
     user = instance.user
@@ -246,7 +233,7 @@ def add_to_first_league(sender, instance, **kwargs):
             pathfinder_instance = LeagueInstance.objects.create(
                 league=pathfinder_league,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=1),  # Example: set for a 1-week league duration
+                league_end=timezone.now() + timezone.timedelta(minutes=5),  # Example: set for a 1-week league duration
                 max_participants=10
             )
 
@@ -315,7 +302,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
                 league=pathfinder_league,
                 company=company,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=1),
+                league_end=timezone.now() + timezone.timedelta(minutes=5),
                 max_participants=10
             )
 

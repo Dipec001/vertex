@@ -34,7 +34,7 @@ def promote_user(user, gems_obtained, current_league_instance):
                 next_league_instance = LeagueInstance.objects.create(
                     league=next_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     max_participants=10
                 )
 
@@ -64,7 +64,7 @@ def promote_user(user, gems_obtained, current_league_instance):
                 highest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     max_participants=10
                 )
 
@@ -103,7 +103,7 @@ def demote_user(user, gems_obtained, current_league_instance):
                 previous_league_instance = LeagueInstance.objects.create(
                     league=previous_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     max_participants=10
                 )
 
@@ -129,7 +129,7 @@ def demote_user(user, gems_obtained, current_league_instance):
                 lowest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     max_participants=10
                 )
 
@@ -140,55 +140,6 @@ def demote_user(user, gems_obtained, current_league_instance):
                 return f"{user.username} has been reassigned within the lowest league: {current_league.name}."
             except IntegrityError:
                 return f"{user.username} is already in the target league instance."
-
-
-# def retain_user(user, gems_obtained):
-#     with transaction.atomic():
-#         # Find the user's current active league
-#         current_user_league = UserLeague.objects.select_related('league_instance__league').filter(
-#             user=user, league_instance__is_active=True).first()
-
-#         if not current_user_league:
-#             return f"{user.username} is not currently in an active league instance."
-        
-#         user.gem += gems_obtained
-#         user.save()
-
-#         current_league = current_user_league.league_instance.league
-
-#         print(f"In the retaining view, retaining user {user.username} in current league {current_league}")
-
-#         # Find or create another active instance of the same league with available slots
-#         retain_league_instance = (
-#             LeagueInstance.objects
-#             .filter(league=current_league, is_active=True, company__isnull=True)
-#             .annotate(participant_count=Count('userleague'))
-#             .filter(participant_count__lt=F('max_participants'))
-#             .first()
-#         )
-#         if retain_league_instance:
-#             print('retain league instance',retain_league_instance)
-
-#         # If no active instance with space is found, create a new one
-#         if not retain_league_instance:
-#             retain_league_instance = LeagueInstance.objects.create(
-#                 league=current_league,
-#                 league_start=timezone.now(),
-#                 league_end=timezone.now() + timezone.timedelta(hours=1),
-#                 max_participants=5
-#             )
-
-#         print(retain_league_instance)
-
-#         # Attempt to create a new UserLeague entry for the user
-#         try:
-#             UserLeague.objects.create(user=user, league_instance=retain_league_instance, xp_global=0)
-#             current_user_league.delete()
-#             print(f"{user.username} has been retained within the league: {current_league.name}.")
-#             return f"{user.username} has been retained within the league: {current_league.name}."
-#         except IntegrityError:
-#             print('error')
-#             return f"{user.username} is already in the target league instance."
 
 
 def retain_user(user, gems_obtained, current_league_instance):
@@ -219,7 +170,7 @@ def retain_user(user, gems_obtained, current_league_instance):
             retain_league_instance = LeagueInstance.objects.create(
                 league=current_league,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=1),
+                league_end=timezone.now() + timezone.timedelta(minutes=5),
                 max_participants=10
             )
             print('Created new retain league instance:', retain_league_instance)
@@ -288,7 +239,7 @@ def promote_company_user(user,gems_obtained, current_league_instance):
                 next_league_instance = LeagueInstance.objects.create(
                     league=next_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     company=company,
                     max_participants=10
                 )
@@ -316,7 +267,7 @@ def promote_company_user(user,gems_obtained, current_league_instance):
                 current_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     company=company,
                     max_participants=10
                 )
@@ -358,7 +309,7 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
                 previous_league_instance = LeagueInstance.objects.create(
                     league=previous_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     company=company,
                     max_participants=10
                 )
@@ -380,7 +331,7 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
                 lowest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=1),
+                    league_end=timezone.now() + timezone.timedelta(minutes=5),
                     company=company,
                     max_participants=10
                 )
@@ -420,7 +371,7 @@ def retain_company_user(user,gems_obtained,  current_league_instance):
                 league=current_league,
                 company=company,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=1),
+                league_end=timezone.now() + timezone.timedelta(minutes=5),
                 max_participants=10
             )
 
