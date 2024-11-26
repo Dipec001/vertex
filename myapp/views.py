@@ -954,14 +954,25 @@ class ConvertGemView(APIView):
     
     def broadcast_gem_update(self, user): 
         new_gem_count = user.get_gem_count() # Use the `get_gem_count` method to get the total gems 
-        print('new gem count', new_gem_count)
-        # Get the channel layer and send the updated gem count to the WebSocket 
+        print('new gem count', new_gem_count) 
+
+        # Calculate the remaining XP gems the user can earn today 
+        user_timezone = user.timezone 
+        user_local_time = datetime.now().astimezone(user_timezone) 
+        today = user_local_time.date() 
+
+        gem_record = Gem.objects.filter(user=user, date=today).first() 
+        gems_earned_today = gem_record.xp_gem if gem_record else 0 
+        xp_gems_remaining_today = max(0, 5 - gems_earned_today) # Assuming the daily limit is 5 
+
+        # Get the channel layer and send the updated gem count and XP gems remaining to the WebSocket 
         channel_layer = get_channel_layer() 
         async_to_sync(channel_layer.group_send)( 
             f'gem_{user.id}', # Group name based on user_id 
             { 
                 'type': 'send_gem_update', 
                 'gem_count': new_gem_count, # Send the new gem count 
+                'xp_gems_remaining_today': xp_gems_remaining_today, # Send the remaining XP gems for today 
             } 
         )
 
@@ -1314,7 +1325,7 @@ class CompanyActiveLeagueView(APIView):
         data = {
             "league_id": league_instance.id,
             "league_name": league_instance.league.name,
-            "league_level": league_instance.league.order,
+            "league_level": 11-league_instance.league.order,
             "league_start": league_instance.league_start,
             "league_end": league_instance.league_end,
             "user_rank": user_rank,

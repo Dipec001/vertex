@@ -299,6 +299,7 @@ class GemConsumer(AsyncWebsocketConsumer):
         """
         Handle gem updates sent from the server (via the broadcast mechanism).
         """
+        print(event)
         gem_count = event['gem_count']  # Extract the gem count from the event
         xp_gems_remaining_today = event['xp_gems_remaining_today']  # Extract the remaining XP gems from the event
         
