@@ -884,7 +884,6 @@ class ConvertGemView(APIView):
         
         # Total available gems after subtracting the gems spent
         total_available_gems = total_xp_gem + total_manual_gem - user.gems_spent
-        print(total_available_gems)
 
         # Check if the user has enough available gems
         if total_available_gems < total_gem_cost:

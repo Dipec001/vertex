@@ -26,63 +26,6 @@ class TestConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({"message": f"You said: {text_data}"}))
 
 
-# class LeagueConsumer(AsyncWebsocketConsumer):
-#     async def connect(self):
-#         # Log initial connection data
-#         print("DEBUG - WebSocket connect called")
-#         print(f"Path: {self.scope['path']}")
-#         print(f"Query String: {self.scope['query_string'].decode('utf-8')}")
-#         print(f"URL Route: {self.scope['url_route']['kwargs']}")
-#         print(f"Headers: {dict(self.scope['headers'])}")
-#         print(f"User: {self.scope['user']}")
-
-#         self.league_id = self.scope['url_route']['kwargs']['league_id']
-#         self.user = self.scope['user']
-#         self.group_name = f'league_{self.league_id}'
-
-#         # Validate if the league exists and is active
-#         is_league_active = await database_sync_to_async(self.league_exists_and_active)(self.league_id)
-#         if not is_league_active:
-#             print(f"DEBUG - League {self.league_id} is not active or does not exist")
-#             # Close the WebSocket connection with a reason
-#             await self.close(code=4002, reason="The league does not exist or is not active.")
-#             return
-
-#         # Validate the league and user membership
-#         is_member = await database_sync_to_async(self.user_is_in_league)(self.user, self.league_id)
-#         if not is_member:
-#             print(f"DEBUG - User {self.user} is not a member of league {self.league_id}")
-#             # Close the WebSocket connection with a reason
-#             await self.close(code=4001, reason="User is not a member of this league.")
-#             return
-
-#         # Add the client to the WebSocket group for this league
-#         await self.channel_layer.group_add(self.group_name, self.channel_name)
-
-#         # Accept the WebSocket connection
-#         await self.accept()
-
-#     async def disconnect(self, close_code):
-#         print(f"DEBUG - User {self.user} disconnected from league group {self.group_name} with code {close_code}")
-#         # Remove the client from the WebSocket group when disconnected
-#         await self.channel_layer.group_discard(self.group_name, self.channel_name)
-
-#     async def send_league_update(self, event):
-#         # Send the ranking update to all users in the league
-#         print(f"Sending data to all users in league {self.league_id}: {event['data']}")
-#         await self.send(text_data=json.dumps(event['data']))
-
-#     @staticmethod
-#     def user_is_in_league(user, league_id):
-#         from myapp.models import UserLeague
-#         return UserLeague.objects.filter(user=user, league_instance__id=league_id).exists()
-
-#     @staticmethod
-#     def league_exists_and_active(league_id):
-#         from myapp.models import LeagueInstance
-#         return LeagueInstance.objects.filter(id=league_id, is_active=True).exists()
-
-
 class GlobalLeagueConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         user = self.scope['user']
@@ -101,8 +44,10 @@ class GlobalLeagueConsumer(AsyncWebsocketConsumer):
         # Use the league_instance ID for the group name
         self.league_instance_id = user_global_league.league_instance.id
         self.group_name = f'global_league_{self.league_instance_id}'
+        
+        # Join the group
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-
+        
         # Accept the WebSocket connection
         await self.accept()
 
@@ -112,12 +57,12 @@ class GlobalLeagueConsumer(AsyncWebsocketConsumer):
         return UserLeague.objects.filter(user=user, league_instance__is_active=True, league_instance__company=None).select_related('league_instance').first()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        # Ensure group_name is set before trying to leave the group
+        if hasattr(self, 'group_name') and self.group_name:
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def send_league_update(self, event):
         await self.send(text_data=json.dumps(event['data']))
-
-
 
 
 class CompanyLeagueConsumer(AsyncWebsocketConsumer):
@@ -155,40 +100,6 @@ class CompanyLeagueConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(event['data']))
 
 
-# class StreakConsumer(AsyncWebsocketConsumer):
-#     async def connect(self):
-#         # Initialize group_name to None
-#         self.group_name = None
-
-#         # Get the user_id from the URL route
-#         self.user_id = self.scope['url_route']['kwargs']['user_id']
-
-#         # Get the user ID from the WebSocket connection scope
-#         current_user_id = self.scope['user'].id
-
-#         # Check if the user_id in the URL matches the user ID from the WebSocket scope
-#         if str(self.user_id) != str(current_user_id):
-#             # If they don't match, close the connection
-#             await self.close(code=4003, reason="User ID mismatch.")
-#             return
-        
-#         self.group_name = f'streak_{self.user_id}'
-#         # self.group_name = f'user_{self.user_id}'
-
-#         await self.channel_layer.group_add(self.group_name, self.channel_name)
-#         await self.accept()
-
-#     async def disconnect(self, close_code):
-#         # Ensure that the group_name is set before trying to leave the group
-#         if self.group_name:
-#             # Leave the group when the WebSocket is disconnected
-#             await self.channel_layer.group_discard(self.group_name, self.channel_name)
-
-#     async def send_streak_update(self, event):
-#         await self.send(text_data=json.dumps({
-#             'streak_count': event['streak_count']
-#         }))
-
 class StreakConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # Initialize group_name to None
@@ -219,51 +130,6 @@ class StreakConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'streak_count': event['streak_count']
         }))
-
-
-
-# class GemConsumer(AsyncWebsocketConsumer):
-#     async def connect(self):
-#         # Initialize group_name to None
-#         self.group_name = None
-
-#         # Get the user_id from the URL route
-#         self.user_id = self.scope['url_route']['kwargs']['user_id']
-
-#         # Get the user ID from the WebSocket connection scope
-#         current_user_id = self.scope['user'].id
-
-#         # Check if the user_id in the URL matches the user ID from the WebSocket scope
-#         if str(self.user_id) != str(current_user_id):
-#             # If they don't match, close the connection
-#             await self.close(code=4003, reason="User ID mismatch.")
-#             return
-
-#         self.group_name = f'gem_{self.user_id}'
-#         # self.group_name = f'user_{self.user_id}'
-
-#         # Join the group
-#         await self.channel_layer.group_add(self.group_name, self.channel_name)
-
-#         # Accept the WebSocket connection
-#         await self.accept()
-
-#     async def disconnect(self, close_code):
-#         # Ensure that the group_name is set before trying to leave the group
-#         if self.group_name:
-#             # Leave the group when the WebSocket is disconnected
-#             await self.channel_layer.group_discard(self.group_name, self.channel_name)
-
-#     async def send_gem_update(self, event):
-#         """
-#         Handle gem updates sent from the server (via the broadcast mechanism).
-#         """
-#         gem_count = event['gem_count']  # Extract the gem count from the event
-        
-#         # Send the gem update to the WebSocket client
-#         await self.send(text_data=json.dumps({
-#             'gem_count': gem_count  # Send the gem count to the client
-#         }))
 
 
 class GemConsumer(AsyncWebsocketConsumer):
