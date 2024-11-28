@@ -9,6 +9,7 @@ from django.utils.timezone import localtime, now
 
 @receiver(post_save, sender=Xp)
 def broadcast_global_league_ranking_update(sender, instance, **kwargs):
+    print('global league endpoint triggered')
     user = instance.user
 
     # Get the user's active global league instance
@@ -85,7 +86,7 @@ def broadcast_global_league_ranking_update(sender, instance, **kwargs):
     # Send the data to the WebSocket group
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        f'league_{league_instance.id}',
+        f'global_league_{league_instance.id}',
         {
             'type': 'send_league_update',
             'data': data,
@@ -95,6 +96,7 @@ def broadcast_global_league_ranking_update(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Xp)
 def broadcast_company_league_ranking_update(sender, instance, **kwargs):
+    print('company league send activated')
     user = instance.user
 
     # Get the user's active company league instance
@@ -171,13 +173,12 @@ def broadcast_company_league_ranking_update(sender, instance, **kwargs):
     # Send the data to the WebSocket group
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
-        f'league_{league_instance.id}',
+        f'company_league_{league_instance.id}',
         {
             'type': 'send_league_update',
             'data': data,
         }
     )
-
 
 
 @receiver(post_save, sender=Streak)

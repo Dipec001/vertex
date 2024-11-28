@@ -111,7 +111,7 @@ class DrawAdmin(admin.ModelAdmin):
 # Customizing the display and functionality of the DrawEntry model in the admin interface
 @admin.register(DrawEntry)
 class DrawEntryAdmin(admin.ModelAdmin):
-    list_display = ('user', 'draw', 'timestamp')
+    list_display = ('id','user', 'draw', 'timestamp')
     search_fields = ('user__email', 'draw__draw_name')
     list_filter = ('timestamp',)
     ordering = ('draw', 'user')

@@ -44,6 +44,7 @@ class GlobalLeagueConsumer(AsyncWebsocketConsumer):
         # Use the league_instance ID for the group name
         self.league_instance_id = user_global_league.league_instance.id
         self.group_name = f'global_league_{self.league_instance_id}'
+        print(f"{self.group_name} - Connected to global league group")
         
         # Join the group
         await self.channel_layer.group_add(self.group_name, self.channel_name)
@@ -60,8 +61,10 @@ class GlobalLeagueConsumer(AsyncWebsocketConsumer):
         # Ensure group_name is set before trying to leave the group
         if hasattr(self, 'group_name') and self.group_name:
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
+            print(f"{self.group_name} - Disconnected from global league group")
 
     async def send_league_update(self, event):
+        # print(f"Sending league update: {event['data']}")
         await self.send(text_data=json.dumps(event['data']))
 
 
@@ -84,6 +87,7 @@ class CompanyLeagueConsumer(AsyncWebsocketConsumer):
         self.league_id = user_company_league.league_instance.id
         self.group_name = f'company_league_{self.league_id}'
         await self.channel_layer.group_add(self.group_name, self.channel_name)
+        print(f"{self.group_name} - Connected to company league group")
 
         # Accept the WebSocket connection
         await self.accept()

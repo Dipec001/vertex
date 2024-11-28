@@ -412,7 +412,7 @@ def process_league_promotions():
             "rankings": rankings_data, 
         } 
         async_to_sync(channel_layer.group_send)( 
-            f'league_{league.id}', 
+            f'global_league_{league.id}', 
             { 
                 'type': 'send_league_update', 
                 'data': data, 
@@ -502,7 +502,7 @@ def process_company_league_promotions():
             "rankings": rankings_data, 
         } 
         async_to_sync(channel_layer.group_send)( 
-            f'league_{league.id}', 
+            f'company_league_{league.id}', 
             { 
                 'type': 'send_league_update', 
                 'data': data, 

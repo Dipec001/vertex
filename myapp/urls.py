@@ -17,6 +17,7 @@ urlpatterns = [
 
     path('validate-email-password/', views.ValidateEmailPasswordView.as_view(), name='validate_email_password'),
     path('validate-company-association/', views.ValidateCompanyAssociationView.as_view(), name='validate_company_association'),
+    path('verify-username/', views.VerifyUsernameView.as_view(), name='verify-username'),
     path('create-user/', views.NormalUserSignupView.as_view(), name='create_user'),
     path('signup-company-owner/', views.CompanyOwnerSignupView.as_view(), name='signup_company_owner'),
     path('password-reset/', views.PasswordResetRequestView.as_view(), name='password_reset'),

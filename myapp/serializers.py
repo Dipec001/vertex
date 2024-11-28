@@ -19,8 +19,6 @@ logger = logging.getLogger(__name__)
 
 CustomUser = get_user_model()
 
-from rest_framework.fields import DateTimeField
-
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,

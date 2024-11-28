@@ -133,6 +133,21 @@ class ValidateCompanyAssociationView(APIView):
             "invitation_id": invitation.id,
             "email": invitation.email  # Return the invitation email if needed
         }, status=status.HTTP_200_OK)
+    
+
+class VerifyUsernameView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+
+        if not username:
+            return Response({"error": "Username is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if CustomUser.objects.filter(username=username).exists():
+            return Response({"error": "Username already exists."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"message": "Username is available."}, status=status.HTTP_200_OK)
 
 
 class NormalUserSignupView(APIView):
@@ -1022,8 +1037,18 @@ class GetAllGlobalView(APIView):
         # Filter only active draws with draw_type as 'global'
         draws = Draw.objects.filter(is_active=True, draw_type='global')
         print(draws)
-        serializer = DrawSerializer(draws, many=True, context={'request': request})
-        return Response(serializer.data)
+
+        # Serialize the draws
+        serialized_draws = DrawSerializer(draws, many=True, context={'request': request}).data
+
+        # Add user's ticket IDs (draw entries) to each draw
+        for draw_data in serialized_draws:
+            draw_id = draw_data['id']
+            user_entries = DrawEntry.objects.filter(draw_id=draw_id, user=request.user).values_list('id', flat=True)
+            draw_data['user_ticket_ids'] = list(user_entries)
+
+        return Response(serialized_draws, status=status.HTTP_200_OK)
+
 
 
 class GlobalDrawEditView(APIView):
@@ -1107,33 +1132,6 @@ class CompanyDrawEditView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Draw.DoesNotExist:
             raise PermissionDenied("You do not have permission to access or manage this draw.")
-
-
-# class CompanyDrawListView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         try:
-#             # Fetch the user's single membership to get their company
-#             membership = Membership.objects.get(user=request.user)
-            
-#             # Get the company from the membership
-#             user_company = membership.company
-
-#             # Query all active draws for the user's company that are yet to happen
-#             draws = Draw.objects.filter(
-#                 company=user_company,
-#                 is_active=True,
-#                 # Uncomment the line below to only fetch future draws
-#                 # draw_date__gte=timezone.now()  
-#             )
-#             serializer = DrawSerializer(draws, many=True, context={'request': request})
-#             return Response(serializer.data, status=status.HTTP_200_OK)
-
-#         except Membership.DoesNotExist:
-#             return Response({"error": "User does not belong to any company."}, status=status.HTTP_400_BAD_REQUEST)
-#         except Exception as e:
-#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CompanyDrawListView(APIView):
