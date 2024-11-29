@@ -192,6 +192,7 @@ def update_gem_for_xp(sender, instance, **kwargs):
 
     # Update the gem record
     gem.xp_gem = total_xp_gem_today
+    gem.copy_xp_gem = total_xp_gem_today
     gem.save()
 
 

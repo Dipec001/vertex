@@ -108,6 +108,8 @@ class Gem(models.Model):
     date = models.DateField()
     xp_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # XP-based gems for the day
     manual_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # Manual gems awarded for promotions, etc.
+    copy_xp_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # Copy of XP-based gems for record 
+    copy_manual_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # Copy of manual gems for record
 
     class Meta:
         unique_together = ('user', 'date')  # Ensure one entry per user per day

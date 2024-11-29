@@ -9,10 +9,9 @@ from .league_service import promote_user, demote_user, retain_user, promote_comp
 from dateutil.relativedelta import relativedelta  # For precise next-month calculation
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.db.models import Max
+from django.db.models import Max, F
 from .s3_utils import save_file_to_s3
 import os
-import pytz
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
@@ -254,46 +253,6 @@ def create_global_draw():
         print(f"An unexpected error occurred: {e}")
 
 
-# @shared_task
-# def reset_gems_for_local_timezones():
-#     """This task resets the users' gem amount and gems spent every Monday midnight in their local timezone."""
-#     now_utc = django_timezone.now()
-    
-#     batch_size = 100  # Adjust based on your needs
-#     offset = 0
-
-#     while True:
-#         users = CustomUser.objects.exclude(timezone=None).values('id', 'email', 'gems_spent', 'timezone')[offset:offset + batch_size]
-
-#         if not users:
-#             print("Processed all users successfully.")
-#             break
-
-#         for user in users:
-#             user_timezone = user['timezone']
-
-#             try:
-#                 # Convert UTC time to user's local time
-#                 user_local_time = now_utc.astimezone(user_timezone)
-
-#                 # Check if it's Monday midnight in the user's local timezone
-#                 if user_local_time.weekday() == 0 and user_local_time.hour == 0:
-                    
-#                     # Reset the user's total gems and gems spent
-#                     CustomUser.objects.filter(id=user['id']).update(gems_spent=0)
-
-#                     # Optionally, you can also delete the `Gem` records for the user, or you can reset them individually
-#                     Gem.objects.filter(user=user['id']).delete()  # This will remove all gem records for the user
-                    
-#                     print(f"Reset gems and gems spent for user {user['email']}")
-
-#             except Exception as e:
-#                 print(f"Error processing user {user['email']} with timezone {user['timezone']}: {e}")
-
-#         offset += batch_size
-
-#     print("Gem reset task completed successfully.")
-
 @shared_task
 def reset_gems_for_local_timezones():
     """
@@ -321,11 +280,17 @@ def reset_gems_for_local_timezones():
 
                 # Check if it's midnight (0 hour) in the user's local timezone
                 if user_local_time.hour == 0:
+                    # Calculate the date for the previous day 
+                    previous_day = user_local_time.date() - timedelta(days=1)
+
                     # Reset the user's total gems and gems spent
                     CustomUser.objects.filter(id=user['id']).update(gems_spent=0)
 
-                    # Optionally, reset gem records for the user
-                    Gem.objects.filter(user=user['id']).delete()  # Deletes all gem records for the user
+                    # Update gem records for the previous day to keep copies and reset daily values 
+                    Gem.objects.filter(user_id=user['id'], date=previous_day).update( 
+                        xp_gem=0, 
+                        manual_gem=0 
+                    )
 
                     print(f"Reset gems and gems spent for user {user['email']}")
 
@@ -405,10 +370,11 @@ def process_league_promotions():
                 "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted", 
             }) 
         data = { 
+            "league_id": league.id,
             "league_name": league.league.name, 
             "league_level": 11 - league.league.order, 
-            "league_start": league.league_start.isoformat(), 
-            "league_end": league.league_end.isoformat(), 
+            "league_start": league.league_start, 
+            "league_end": league.league_end, 
             "rankings": rankings_data, 
         } 
         async_to_sync(channel_layer.group_send)( 
@@ -495,10 +461,11 @@ def process_company_league_promotions():
                 "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted", 
             }) 
         data = { 
+            "league_id": league.id,
             "league_name": league.league.name, 
             "league_level": 11 - league.league.order, 
-            "league_start": league.league_start.isoformat(), 
-            "league_end": league.league_end.isoformat(), 
+            "league_start": league.league_start, 
+            "league_end": league.league_end, 
             "rankings": rankings_data, 
         } 
         async_to_sync(channel_layer.group_send)( 

@@ -27,7 +27,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
 from .s3_utils import save_file_to_s3
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, F
 from datetime import datetime, timedelta
 from rest_framework.exceptions import PermissionDenied
 from django.utils.dateparse import parse_date
@@ -1236,13 +1236,16 @@ class GlobalActiveLeagueView(APIView):
         # Find the current user's rank
         user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
 
+        league_start = league_instance.league_start.isoformat(timespec='milliseconds') + 'Z' 
+        league_end = league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+
         # Response data
         data = {
             "league_id": league_instance.id,
             "league_name": league_instance.league.name,
             "league_level": 11-league_instance.league.order,
-            "league_start": league_instance.league_start,
-            "league_end": league_instance.league_end,
+            "league_start": league_start,
+            "league_end": league_end,
             "user_rank": user_rank,
             "rankings": rankings_data
         }
@@ -1318,13 +1321,16 @@ class CompanyActiveLeagueView(APIView):
         # Find the current user's rank
         user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
 
+        league_start = league_instance.league_start.isoformat(timespec='milliseconds') + 'Z' 
+        league_end = league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+
         # Response data
         data = {
             "league_id": league_instance.id,
             "league_name": league_instance.league.name,
             "league_level": 11-league_instance.league.order,
-            "league_start": league_instance.league_start,
-            "league_end": league_instance.league_end,
+            "league_start": league_start,
+            "league_end": league_end,
             "user_rank": user_rank,
             "rankings": rankings_data
         }
@@ -1573,7 +1579,6 @@ class CompanyFeedListView(APIView):
 #         })
 
 
-
 class UserGemStatusView(APIView):
     """
     This view returns the gem status for the authenticated user.
@@ -1581,6 +1586,7 @@ class UserGemStatusView(APIView):
     The response includes:
     - total_gems: The total number of gems the user currently has.
     - xp_gems_earned_today: The number of XP gems the user has earned today.
+    - manual_gems_earned_today: The number of manual gems the user has earned today.
     - remaining_gems_today: The number of remaining gems the user can earn today, with a maximum of 5 per day.
     - all_time_gems: The total number of gems the user has earned all-time.
     - gems_per_day: A list of gems earned per day within the specified date range.
@@ -1603,7 +1609,7 @@ class UserGemStatusView(APIView):
         end_date = request.query_params.get('end_date', today)
 
         if not start_date:
-            return Response({"error": "Please provide a start date."}, status=400)
+            return Response({"error": "Please provide a start date."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Fetch today's gem record
         gem_record = Gem.objects.filter(user=user, date=today).first()
@@ -1612,30 +1618,54 @@ class UserGemStatusView(APIView):
         total_gems = user.get_gem_count()
 
         # Gems the user has earned today
-        gems_earned_today = gem_record.xp_gem if gem_record else 0
+        xp_gems_earned_today = gem_record.xp_gem if gem_record else 0
+        manual_gems_earned_today = gem_record.manual_gem if gem_record else 0
 
         # Remaining gems the user can earn today
-        remaining_gems_today = max(0, 5 - gems_earned_today)
+        remaining_gems_today = max(0, 5 - xp_gems_earned_today)
 
         # Fetch all-time gems
-        all_time_gems = Gem.objects.filter(user=user).aggregate(total_gems=Sum('xp_gem') + Sum('manual_gem'))['total_gems'] or 0
+        all_time_gems = Gem.objects.filter(user=user).aggregate(total_gems=Sum('copy_xp_gem') + Sum('copy_manual_gem'))['total_gems'] or 0
 
-        # Query gem records in the user's local date range
+        # Query gem records in the user's local date range, using the copy fields for historical data
         gem_records = Gem.objects.filter(
             user=user,
             date__range=[start_date, end_date]
-        ).values('date').annotate(
-            xp_gems=Sum('xp_gem'),
-            manual_gems=Sum('manual_gem')
-        ).order_by('date')
+        ).annotate(
+            xp_gems=F('copy_xp_gem'),
+            manual_gems=F('copy_manual_gem')
+        ).values('date', 'xp_gems', 'manual_gems').order_by('date')
 
         # Prepare gem data for each day
-        gems_per_day = [{'date': record['date'], 'xp_gems': record['xp_gems'], 'manual_gems': record['manual_gems']} for record in gem_records]
+        gems_per_day = [
+            {
+                'date': record['date'], 
+                'xp_gems': record['xp_gems'], 
+                'manual_gems': record['manual_gems']
+            } 
+            for record in gem_records
+        ]
+
+        # Include the present day's record if it doesn't exist
+        if not any(record['date'] == today for record in gems_per_day):
+            gems_per_day.append({
+                'date': today,
+                'xp_gems': xp_gems_earned_today,
+                'manual_gems': manual_gems_earned_today
+            })
+        else:
+            for record in gems_per_day:
+                if record['date'] == today:
+                    record['xp_gems'] = xp_gems_earned_today
+                    record['manual_gems'] = manual_gems_earned_today
 
         return Response({
             "total_gems": total_gems,
-            "xp_gems_earned_today": gems_earned_today,
+            "xp_gems_earned_today": xp_gems_earned_today,
+            "manual_gems_earned_today": manual_gems_earned_today,
             "remaining_gems_today": remaining_gems_today,
             "all_time_gems": all_time_gems,
             "gems_per_day": gems_per_day,
-        })
+        }, status=status.HTTP_200_OK)
+
+

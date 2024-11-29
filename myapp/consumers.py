@@ -64,7 +64,7 @@ class GlobalLeagueConsumer(AsyncWebsocketConsumer):
             print(f"{self.group_name} - Disconnected from global league group")
 
     async def send_league_update(self, event):
-        # print(f"Sending league update: {event['data']}")
+        print(f"Sending league update: {event['data']}")
         await self.send(text_data=json.dumps(event['data']))
 
 

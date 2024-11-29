@@ -73,12 +73,16 @@ def broadcast_global_league_ranking_update(sender, instance, **kwargs):
     # Find the current user's rank
     user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
 
+    league_start = league_instance.league_start.isoformat(timespec='milliseconds') + 'Z' 
+    league_end = league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+
     # Prepare data to send
     data = {
+        "league_id": league_instance.id,
         "league_name": league_instance.league.name,
         "league_level": 11 - league_instance.league.order,
-        "league_start": league_instance.league_start.isoformat(),
-        "league_end": league_instance.league_end.isoformat(),
+        "league_start": league_start,
+        "league_end": league_end,
         "user_rank": user_rank,
         "rankings": rankings_data,
     }
@@ -160,12 +164,16 @@ def broadcast_company_league_ranking_update(sender, instance, **kwargs):
     # Find the current user's rank
     user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
 
+    league_start = league_instance.league_start.isoformat(timespec='milliseconds') + 'Z' 
+    league_end = league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+
     # Prepare data to send
     data = {
+        "league_id": league_instance.id,
         "league_name": league_instance.league.name,
         "league_level": 11 - league_instance.league.order,
-        "league_start": league_instance.league_start.isoformat(),
-        "league_end": league_instance.league_end.isoformat(),
+        "league_start": league_start,
+        "league_end": league_end,
         "user_rank": user_rank,
         "rankings": rankings_data,
     }

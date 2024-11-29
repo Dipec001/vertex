@@ -183,7 +183,7 @@ class ClapAdmin(admin.ModelAdmin):
 
 @admin.register(Gem)
 class GemAdmin(admin.ModelAdmin):
-    list_display = ['user', 'date', 'xp_gem', 'manual_gem']
+    list_display = ['user', 'date', 'xp_gem', 'manual_gem','copy_xp_gem','copy_manual_gem']
     list_filter = ['user', 'date']
     search_fields = ['user__email']
 
