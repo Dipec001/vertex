@@ -3,8 +3,10 @@ from django.contrib.auth.models import AbstractUser
 from timezone_field import TimeZoneField
 import pytz
 import random
-from django.utils import timezone
 from django.db.models import Sum
+from django.utils.timezone import now
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 # Create your models here.
 
 TIMEZONES = tuple(zip(pytz.all_timezones, pytz.all_timezones))
@@ -100,22 +102,63 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f" Invite for {self.email} to {self.company}"
-    
 
 class Gem(models.Model):
-    # This is the gem model
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='gem_records')
     date = models.DateField()
-    xp_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # XP-based gems for the day
-    manual_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # Manual gems awarded for promotions, etc.
-    copy_xp_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # Copy of XP-based gems for record 
-    copy_manual_gem = models.PositiveIntegerField(default=0, blank=True, null=True) # Copy of manual gems for record
+    xp_gem = models.PositiveIntegerField(default=0, blank=True, null=True)
+    manual_gem = models.PositiveIntegerField(default=0, blank=True, null=True)
+    copy_xp_gem = models.PositiveIntegerField(default=0, blank=True, null=True)
+    copy_manual_gem = models.PositiveIntegerField(default=0, blank=True, null=True)
 
     class Meta:
-        unique_together = ('user', 'date')  # Ensure one entry per user per day
+        unique_together = ('user', 'date')
 
     def __str__(self):
         return f'{self.user.email} - Gems on {self.date}'
+
+    def save(self, *args, **kwargs):
+        # Track whether the values have changed
+        changed = False
+
+        if self.pk is not None:
+            orig = Gem.objects.get(pk=self.pk)
+            if self.xp_gem != orig.xp_gem or self.manual_gem != orig.manual_gem:
+                changed = True
+        else:
+            # New object, always consider it as changed
+            changed = True
+
+        super().save(*args, **kwargs)
+
+        # Only broadcast if values have actually changed
+        if changed:
+            self.broadcast_gem_update()
+
+    def broadcast_gem_update(self):
+        user = self.user
+        new_gem_count = user.get_gem_count()  # Use the `get_gem_count` method to get the total gems
+
+        # Calculate the remaining XP gems the user can earn today
+        user_timezone = user.timezone
+        user_local_time = now().astimezone(user_timezone)
+        today = user_local_time.date()
+
+        gem_record = Gem.objects.filter(user=user, date=today).first()
+        gems_earned_today = gem_record.xp_gem if gem_record else 0
+        xp_gems_remaining_today = max(0, 5 - gems_earned_today)  # Assuming the daily limit is 5
+
+        # Get the channel layer and send the updated gem count and XP gems remaining to the WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'gem_{user.id}',  # Group name based on user_id
+            {
+                'type': 'send_gem_update',
+                'gem_count': new_gem_count,  # Send the new gem count
+                'xp_gems_remaining_today': xp_gems_remaining_today,  # Send the remaining XP gems for today
+            }
+        )
+
 
 
 class Xp(models.Model):

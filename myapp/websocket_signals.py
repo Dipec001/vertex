@@ -206,34 +206,34 @@ def broadcast_streak_update(sender, instance, **kwargs):
 
 
 
-@receiver(post_save, sender=Gem)
-def broadcast_gem_update(sender, instance, **kwargs):
-    user = instance.user
-    new_gem_count = user.get_gem_count()  # Use the `get_gem_count` method to get the total gems
+# @receiver(post_save, sender=Gem)
+# def broadcast_gem_update(sender, instance, **kwargs):
+#     user = instance.user
+#     new_gem_count = user.get_gem_count()  # Use the `get_gem_count` method to get the total gems
 
-    # Calculate the remaining XP gems the user can earn today
-    user_timezone = user.timezone
-    user_local_time = now().astimezone(user_timezone)
-    today = user_local_time.date()
+#     # Calculate the remaining XP gems the user can earn today
+#     user_timezone = user.timezone
+#     user_local_time = now().astimezone(user_timezone)
+#     today = user_local_time.date()
 
-    gem_record = Gem.objects.filter(user=user, date=today).first()
-    gems_earned_today = gem_record.xp_gem if gem_record else 0
-    xp_gems_remaining_today = max(0, 5 - gems_earned_today)  # Assuming the daily limit is 5
+#     gem_record = Gem.objects.filter(user=user, date=today).first()
+#     gems_earned_today = gem_record.xp_gem if gem_record else 0
+#     xp_gems_remaining_today = max(0, 5 - gems_earned_today)  # Assuming the daily limit is 5
 
-    # Debug logging 
-    print(f"new gem count: {new_gem_count}") 
-    print(f"xp_gems_remaining_today: {xp_gems_remaining_today}")
+#     # Debug logging 
+#     print(f"new gem count: {new_gem_count}") 
+#     print(f"xp_gems_remaining_today: {xp_gems_remaining_today}")
 
-    # Get the channel layer and send the updated gem count and XP gems remaining to the WebSocket
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f'gem_{user.id}',  # Group name based on user_id
-        {
-            'type': 'send_gem_update',
-            'gem_count': new_gem_count,  # Send the new gem count
-            'xp_gems_remaining_today': xp_gems_remaining_today,  # Send the remaining XP gems for today
-        }
-    )
+#     # Get the channel layer and send the updated gem count and XP gems remaining to the WebSocket
+#     channel_layer = get_channel_layer()
+#     async_to_sync(channel_layer.group_send)(
+#         f'gem_{user.id}',  # Group name based on user_id
+#         {
+#             'type': 'send_gem_update',
+#             'gem_count': new_gem_count,  # Send the new gem count
+#             'xp_gems_remaining_today': xp_gems_remaining_today,  # Send the remaining XP gems for today
+#         }
+#     )
 
 
 
