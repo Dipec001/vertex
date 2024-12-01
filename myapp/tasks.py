@@ -419,131 +419,105 @@ def process_company_league_promotions():
     """
     now = timezone.now()
     expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=False)
-    print('Expired company league', expired_leagues)
+    print('Expired company leagues:', expired_leagues)
 
     for league in expired_leagues:
-        # Get users ordered by company XP for promotions and demotions
         users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_company', 'id')
-
         total_users = users_in_league.count()
-        
+
+        print(f"Total users in league {league.id}: {total_users}")
+
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
 
         for rank, user_league in enumerate(users_in_league, start=1):
             user = user_league.user
+            print(f"Processing user {user.id} in league {league.id}")
 
             if total_users <= 3:
-                # Handle cases with very few users separately
                 if user_league.xp_global == 0:
                     gems_obtained = 0
                     status = "Demoted"
-                    demote_company_user(user,gems_obtained, league)
+                    demote_company_user(user, gems_obtained, league)
                 else:
                     gems_obtained = 10
                     status = "Retained"
-                    retain_company_user(user,gems_obtained, league)
+                    retain_company_user(user, gems_obtained, league)
             else:
-                # Standard promotion/retention/demotion logic
                 if rank <= promotion_threshold:
-                    gems_obtained = 20 - (rank - 1) * 2  # Reward for promotion
-                    promote_company_user(user,gems_obtained, league)
+                    gems_obtained = 20 - (rank - 1) * 2
                     status = "Promoted"
+                    promote_company_user(user, gems_obtained, league)
                 elif rank <= demotion_threshold:
-                    gems_obtained = 10  # Base reward for retained users
+                    gems_obtained = 10
                     status = "Retained"
-                    retain_company_user(user,gems_obtained, league)                 
+                    retain_company_user(user, gems_obtained, league)
                 else:
-                    gems_obtained = 0  # No reward for demoted users
+                    gems_obtained = 0
                     status = "Demoted"
-                    demote_company_user(user,gems_obtained, league)
+                    demote_company_user(user, gems_obtained, league)
 
-
-            # Reset XP for the new league week
             user_league.xp_company = 0
             user_league.save()
 
-           # Broadcast gem update 
-            new_gem_count = user.get_gem_count() 
-            channel_layer = get_channel_layer() 
-            async_to_sync(channel_layer.group_send)( 
-                f'gem_{user.id}', 
-                { 
-                    'type': 'send_gem_update', 
-                    'gem_count': new_gem_count, 
-                } 
+            new_gem_count = user.get_gem_count()
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'gem_{user.id}',
+                {
+                    'type': 'send_gem_update',
+                    'gem_count': new_gem_count,
+                }
             )
-        
-        # Broadcast league update 
-        rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', 'id') 
-        rankings_data = [] 
-        for idx, ul in enumerate(rankings, start=1): 
-            rankings_data.append({ 
-                "user_id": ul.user.id, 
-                "username": ul.user.username, 
-                "profile_picture": ul.user.profile_picture.url if ul.user.profile_picture else None, 
-                "xp": ul.xp_global, 
-                "streaks": ul.user.streak, 
-                "rank": idx, 
-                "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted", 
-            }) 
-        league_start = league.league_start.isoformat(timespec='milliseconds') + 'Z' 
+            print(f"Sent gem update for user {user.id}")
+
+        rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', 'id')
+        rankings_data = []
+        for idx, ul in enumerate(rankings, start=1):
+            rankings_data.append({
+                "user_id": ul.user.id,
+                "username": ul.user.username,
+                "profile_picture": ul.user.profile_picture.url if ul.user.profile_picture else None,
+                "xp": ul.xp_company,
+                "streaks": ul.user.streak,
+                "rank": idx,
+                "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted",
+            })
+        league_start = league.league_start.isoformat(timespec='milliseconds') + 'Z'
         league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
-        data = { 
+        data = {
             "league_id": league.id,
-            "league_name": league.league.name, 
-            "league_level": 11 - league.league.order, 
-            "league_start": league_start, 
-            "league_end": league_end, 
-            "rankings": rankings_data, 
-        } 
-        async_to_sync(channel_layer.group_send)( 
-            f'company_league_{league.id}', 
-            { 
-                'type': 'send_league_update', 
-                'data': data, 
+            "league_name": league.league.name,
+            "league_level": 11 - league.league.order,
+            "league_start": league_start,
+            "league_end": league_end,
+            "rankings": rankings_data,
+        }
+        async_to_sync(channel_layer.group_send)(
+            f'company_league_{league.id}',
+            {
+                'type': 'send_league_update',
+                'data': data,
             }
         )
+        print(f"Sent league update for league {league.id}")
 
-        data_for_status= {
-            "league_id": league.id,
-            "league_level": 11 - league.league.order,
-            "status": status    
-        }
+        for user_league in users_in_league:
+            user = user_league.user
+            data_for_status = {
+                "league_id": league.id,
+                "league_level": 11 - league.league.order,
+                "status": status
+            }
+            print(f'Sending status update to user {user.id}')
+            async_to_sync(channel_layer.group_send)(
+                f'company_league_status_{user.id}',
+                {
+                    'type': 'send_league_status',
+                    'data': data_for_status
+                }
+            )
+            print(f'Sent status update to user {user.id}')
 
-        # Broadcast to the new company league status consumer 
-        async_to_sync(channel_layer.group_send)( 
-            f'company_league_status_{user.id}', 
-            { 
-                'type': 'send_league_status', 
-                'data': data_for_status, 
-            } 
-        )
-
-        # Mark the league instance as inactive
         league.is_active = False
         league.save()
-
-
-def get_league_status(league, user): 
-    league_instance = league.league_instance 
-    rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global', 'id') 
-    total_users = rankings.count() 
-    promotion_threshold = int(total_users * 0.30) 
-    demotion_threshold = int(total_users * 0.80) 
-    for index, ul in enumerate(rankings, start=1): 
-        if ul.user == user: 
-            if index <= promotion_threshold: 
-                status = "Promoted" 
-            elif index <= demotion_threshold: 
-                status = "Retained" 
-            else: 
-                status = "Demoted" 
-            return { 
-                "league_id": league_instance.id, 
-                "league_name": league_instance.league.name, 
-                "league_level": 11 - league_instance.league.order, 
-                "status": status, 
-                "rank": index 
-            } 
-        return {"error": "User not found in the league"}
