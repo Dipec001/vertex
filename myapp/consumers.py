@@ -356,13 +356,16 @@ class CustomCompanyLeagueConsumer(AsyncWebsocketConsumer):
             return
         
         self.group_name = f'company_league_status_{user.id}'
+        print(f"Connecting to group: {self.group_name}")
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        print(f"Connection accepted for group: {self.group_name}")
 
     async def disconnect(self, close_code):
         if hasattr(self, 'group_name') and self.group_name:
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def send_league_status(self, event):
+        print(f"Sending league status update: {event['data']}")
         await self.send(text_data=json.dumps(event['data']))
