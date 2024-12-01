@@ -1709,6 +1709,7 @@ class GlobalLeagueStatusView(APIView):
                     "league_id": league_instance.id,
                     "league_name": league_instance.league.name,
                     "league_level": 11 - league_instance.league.order,
+                    "league_end": league_instance.league_end,
                     "status": status,
                     "rank": index
                 }
@@ -1750,6 +1751,7 @@ class CompanyLeagueStatusView(APIView):
                     "league_id": league_instance.id,
                     "league_name": league_instance.league.name,
                     "league_level": 11 - league_instance.league.order,
+                    "league_end": league_instance.league_end,
                     "status": status,
                     "rank": index
                 }
