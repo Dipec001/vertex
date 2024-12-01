@@ -80,6 +80,10 @@ def test_feed_view(request):
 def test_draw_view(request):
     return render(request, 'test_draw.html', {'user_id': request.user.id})
 
+@login_required
+def test_noti_view(request):
+    return render(request, 'test_noti.html')
+
 class ValidateEmailPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -144,7 +148,8 @@ class VerifyUsernameView(APIView):
         if not username:
             return Response({"error": "Username is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if CustomUser.objects.filter(username=username).exists():
+        # Convert the username to lowercase for case-insensitive comparison
+        if CustomUser.objects.filter(username__iexact=username.lower()).exists():
             return Response({"error": "Username already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"message": "Username is available."}, status=status.HTTP_200_OK)
@@ -1668,4 +1673,119 @@ class UserGemStatusView(APIView):
             "gems_per_day": gems_per_day,
         }, status=status.HTTP_200_OK)
 
+
+
+class GlobalLeagueStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        global_league = UserLeague.objects.filter(user=user, league_instance__is_active=True, league_instance__company__isnull=True).select_related('league_instance').first()
+
+        if not global_league:
+            return Response({"error": "No active global league found for the user"}, status=404)
+
+        data = self.get_league_status(global_league, user)
+        return Response(data, status=status.HTTP_200_OK)
+
+    def get_league_status(self, league, user):
+        league_instance = league.league_instance
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global', 'id')
+
+        total_users = rankings.count()
+        promotion_threshold = int(total_users * 0.30)
+        demotion_threshold = int(total_users * 0.80)
+
+        for index, ul in enumerate(rankings, start=1):
+            if ul.user == user:
+                if index <= promotion_threshold:
+                    status = "Promoted"
+                elif index <= demotion_threshold:
+                    status = "Retained"
+                else:
+                    status = "Demoted"
+
+                return {
+                    "league_id": league_instance.id,
+                    "league_name": league_instance.league.name,
+                    "league_level": 11 - league_instance.league.order,
+                    "status": status,
+                    "rank": index
+                }
+        return {"error": "User not found in the league"}
+    
+
+
+class CompanyLeagueStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        company_league = UserLeague.objects.filter(user=user, league_instance__is_active=True, league_instance__company__isnull=False).select_related('league_instance').first()
+
+        if not company_league:
+            return Response({"error": "No active company league found for the user"}, status=404)
+
+        data = self.get_league_status(company_league, user)
+        return Response(data, status=status.HTTP_200_OK)
+
+    def get_league_status(self, league, user):
+        league_instance = league.league_instance
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
+
+        total_users = rankings.count()
+        promotion_threshold = int(total_users * 0.30)
+        demotion_threshold = int(total_users * 0.80)
+
+        for index, ul in enumerate(rankings, start=1):
+            if ul.user == user:
+                if index <= promotion_threshold:
+                    status = "Promoted"
+                elif index <= demotion_threshold:
+                    status = "Retained"
+                else:
+                    status = "Demoted"
+
+                return {
+                    "league_id": league_instance.id,
+                    "league_name": league_instance.league.name,
+                    "league_level": 11 - league_instance.league.order,
+                    "status": status,
+                    "rank": index
+                }
+        return {"error": "User not found in the league"}
+
+
+
+
+# views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from firebase_admin.messaging import Message, Notification, send
+import firebase_admin
+
+class SendNotificationAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        fcm_token = request.data.get("fcm_token")
+        title = request.data.get("title")
+        body = request.data.get("body")
+        data = request.data.get("data", {})
+        image_url = request.data.get("image_url", None)
+
+        if not fcm_token or not title or not body:
+            return Response({"error": "FCM token, title, and body are required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        notification = Notification(title=title, body=body, image=image_url)
+        message = Message(notification=notification, data=data, token=fcm_token)
+        
+        try:
+            # Sending the message directly using the Firebase Admin SDK
+            response = send(message)
+            return Response({"success": True, "response": response})
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

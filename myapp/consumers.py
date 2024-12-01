@@ -319,3 +319,50 @@ class DrawConsumer(AsyncWebsocketConsumer):
         from  myapp.models import DrawEntry
         print("user has entry")
         return DrawEntry.objects.filter(draw_id=draw_id, user=self.user).exists()
+
+
+class CustomGlobalLeagueConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        user = self.scope['user']
+
+        if not user or user.is_anonymous:
+            await self.close()
+            return
+
+        self.group_name = f'global_league_status_{user.id}'
+        print(f"Connecting to group: {self.group_name}")
+
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+        print(f"Connection accepted for group: {self.group_name}")
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group_name') and self.group_name:
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+            print(f"Disconnected from group: {self.group_name}")
+
+    async def send_league_status(self, event):
+        print(f"Sending league status update: {event['data']}")
+        await self.send(text_data=json.dumps(event['data']))
+
+
+
+class CustomCompanyLeagueConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        user = self.scope['user']
+
+        if not user or user.is_anonymous:
+            await self.close()
+            return
+        
+        self.group_name = f'company_league_status_{user.id}'
+
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group_name') and self.group_name:
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def send_league_status(self, event):
+        await self.send(text_data=json.dumps(event['data']))

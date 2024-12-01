@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ES6 with Firebase</title>
+</head>
+<body>
+    <h1>Test Firebase with ES6</h1>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
+        import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-messaging.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCPeGq8aR-34Djgb75UF-W38Ik2F1QdF1M",
+            authDomain: "vertex-3d035.firebaseapp.com",
+            projectId: "vertex-3d035",
+            storageBucket: "vertex-3d035.appspot.com",
+            messagingSenderId: "611847207213",
+            appId: "1:611847207213:web:a9f31c53745fb6399d7ba4",
+            measurementId: "G-141KGLWXNH"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+
+        // Initialize Messaging
+        const messaging = getMessaging(app);
+
+        console.log("Firebase initialized successfully");
+
+        // Register the service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/firebase-messaging-sw.js')
+                .then(async (registration) => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    
+                    // Request permission and get token
+                    console.log('Requesting notification permission...');
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        console.log('Notification permission granted.');
+                        try {
+                            const token = await getToken(messaging, { vapidKey: 'BGf8DJLl0IyRu55Zl-l0-2cMYwWVYU-mzUMjtJoysN8p2MCwjf1pmQmGk6kCP2BK_OrydDEfZzwddk8TMO98Gps', serviceWorkerRegistration: registration });
+                            if (token) {
+                                console.log('FCM Token:', token);
+                            } else {
+                                console.warn('No registration token available.');
+                            }
+                        } catch (error) {
+                            console.error('Error retrieving FCM token:', error);
+                        }
+                    } else {
+                        console.warn('Notification permission denied.');
+                    }
+                })
+                .catch((error) => {
+                    console.log('ServiceWorker registration failed: ', error);
+                });
+        }
+    </script>
+</body>
+</html>

@@ -168,32 +168,75 @@ def create_company_draw(sender, instance, created, **kwargs):
             )
 
 
+# @receiver(post_save, sender=Xp)
+# def update_gem_for_xp(sender, instance, **kwargs):
+#     user = instance.user
+#     xp_today = instance.totalXpToday
+#     # Calculate gems awarded based on XP (1 gem per 250 XP)
+#     xp_gem = int(xp_today // 250)  # Calculate new XP-based gems
+
+#     # Retrieve the user's timezone
+#     user_timezone = user.timezone
+#     now_utc = timezone.now()
+#     user_local_time = now_utc.astimezone(user_timezone)
+
+#     # Fetch today's gem record for the user
+#     gem, created = Gem.objects.get_or_create(user=user, date=user_local_time.date())
+
+#     # Calculate the total XP-based gems for today 
+#     total_xp_gem_today = xp_gem 
+    
+#     # Ensure the total does not exceed 5 
+#     if total_xp_gem_today > 5: 
+#         total_xp_gem_today = 5
+
+#     # Update the gem record
+#     gem.xp_gem = total_xp_gem_today
+#     gem.copy_xp_gem = total_xp_gem_today
+#     gem.save()
+
+
+
 @receiver(post_save, sender=Xp)
 def update_gem_for_xp(sender, instance, **kwargs):
     user = instance.user
     xp_today = instance.totalXpToday
-    # Calculate gems awarded based on XP (1 gem per 250 XP)
-    xp_gem = int(xp_today // 250)  # Calculate new XP-based gems
 
     # Retrieve the user's timezone
     user_timezone = user.timezone
     now_utc = timezone.now()
     user_local_time = now_utc.astimezone(user_timezone)
 
-    # Fetch today's gem record for the user
-    gem, created = Gem.objects.get_or_create(user=user, date=user_local_time.date())
+    # Calculate the Monday of the current week
+    today = user_local_time.date()
+    current_week_monday = today - timedelta(days=today.weekday())
 
-    # Calculate the total XP-based gems for today 
-    total_xp_gem_today = xp_gem 
-    
-    # Ensure the total does not exceed 5 
-    if total_xp_gem_today > 5: 
+    # Check if the XP was gained within the current week
+    xp_date = instance.date  # Assuming `date` field exists in Xp model
+    if xp_date < current_week_monday:
+
+        return  # Do not award gems if the XP was gained before the current week
+
+    # Calculate gems awarded based on XP (1 gem per 250 XP)
+    xp_gem = int(xp_today // 250)
+
+    # Fetch today's gem record for the user
+    gem, created = Gem.objects.get_or_create(user=user, date=xp_date)
+
+    # Calculate the total XP-based gems for today
+    total_xp_gem_today = xp_gem
+
+    # Ensure the total does not exceed 5
+    if total_xp_gem_today > 5:
+        print('gem is greated than 5')
         total_xp_gem_today = 5
 
+    print('reached to add')
     # Update the gem record
     gem.xp_gem = total_xp_gem_today
     gem.copy_xp_gem = total_xp_gem_today
     gem.save()
+
 
 
 @receiver(post_save, sender=Xp)

@@ -139,7 +139,7 @@ class LeagueAdmin(admin.ModelAdmin):
 @admin.register(LeagueInstance)
 class LeagueInstanceAdmin(admin.ModelAdmin):
     list_display = ('id', 'league', 'league_start', 'league_end', 'company', 'max_participants')  # Fields to display
-    search_fields = ('league__name', 'company__name')  # Search by league name
+    search_fields = ('id','league__name', 'company__name')  # Search by league name
     list_filter = ('company', 'league_start', 'league_end', 'is_active')  # Filter options
     ordering = ('league_start',)  # Ordering of the list
     list_per_page = 20  # Pagination
@@ -148,7 +148,7 @@ class LeagueInstanceAdmin(admin.ModelAdmin):
 @admin.register(UserLeague)
 class UserLeagueAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'league_instance', 'xp_company','xp_global', 'is_retained')  # Fields to display
-    search_fields = ('user__username', 'league_instance__league__name')  # Search by user and league
+    search_fields = ('id','user__username', 'league_instance__league__name')  # Search by user and league
     list_filter = ('is_retained',)  # Filter by retention status
     ordering = ('user', 'league_instance')  # Order by user and league
     list_per_page = 20  # Pagination

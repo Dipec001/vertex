@@ -11,6 +11,8 @@ websocket_urlpatterns = [
     path('ws/feed/user/<int:user_id>/', consumers.FeedConsumer.as_asgi()),
     path('ws/feed/company/', consumers.FeedConsumer.as_asgi()),
     path('ws/draw/<int:draw_id>/', consumers.DrawConsumer.as_asgi()),
+    path('ws/league/global/status/', consumers.CustomGlobalLeagueConsumer.as_asgi()), 
+    path('ws/league/company/status/', consumers.CustomCompanyLeagueConsumer.as_asgi()),
     # path('ws/transaction/<int:user_id>/', consumers.TransactionConsumer.as_asgi()),
     # path('ws/notification/<int:user_id>/', consumers.NotificationConsumer.as_asgi()),
 ]

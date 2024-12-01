@@ -14,6 +14,7 @@ urlpatterns = [
     path('test-gem/', views.test_gem_view, name='test_gem'),
     path('test-feed/', views.test_feed_view, name='test_feed'),
     path('test-draw/', views.test_draw_view, name='test_draw'),
+    path('test-noti/', views.test_noti_view, name='test_noti'),
 
     path('validate-email-password/', views.ValidateEmailPasswordView.as_view(), name='validate_email_password'),
     path('validate-company-association/', views.ValidateCompanyAssociationView.as_view(), name='validate_company_association'),
@@ -51,4 +52,7 @@ urlpatterns = [
     path('following-feed/', views.FeedListView.as_view(), name='following-feed-list'),
     path('company-feed/', views.CompanyFeedListView.as_view(), name='company-feed-list'),
     path('user-gem-status/', views.UserGemStatusView.as_view(), name='user-gem-status'),
+    path('send-notification/', views.SendNotificationAPIView.as_view(), name='send_notification'),
+    path('league/global/status/', views.GlobalLeagueStatusView.as_view(), name='custom-user-league-status'), 
+    path('league/company/status/', views.CompanyLeagueStatusView.as_view(), name='custom-user-company-league-status'),
 ]
