@@ -3,6 +3,8 @@ import jwt
 from django.apps import apps
 from django.conf import settings
 from channels.db import database_sync_to_async
+from django.utils.deprecation import MiddlewareMixin
+import logging
 
 
 class CustomResponseMiddleware:
@@ -78,3 +80,44 @@ class TokenAuthMiddleware:
         except CustomUser.DoesNotExist:
             print('No user found, returning AnonymousUser')
             return AnonymousUser()  # Return an AnonymousUser instead of None
+    
+
+
+class ErrorLoggerMiddleware(MiddlewareMixin):
+    """
+    This middleware handles logging of errors to a log file.
+    The file gets created if it doesn't exist, and an email is sent to notify the admin of any logged errors.
+    Please see `logging.py` for the mail configuration.
+    The 'process_exception' function contains a check to ensure there are no error-log duplicates.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.logger = logging.getLogger("vertex_error")
+
+    def __call__(self, request):
+        request._exception_logged = False
+        response = self.get_response(request)
+        return response
+
+    def process_exception(self, request, exception):
+        if not getattr(request, "_exception_logged", False):
+            self.logger.exception(exception)
+            request._exception_logged = True
+
+
+class InfoLoggerMiddleware(MiddlewareMixin):
+    def __init__(self, get_response):
+        self.get_response = get_response
+        self.logger = logging.getLogger("vertex_info")
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if response.status_code == 400 or response.status_code >= 500:
+            self.log_request_info(request)
+            self.logger.info(response)
+
+        return response
+
+    def log_request_info(self, request):
+        self.logger.info(f"Request: {request.method} {request.path}")
