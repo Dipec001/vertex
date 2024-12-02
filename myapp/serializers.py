@@ -13,6 +13,7 @@ from timezone_field.rest_framework import TimeZoneSerializerField
 from datetime import datetime, timedelta, timezone
 from django.db.models import Sum
 from zoneinfo import ZoneInfo
+from django.utils import timezone as t
 
 
 logger = logging.getLogger(__name__)
@@ -242,7 +243,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_weekly_data(self, obj, related_field, value_field, use_timestamp=False):
         """Helper to get weekly data from Monday to Sunday, supports timestamp fields."""
         user_timezone = obj.timezone
-        current_utc_time = timezone.now()
+        current_utc_time = t.now()
         user_local_time = current_utc_time.astimezone(user_timezone)
         current_day = user_local_time.date()
 
@@ -279,7 +280,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
     def get_detailed_weekly_workouts(self, obj):
         user_timezone = obj.timezone
-        current_utc_time = timezone.now()
+        current_utc_time = t.now()
         user_local_time = current_utc_time.astimezone(user_timezone)
         current_day = user_local_time.date()
         
