@@ -27,7 +27,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
 from .s3_utils import save_file_to_s3
 from django.utils import timezone
-from django.db.models import Sum, F
+from django.db.models import Sum, F, Max
 from datetime import datetime, timedelta
 from rest_framework.exceptions import PermissionDenied
 from django.utils.dateparse import parse_date
@@ -1201,27 +1201,45 @@ class GlobalActiveLeagueView(APIView):
         promotion_threshold = int(total_users * 0.30)  # Top 10%
         demotion_threshold = int(total_users * 0.80)  # Bottom 10%
 
+        # Check if the league is the highest or lowest
+        is_highest_league = league_instance.league.order == 10
+        is_lowest_league = league_instance.league.order == 1
+
         rankings_data = []
         for index, ul in enumerate(rankings, start=1):
-            # Determine advancement status
-            # Handle cases with fewer users
-            if total_users <= 3:
-                if ul.xp_global == 0:
-                    advancement = "Demoted"
-                    gems_obtained = 0
-                else:
-                    advancement = "Retained"
-                    gems_obtained = 10
-            else:
+            if is_highest_league:
+                print(True)
+                # Highest league: users can only be retained
+                advancement = "Retained"
+                gems_obtained = 10
+            elif is_lowest_league:
+                print(False)
+                # Lowest league: users can be promoted based on ranking (top 30%)
                 if index <= promotion_threshold:
-                    gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
                     advancement = "Promoted"
-                elif index <= demotion_threshold:
-                    gems_obtained = 10  # Retained users get a base reward
-                    advancement = "Retained"
+                    gems_obtained = 20 - (index - 1) * 2  # Rewards for promotion (adjust as needed)
                 else:
-                    gems_obtained = 0  # Demoted users receive no gems
-                    advancement = "Demoted"
+                    advancement = "Retained"
+                    gems_obtained = 10 if ul.xp_global > 0 else 0  # Retained users get a base reward
+            else:
+                # Normal league logic
+                if total_users <= 3:
+                    if ul.xp_global == 0:
+                        advancement = "Demoted"
+                        gems_obtained = 0
+                    else:
+                        advancement = "Retained"
+                        gems_obtained = 10
+                else:
+                    if index <= promotion_threshold:
+                        gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+                        advancement = "Promoted"
+                    elif index <= demotion_threshold:
+                        gems_obtained = 10  # Retained users get a base reward
+                        advancement = "Retained"
+                    else:
+                        gems_obtained = 0  # Demoted users receive no gems
+                        advancement = "Demoted"
 
             # Prefix for S3 bucket URL
             s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
@@ -1258,6 +1276,90 @@ class GlobalActiveLeagueView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
+# class CompanyActiveLeagueView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         now = timezone.now()
+#         user = request.user
+
+#         # Get the user's active company league instance
+#         user_league = (
+#             UserLeague.objects
+#             .filter(user=user, league_instance__is_active=True, league_instance__company__isnull=False)
+#             .select_related('league_instance', 'user')
+#             .first()
+#         )
+
+#         if not user_league:
+#             return Response({"error": "No active company league found for the user"}, status=404)
+
+#         league_instance = user_league.league_instance
+#         rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
+
+#         total_users = rankings.count()
+#         promotion_threshold = int(total_users * 0.30)
+#         demotion_threshold = int(total_users * 0.80)
+#         # demotion_threshold = total_users - int(total_users * 0.20)
+
+#         rankings_data = []
+#         for index, ul in enumerate(rankings, start=1):
+#         # Handle small leagues differently
+#             if total_users <= 3:
+#                 # When there are very few users, promote or retain based on some custom logic
+#                 if ul.xp_global == 0:
+#                     advancement = "Demoted"
+#                     gems_obtained = 0
+#                 else:
+#                     advancement = "Retained"  # or "Promoted" based on some logic
+#                     gems_obtained = 10  # or another value
+#             else:
+#                 # Normal promotion/retention/demotion logic for larger groups
+#                 if index <= promotion_threshold:
+#                     gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+#                     advancement = "Promoted"
+#                 elif index <= demotion_threshold:
+#                     gems_obtained = 10  # Retained users get a base reward
+#                     advancement = "Retained"
+#                 else:
+#                     gems_obtained = 0  # Demoted users receive no gems
+#                     advancement = "Demoted"
+
+
+#             # Prefix for S3 bucket URL  
+#             s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
+
+#             # User data for each ranking
+#             rankings_data.append({
+#                 "user_id": ul.user.id,
+#                 "username": ul.user.username,
+#                 "profile_picture": f"{s3_bucket_url}{ul.user.profile_picture}" if ul.user.profile_picture else None,
+#                 "xp": ul.xp_company,
+#                 "streaks": ul.user.streak,  # Assuming `streak` is a field on the user model
+#                 "gems_obtained": gems_obtained,
+#                 "rank": index,
+#                 "advancement": advancement
+#             })
+
+#         # Find the current user's rank
+#         user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
+
+#         league_start = league_instance.league_start.isoformat(timespec='milliseconds') + 'Z' 
+#         league_end = league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+
+#         # Response data
+#         data = {
+#             "league_id": league_instance.id,
+#             "league_name": league_instance.league.name,
+#             "league_level": 11-league_instance.league.order,
+#             "league_start": league_start,
+#             "league_end": league_end,
+#             "user_rank": user_rank,
+#             "rankings": rankings_data
+#         }
+
+#         return Response(data, status=status.HTTP_200_OK)
+
 class CompanyActiveLeagueView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1277,41 +1379,53 @@ class CompanyActiveLeagueView(APIView):
             return Response({"error": "No active company league found for the user"}, status=404)
 
         league_instance = user_league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
 
+        # Retrieve all leagues approved for the company
+        approved_leagues = (
+            LeagueInstance.objects
+            .filter(company=league_instance.company, is_active=True)
+            .select_related('league')
+            .order_by('league__order')
+        )
+
+        # Get the highest and lowest leagues for the company
+        lowest_league_order = approved_leagues.first().league.order
+        highest_league_order = approved_leagues.last().league.order
+
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
-        # demotion_threshold = total_users - int(total_users * 0.20)
 
         rankings_data = []
         for index, ul in enumerate(rankings, start=1):
-        # Handle small leagues differently
+            is_highest_league = league_instance.league.order == highest_league_order
+            is_lowest_league = league_instance.league.order == lowest_league_order
+
+            # Logic for small leagues
             if total_users <= 3:
-                # When there are very few users, promote or retain based on some custom logic
-                if ul.xp_global == 0:
-                    advancement = "Demoted"
+                if ul.xp_company == 0:
+                    advancement = "Demoted" if not is_lowest_league else "Retained"
                     gems_obtained = 0
                 else:
-                    advancement = "Retained"  # or "Promoted" based on some logic
-                    gems_obtained = 10  # or another value
+                    advancement = "Retained" if is_highest_league else "Promoted"
+                    gems_obtained = 10
             else:
-                # Normal promotion/retention/demotion logic for larger groups
-                if index <= promotion_threshold:
-                    gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+                # Standard promotion/retention/demotion logic
+                if index <= promotion_threshold and not is_highest_league:
+                    gems_obtained = 20 - (index - 1) * 2
                     advancement = "Promoted"
-                elif index <= demotion_threshold:
-                    gems_obtained = 10  # Retained users get a base reward
+                elif index <= demotion_threshold or is_highest_league:
+                    gems_obtained = 10
                     advancement = "Retained"
                 else:
-                    gems_obtained = 0  # Demoted users receive no gems
-                    advancement = "Demoted"
+                    gems_obtained = 0 if not is_lowest_league else 10
+                    advancement = "Demoted" if not is_lowest_league else "Retained"
 
-
-            # Prefix for S3 bucket URL  
+            # Prefix for S3 bucket URL
             s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"
 
-            # User data for each ranking
+            # Add user data
             rankings_data.append({
                 "user_id": ul.user.id,
                 "username": ul.user.username,
@@ -1326,14 +1440,14 @@ class CompanyActiveLeagueView(APIView):
         # Find the current user's rank
         user_rank = next((index for index, r in enumerate(rankings_data, start=1) if r["user_id"] == user.id), None)
 
-        league_start = league_instance.league_start.isoformat(timespec='milliseconds') + 'Z' 
+        league_start = league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
         league_end = league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
 
         # Response data
         data = {
             "league_id": league_instance.id,
             "league_name": league_instance.league.name,
-            "league_level": 11-league_instance.league.order,
+            "league_level": 11 - league_instance.league.order,  # Reverse order for league level
             "league_start": league_start,
             "league_end": league_end,
             "user_rank": user_rank,
@@ -1341,6 +1455,7 @@ class CompanyActiveLeagueView(APIView):
         }
 
         return Response(data, status=status.HTTP_200_OK)
+
 
 class CompanyPastDrawsAPIView(APIView):
     """

@@ -323,28 +323,46 @@ def process_league_promotions():
             user = user_league.user
             print(f"Processing user {user.id} in league {league.id}")
 
-            if total_users <= 3:
-                if user_league.xp_global == 0:
-                    gems_obtained = 0
-                    status = "Demoted"
-                    demote_user(user, gems_obtained, league)
-                else:
-                    gems_obtained = 10
-                    status = "Retained"
-                    retain_user(user, gems_obtained, league)
-            else:
+            is_highest_league = league.league.order == 10
+            is_lowest_league = league.league.order == 1
+
+            if is_highest_league:
+                # Highest league: users can only be retained
+                gems_obtained = 10
+                status = "Retained"
+                retain_user(user, gems_obtained, league)
+            elif is_lowest_league:
                 if rank <= promotion_threshold:
                     gems_obtained = 20 - (rank - 1) * 2
                     status = "Promoted"
                     promote_user(user, gems_obtained, league)
-                elif rank <= demotion_threshold:
-                    gems_obtained = 10
+                else:
+                    gems_obtained = 10 if user_league.xp_global > 0 else 0
                     status = "Retained"
                     retain_user(user, gems_obtained, league)
+            else:
+                if total_users <= 3:
+                    if user_league.xp_global == 0:
+                        gems_obtained = 0
+                        status = "Demoted"
+                        demote_user(user, gems_obtained, league)
+                    else:
+                        gems_obtained = 10
+                        status = "Retained"
+                        retain_user(user, gems_obtained, league)
                 else:
-                    gems_obtained = 0
-                    status = "Demoted"
-                    demote_user(user, gems_obtained, league)
+                    if rank <= promotion_threshold:
+                        gems_obtained = 20 - (rank - 1) * 2
+                        status = "Promoted"
+                        promote_user(user, gems_obtained, league)
+                    elif rank <= demotion_threshold:
+                        gems_obtained = 10
+                        status = "Retained"
+                        retain_user(user, gems_obtained, league)
+                    else:
+                        gems_obtained = 0
+                        status = "Demoted"
+                        demote_user(user, gems_obtained, league)
 
             user_league.xp_global = 0
             user_league.save()
@@ -363,6 +381,15 @@ def process_league_promotions():
         rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_global', 'id')
         rankings_data = []
         for idx, ul in enumerate(rankings, start=1):
+            if total_users <= 3:
+                # Special handling for leagues with 3 or fewer users
+                if ul.xp_global == 0:
+                    advancement = "Demoted" if not is_lowest_league else "Retained"
+                else:
+                    advancement = "Retained" if is_highest_league else "Promoted"
+            else:
+                # Regular promotion, retention, and demotion logic
+                advancement = "Promoted" if idx <= promotion_threshold and not is_highest_league else "Retained" if idx <= demotion_threshold else "Demoted" if not is_lowest_league else "Retained"
             rankings_data.append({
                 "user_id": ul.user.id,
                 "username": ul.user.username,
@@ -370,7 +397,7 @@ def process_league_promotions():
                 "xp": ul.xp_global,
                 "streaks": ul.user.streak,
                 "rank": idx,
-                "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted",
+                "advancement": advancement
             })
         league_start = league.league_start.isoformat(timespec='milliseconds') + 'Z'
         league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
@@ -430,31 +457,41 @@ def process_company_league_promotions():
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
 
+        # Get the highest and lowest league orders for the company
+        approved_leagues = LeagueInstance.objects.filter(company=league.company, is_active=True)
+        lowest_league_order = approved_leagues.first().league.order
+        highest_league_order = approved_leagues.last().league.order
+
         for rank, user_league in enumerate(users_in_league, start=1):
             user = user_league.user
             print(f"Processing user {user.id} in league {league.id}")
 
+            is_highest_league = league.league.order == highest_league_order
+            is_lowest_league = league.league.order == lowest_league_order
+
             if total_users <= 3:
-                if user_league.xp_global == 0:
+                # Logic for small leagues
+                if user_league.xp_company == 0:
                     gems_obtained = 0
-                    status = "Demoted"
+                    status = "Demoted" if not is_lowest_league else "Retained"
                     demote_company_user(user, gems_obtained, league)
                 else:
                     gems_obtained = 10
-                    status = "Retained"
+                    status = "Retained" if is_highest_league else "Promoted"
                     retain_company_user(user, gems_obtained, league)
             else:
-                if rank <= promotion_threshold:
+                # Standard promotion/retention/demotion logic
+                if rank <= promotion_threshold and not is_highest_league:
                     gems_obtained = 20 - (rank - 1) * 2
                     status = "Promoted"
                     promote_company_user(user, gems_obtained, league)
-                elif rank <= demotion_threshold:
+                elif rank <= demotion_threshold or is_highest_league:
                     gems_obtained = 10
                     status = "Retained"
                     retain_company_user(user, gems_obtained, league)
                 else:
-                    gems_obtained = 0
-                    status = "Demoted"
+                    gems_obtained = 0 if not is_lowest_league else 10
+                    status = "Demoted" if not is_lowest_league else "Retained"
                     demote_company_user(user, gems_obtained, league)
 
             user_league.xp_company = 0
@@ -474,6 +511,15 @@ def process_company_league_promotions():
         rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', 'id')
         rankings_data = []
         for idx, ul in enumerate(rankings, start=1):
+            # Check if the league has 3 or fewer users
+            if total_users <= 3:
+                if ul.xp_company == 0:
+                    advancement = "Demoted" if not is_lowest_league else "Retained"
+                else:
+                    advancement = "Retained" if is_highest_league else "Promoted"
+            else:
+                # Standard promotion, retention, and demotion logic
+                advancement = "Promoted" if idx <= promotion_threshold and not is_highest_league else "Retained" if idx <= demotion_threshold else "Demoted" if not is_lowest_league else "Retained"
             rankings_data.append({
                 "user_id": ul.user.id,
                 "username": ul.user.username,
@@ -481,7 +527,7 @@ def process_company_league_promotions():
                 "xp": ul.xp_company,
                 "streaks": ul.user.streak,
                 "rank": idx,
-                "advancement": "Promoted" if idx <= promotion_threshold else "Retained" if idx <= demotion_threshold else "Demoted",
+                "advancement": advancement
             })
         league_start = league.league_start.isoformat(timespec='milliseconds') + 'Z'
         league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
