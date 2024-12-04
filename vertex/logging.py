@@ -3,6 +3,7 @@
 # from slack_sdk import WebClient
 # from slack_sdk.errors import SlackApiError
 # import datetime
+# import os
 
 # class EmailHandler(AdminEmailHandler):
 #     def emit(self, record):
@@ -56,7 +57,7 @@
 #         'slack': {
 #             'level': 'ERROR',
 #             'class': 'vertex.logging.SlackHandler',
-#             'token': 'xoxb-5429543446309-8114560102069-xdGEpAN3Cr8PDsOrC0qMwwZ2',
+#             'token': os.getenv('SLACK_TOKEN'),
 #             'channel': 'errors',
 #         },
 #     },
