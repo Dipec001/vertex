@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, 
-                     DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing, Gem)
+                     DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing, Gem, DrawImage)
 import random
 import string
 from allauth.socialaccount.models import SocialAccount
@@ -828,16 +828,24 @@ class PrizeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prize
         fields = ['id', 'name', 'description', 'value', 'quantity']
+
+
+class DrawImageSerializer(serializers.ModelSerializer): 
+    
+    class Meta: 
+        model = DrawImage 
+        fields = ['image_link', 'title']
     
 
 class DrawSerializer(serializers.ModelSerializer):
     prizes = PrizeSerializer(many=True)  # Add nested PrizeSerializer
     entry_count = serializers.SerializerMethodField()
     user_entry_count = serializers.SerializerMethodField()  # User-specific entry count
+    images = DrawImageSerializer(many=True, read_only=True) # Nested DrawImageSerializer
 
     class Meta:
         model = Draw
-        fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count','video', 'prizes','user_entry_count']
+        fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active', 'entry_count','video', 'prizes','user_entry_count','images']
         read_only_fields = ['id', 'draw_name', 'draw_type', 'draw_date', 'is_active', 'entry_count', 'user_entry_count']
 
     def get_entry_count(self, obj):

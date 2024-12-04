@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity, DailySteps, 
                      Purchase, Prize, Draw, DrawEntry, DrawWinner, League, LeagueInstance, UserLeague, Clap,
-                       UserFollowing, Feed, Gem)
+                       UserFollowing, Feed, Gem, DrawImage)
 # Register your models here.
 
 # Customizing the display and functionality of the CustomUser model in the admin interface
@@ -99,7 +99,10 @@ class PrizeAdmin(admin.ModelAdmin):
     ordering = ('name', 'value')
     list_per_page = 20
 
-# Customizing the display and functionality of the Draw model in the admin interface
+class DrawImageInline(admin.TabularInline):
+    model = DrawImage
+    extra = 1  # Number of extra forms to display
+
 @admin.register(Draw)
 class DrawAdmin(admin.ModelAdmin):
     list_display = ('id', 'draw_name', 'draw_type', 'draw_date', 'number_of_winners', 'is_active')
@@ -107,6 +110,16 @@ class DrawAdmin(admin.ModelAdmin):
     list_filter = ('draw_type', 'draw_date', 'is_active')
     ordering = ('draw_date', 'draw_name')
     list_per_page = 20
+    inlines = [DrawImageInline]  # Add the inline class here
+
+@admin.register(DrawImage)
+class DrawImageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'draw', 'image_link', 'title')
+    search_fields = ('title', 'draw__draw_name')
+    list_filter = ('draw',)
+    ordering = ('draw', 'title')
+    list_per_page = 20
+
 
 # Customizing the display and functionality of the DrawEntry model in the admin interface
 @admin.register(DrawEntry)

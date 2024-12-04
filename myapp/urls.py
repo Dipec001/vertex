@@ -15,6 +15,7 @@ urlpatterns = [
     path('test-feed/', views.test_feed_view, name='test_feed'),
     path('test-draw/', views.test_draw_view, name='test_draw'),
     path('test-noti/', views.test_noti_view, name='test_noti'),
+    path('test-error/', views.test_error, name='test-error'),
 
     path('validate-email-password/', views.ValidateEmailPasswordView.as_view(), name='validate_email_password'),
     path('validate-company-association/', views.ValidateCompanyAssociationView.as_view(), name='validate_company_association'),

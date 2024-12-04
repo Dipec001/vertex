@@ -318,6 +318,15 @@ class Draw(models.Model):
     
     def __str__(self):
         return f"{self.draw_name} ({self.draw_type})"
+    
+
+class DrawImage(models.Model):
+    draw = models.ForeignKey(Draw, on_delete=models.CASCADE, related_name='images')
+    image_link = models.URLField(max_length=255)  # Store the image URL
+    title = models.CharField(max_length=255)  # Title for the image
+
+    def __str__(self):
+        return self.title
 
 # Entry Model (tracks user entries in a draw)
 class DrawEntry(models.Model):

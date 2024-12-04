@@ -8,7 +8,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
-                     League, Gem)
+                     League, Gem, DrawImage)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
@@ -25,7 +25,7 @@ from .facebook_validate import validate_facebook_token
 import requests
 from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
-from .s3_utils import save_file_to_s3
+from .s3_utils import save_image_to_s3
 from django.utils import timezone
 from django.db.models import Sum, F, Max
 from datetime import datetime, timedelta
@@ -39,6 +39,7 @@ from django.utils.timezone import localtime, now
 from .tasks import upload_file_task 
 import tempfile
 import os
+from django.conf import settings
 
 
 class StreakRateThrottle(UserRateThrottle):
@@ -83,6 +84,9 @@ def test_draw_view(request):
 @login_required
 def test_noti_view(request):
     return render(request, 'test_noti.html')
+
+def test_error(request): 
+    raise Exception("This is a test error for email notification")
 
 class ValidateEmailPasswordView(APIView):
     permission_classes = [AllowAny]
@@ -1100,6 +1104,15 @@ class GlobalDrawEditView(APIView):
                     serializer.save(video='uploading')
             else:
                 serializer.save()  # Save without updating the profile picture
+
+            # Handle image uploads 
+            images = request.FILES.getlist('images') 
+            for image in images: 
+                title = request.POST.get('title', 'Default Title') 
+                s3_object_key = save_image_to_s3(image, 'draw_images') 
+                if s3_object_key: 
+                    image_link = f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/{s3_object_key}" 
+                    DrawImage.objects.create(draw=draw, image_link=image_link, title=title) 
 
             return Response({"success": "Draw updated initiated successfully"}, status=status.HTTP_200_OK)
 

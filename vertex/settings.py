@@ -18,7 +18,11 @@ import dj_database_url
 from celery.schedules import crontab
 import sentry_sdk
 from firebase_admin import initialize_app
+# Import your custom logging configuration 
+# from .logging import LOGGING
 
+# Ensure the LOGGING settings are used 
+# LOGGING = LOGGING
 
 load_dotenv()
 
@@ -75,6 +79,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     # Add the account middleware:
+    "vertex.middleware.ErrorLoggerMiddleware",
+    "vertex.middleware.InfoLoggerMiddleware",
     "vertex.middleware.CustomResponseMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
@@ -281,6 +287,11 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 # Default sender address for emails sent by Django
 DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER')
+
+
+ADMINS = [
+    ('Admin', 'julichuks3@gmail.com'),
+]
 
 
 # Define the URL for login redirects (if applicable)
