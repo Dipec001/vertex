@@ -11,6 +11,19 @@ from django.db import connection
 from django.core.signals import request_finished
 from django.dispatch import receiver
 import re
+import redis
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+r = redis.Redis(host=os.getenv('REDIS_HOST'), port=12150, db=0)
+
+@receiver(request_finished)
+def close_redis_connection(sender, **kwargs):
+    r.close()
+
 
 @receiver(request_finished)
 def close_db_connection(sender, **kwargs):
