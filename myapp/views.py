@@ -1856,7 +1856,7 @@ class CompanyLeagueStatusView(APIView):
         user = request.user
         # Get the last global league instance for the user, sorted by league_end date
         company_leagues = UserLeague.objects.filter(
-            user=user, league_instance__company__isnull=True
+            user=user, league_instance__company__isnull=False
         ).select_related('league_instance').order_by('-league_instance__league_end')
 
         if company_leagues.count() < 2: 

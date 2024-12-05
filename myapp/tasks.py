@@ -420,9 +420,13 @@ def process_league_promotions():
 
         for user_league in users_in_league:
             user = user_league.user
+            user_rank = next((idx + 1 for idx, ul in enumerate(rankings) if ul.user == user), None)
             data_for_status = {
                 "league_id": league.id,
+                "league_name": league.league.name,
                 "league_level": 11 - league.league.order,
+                "league_end": league_end,
+                "rank": user_rank,
                 "status": status
             }
             print(f'Sending status update to user {user.id}')
@@ -550,9 +554,13 @@ def process_company_league_promotions():
 
         for user_league in users_in_league:
             user = user_league.user
+            user_rank = next((idx + 1 for idx, ul in enumerate(rankings) if ul.user == user), None)
             data_for_status = {
                 "league_id": league.id,
+                "league_name": league.league.name,
                 "league_level": 11 - league.league.order,
+                "league_end": league_end,
+                "rank": user_rank,
                 "status": status
             }
             print(f'Sending status update to user {user.id}')
