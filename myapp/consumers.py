@@ -170,14 +170,22 @@ class GemConsumer(AsyncWebsocketConsumer):
         Handle gem updates sent from the server (via the broadcast mechanism).
         """
         print(event)
-        gem_count = event['gem_count']  # Extract the gem count from the event
-        xp_gems_remaining_today = event['xp_gems_remaining_today']  # Extract the remaining XP gems from the event
-        
-        # Send the gem update to the WebSocket client
-        await self.send(text_data=json.dumps({
-            'gem_count': gem_count,  # Send the gem count to the client
-            'xp_gems_remaining_today': xp_gems_remaining_today,  # Send the remaining XP gems to the client
-        }))
+
+        # Extract the gem count (always included)
+        gem_count = event.get('gem_count')
+
+        # Prepare the response payload
+        response = {
+            'gem_count': gem_count,  # Always include gem count
+        }
+
+        # Include 'xp_gems_remaining_today' only if it's present in the event
+        if 'xp_gems_remaining_today' in event:
+            response['xp_gems_remaining_today'] = event['xp_gems_remaining_today']
+
+        # Send the prepared response to the WebSocket client
+        await self.send(text_data=json.dumps(response))
+
 
 
 
