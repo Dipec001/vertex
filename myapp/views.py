@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from myapp.utils import get_last_30_days
+from myapp.utils import get_last_30_days, get_daily_steps_and_xp
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
                           DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
@@ -1967,7 +1967,7 @@ class CompanyDashboardView(APIView):
         )
         # Get daily steps and XP for last 30 days
         # TODO: Compare if those to methods are equivalent by using the sames tests data
-        daily_stats = self.get_daily_steps_and_xp(company, today)
+        daily_stats = get_daily_steps_and_xp(company, today)
         # daily_stats = (
         #     DailySteps.objects.filter(
         #         user__membership__company=company,
