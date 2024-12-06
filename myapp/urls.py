@@ -56,4 +56,5 @@ urlpatterns = [
     path('send-notification/', views.SendNotificationAPIView.as_view(), name='send_notification'),
     path('league/global/status/', views.GlobalLeagueStatusView.as_view(), name='custom-user-league-status'), 
     path('league/company/status/', views.CompanyLeagueStatusView.as_view(), name='custom-user-company-league-status'),
+    path('api/company/dashboard/', views.CompanyDashboardView.as_view(), name='company-dashboard'),
 ]

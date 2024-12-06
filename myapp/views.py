@@ -2,6 +2,8 @@ from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from myapp.utils import get_last_30_days, get_daily_steps_and_xp
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
                           DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
@@ -27,7 +29,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
 from .s3_utils import save_image_to_s3
 from django.utils import timezone
-from django.db.models import Sum, F, Max
+from django.db.models import Sum, F, Max, Avg
 from datetime import datetime, timedelta
 from rest_framework.exceptions import PermissionDenied
 from django.utils.dateparse import parse_date
@@ -942,7 +944,7 @@ class ConvertGemView(APIView):
                 if company_draw_id is None:
                     return Response({"error": "Company draw ID is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-                # Validate the company draw ID and check if there’s an active company draw for the user’s company
+                # Validate the company draw ID and check if there's an active company draw for the user's company
                 try:
                     company_draw = Draw.objects.get(pk=company_draw_id, company__membership__user=user, is_active=True)
                 except Draw.DoesNotExist:
@@ -1637,7 +1639,6 @@ class ClapToggleAPIView(APIView):
         return Response({"message": "Clapped"}, status=status.HTTP_201_CREATED)
 
 
-
 class FeedListView(APIView):
     def get(self, request):
         # Get the list of users the current user is following
@@ -1928,3 +1929,78 @@ class SendNotificationAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+class CompanyDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get the company associated with the logged-in user
+        try:
+            company = request.user.owned_company.first()
+            if not company:
+                return Response({"error": "No company found for this user"}, status=404)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found"}, status=404)
+
+        # Get current date and 30 days ago date
+        today = timezone.now().date()
+        thirty_days_ago = today - timedelta(days=30)
+
+        # Get all unique employees (members) of the company
+        company_members = Membership.objects.filter(company=company)
+        total_employees = company_members.values('user').distinct().count()
+
+        # Calculate global average XP for comparison
+        global_avg_xp = Xp.objects.filter(
+            date__gte=thirty_days_ago
+        ).aggregate(
+            global_avg=Avg('totalXpToday')
+        )['global_avg'] or 0
+        
+        # Calculate company XP stats for last 30 days
+        company_xp = Xp.objects.filter(
+            user__membership__company=company,
+            date__gte=thirty_days_ago
+        ).aggregate(
+            total_xp=Sum('totalXpToday'),
+            avg_xp_per_user=Avg('totalXpToday')
+        )
+        # Get daily steps and XP for last 30 days
+        # TODO: Compare if those to methods are equivalent by using the sames tests data
+        daily_stats = get_daily_steps_and_xp(company, today)
+        # daily_stats = (
+        #     DailySteps.objects.filter(
+        #         user__membership__company=company,
+        #         date__gte=thirty_days_ago
+        #     ).values('date')
+        #     .annotate(
+        #         total_steps=Sum('step_count'),
+        #         total_xp=Sum('user__xp_records__totalXpToday')
+        #     ).order_by('date')
+        # )
+        # Get recent feed items (high performers and milestones)
+        # TODO: probably add websocket consumer version of this
+        recent_feeds = Feed.objects.filter(
+            user__membership__company=company,
+            feed_type__in=['Milestone', 'Promotion'],
+            created_at__gte=thirty_days_ago
+        ).order_by('-created_at')[:10]
+
+        response_data = {
+            'company_stats': {
+                'total_employees': total_employees,
+                'avg_xp_per_user': company_xp['avg_xp_per_user'] or 0,
+                'global_avg_xp': global_avg_xp,
+            },
+            'daily_stats': list(daily_stats),
+            'recent_activities': [
+                {
+                    'type': feed.feed_type,
+                    'content': feed.content,
+                    'timestamp': feed.created_at
+                } for feed in recent_feeds
+            ]
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+    
