@@ -290,7 +290,7 @@ def add_to_first_league(sender, instance, **kwargs):
             pathfinder_instance = LeagueInstance.objects.create(
                 league=pathfinder_league,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(minutes=5),  # Example: set for a 1-week league duration
+                league_end=timezone.now() + timezone.timedelta(minutes=10),  # Example: set for a 1-week league duration
                 max_participants=10
             )
 
@@ -359,7 +359,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
                 league=pathfinder_league,
                 company=company,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(minutes=5),
+                league_end=timezone.now() + timezone.timedelta(minutes=15),
                 max_participants=10
             )
 
