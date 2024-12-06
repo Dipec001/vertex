@@ -302,6 +302,147 @@ def reset_gems_for_local_timezones():
     print("Gem reset task completed successfully.")
 
 
+# @shared_task(acks_late=True)
+# def process_league_promotions():
+#     now = timezone.now()
+#     print('Processing global leagues...')
+
+#     expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=True)
+#     print('Expired leagues:', expired_leagues)
+
+#     for league in expired_leagues:
+#         users_in_league = UserLeague.objects.filter(league_instance=league).order_by('-xp_global', 'id')
+#         total_users = users_in_league.count()
+
+#         print(f"Total users in league {league.id}: {total_users}")
+
+#         promotion_threshold = int(total_users * 0.30)
+#         demotion_threshold = int(total_users * 0.80)
+
+#         for rank, user_league in enumerate(users_in_league, start=1):
+#             user = user_league.user
+#             print(f"Processing user {user.id} in league {league.id}")
+
+#             is_highest_league = league.league.order == 10
+#             is_lowest_league = league.league.order == 1
+
+#             if is_highest_league:
+#                 # Highest league: users can only be retained
+#                 gems_obtained = 10
+#                 status = "Retained"
+#                 retain_user(user, gems_obtained, league)
+#             elif is_lowest_league:
+#                 if rank <= promotion_threshold:
+#                     gems_obtained = 20 - (rank - 1) * 2
+#                     status = "Promoted"
+#                     promote_user(user, gems_obtained, league)
+#                 else:
+#                     gems_obtained = 10 if user_league.xp_global > 0 else 0
+#                     status = "Retained"
+#                     retain_user(user, gems_obtained, league)
+#             else:
+#                 if total_users <= 3:
+#                     if user_league.xp_global == 0:
+#                         gems_obtained = 0
+#                         status = "Demoted"
+#                         demote_user(user, gems_obtained, league)
+#                     else:
+#                         gems_obtained = 10
+#                         status = "Retained"
+#                         retain_user(user, gems_obtained, league)
+#                 else:
+#                     if rank <= promotion_threshold:
+#                         gems_obtained = 20 - (rank - 1) * 2
+#                         status = "Promoted"
+#                         promote_user(user, gems_obtained, league)
+#                     elif rank <= demotion_threshold:
+#                         gems_obtained = 10
+#                         status = "Retained"
+#                         retain_user(user, gems_obtained, league)
+#                     else:
+#                         gems_obtained = 0
+#                         status = "Demoted"
+#                         demote_user(user, gems_obtained, league)
+
+#             user_league.xp_global = 0
+#             user_league.save()
+
+#             new_gem_count = user.get_gem_count()
+#             channel_layer = get_channel_layer()
+#             async_to_sync(channel_layer.group_send)(
+#                 f'gem_{user.id}',
+#                 {
+#                     'type': 'send_gem_update',
+#                     'gem_count': new_gem_count,
+#                 }
+#             )
+#             print(f"Sent gem update for user {user.id}")
+
+#         rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_global', 'id')
+#         rankings_data = []
+#         for idx, ul in enumerate(rankings, start=1):
+#             if total_users <= 3:
+#                 # Special handling for leagues with 3 or fewer users
+#                 if ul.xp_global == 0:
+#                     advancement = "Demoted" if not is_lowest_league else "Retained"
+#                 else:
+#                     advancement = "Retained" if is_highest_league else "Promoted"
+#             else:
+#                 # Regular promotion, retention, and demotion logic
+#                 advancement = "Promoted" if idx <= promotion_threshold and not is_highest_league else "Retained" if idx <= demotion_threshold else "Demoted" if not is_lowest_league else "Retained"
+#             rankings_data.append({
+#                 "user_id": ul.user.id,
+#                 "username": ul.user.username,
+#                 "profile_picture": ul.user.profile_picture.url if ul.user.profile_picture else None,
+#                 "xp": ul.xp_global,
+#                 "streaks": ul.user.streak,
+#                 "rank": idx,
+#                 "advancement": advancement
+#             })
+#         league_start = league.league_start.isoformat(timespec='milliseconds') + 'Z'
+#         league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
+#         # data = {
+#         #     "league_id": league.id,
+#         #     "league_name": league.league.name,
+#         #     "league_level": 11 - league.league.order,
+#         #     "league_start": league_start,
+#         #     "league_end": league_end,
+#         #     "rankings": rankings_data,
+#         # }
+#         # async_to_sync(channel_layer.group_send)(
+#         #     f'global_league_{league.id}',
+#         #     {
+#         #         'type': 'send_league_update',
+#         #         'data': data,
+#         #     }
+#         # )
+#         # print(f"Sent league update for league {league.id}")
+
+#         for user_league in users_in_league:
+#             user = user_league.user
+#             user_rank = next((idx + 1 for idx, ul in enumerate(rankings) if ul.user == user), None)
+#             data_for_status = {
+#                 "league_id": league.id,
+#                 "league_name": league.league.name,
+#                 "league_level": 11 - league.league.order,
+#                 "league_end": league_end,
+#                 "rank": user_rank,
+#                 "status": status
+#             }
+#             print(f'Sending status update to user {user.id}')
+#             async_to_sync(channel_layer.group_send)(
+#                 f'global_league_status_{user.id}',
+#                 {
+#                     'type': 'send_league_status',
+#                     'data': data_for_status
+#                 }
+#             )
+#             print(f'Sent status update to user {user.id}')
+
+#         league.is_active = False
+#         league.save()
+
+
 @shared_task(acks_late=True)
 def process_league_promotions():
     now = timezone.now()
@@ -327,7 +468,6 @@ def process_league_promotions():
             is_lowest_league = league.league.order == 1
 
             if is_highest_league:
-                # Highest league: users can only be retained
                 gems_obtained = 10
                 status = "Retained"
                 retain_user(user, gems_obtained, league)
@@ -382,13 +522,8 @@ def process_league_promotions():
         rankings_data = []
         for idx, ul in enumerate(rankings, start=1):
             if total_users <= 3:
-                # Special handling for leagues with 3 or fewer users
-                if ul.xp_global == 0:
-                    advancement = "Demoted" if not is_lowest_league else "Retained"
-                else:
-                    advancement = "Retained" if is_highest_league else "Promoted"
+                advancement = "Demoted" if ul.xp_global == 0 and not is_lowest_league else "Retained" if ul.xp_global == 0 else "Promoted" if not is_highest_league else "Retained"
             else:
-                # Regular promotion, retention, and demotion logic
                 advancement = "Promoted" if idx <= promotion_threshold and not is_highest_league else "Retained" if idx <= demotion_threshold else "Demoted" if not is_lowest_league else "Retained"
             rankings_data.append({
                 "user_id": ul.user.id,
@@ -401,34 +536,23 @@ def process_league_promotions():
             })
         league_start = league.league_start.isoformat(timespec='milliseconds') + 'Z'
         league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
-        data = {
+        data_for_status = {
             "league_id": league.id,
             "league_name": league.league.name,
             "league_level": 11 - league.league.order,
-            "league_start": league_start,
+            # "league_start": league_start,
             "league_end": league_end,
-            "rankings": rankings_data,
+            # "rankings": rankings_data,
         }
-        async_to_sync(channel_layer.group_send)(
-            f'global_league_{league.id}',
-            {
-                'type': 'send_league_update',
-                'data': data,
-            }
-        )
-        print(f"Sent league update for league {league.id}")
 
+        # Send status updates for the just concluded league
         for user_league in users_in_league:
             user = user_league.user
             user_rank = next((idx + 1 for idx, ul in enumerate(rankings) if ul.user == user), None)
-            data_for_status = {
-                "league_id": league.id,
-                "league_name": league.league.name,
-                "league_level": 11 - league.league.order,
-                "league_end": league_end,
+            data_for_status.update({
                 "rank": user_rank,
                 "status": status
-            }
+            })
             print(f'Sending status update to user {user.id}')
             async_to_sync(channel_layer.group_send)(
                 f'global_league_status_{user.id}',
@@ -441,6 +565,48 @@ def process_league_promotions():
 
         league.is_active = False
         league.save()
+
+        # Prepare and send data for the next league instance
+        for user_league in users_in_league:
+            user = user_league.user
+            next_user_league = UserLeague.objects.filter(user=user, league_instance__is_active=True, league_instance__company__isnull=True).select_related('league_instance').first()
+            if next_user_league:
+
+                next_league_instance = next_user_league.league_instance
+                print(next_league_instance.id)
+                next_rankings = UserLeague.objects.filter(league_instance=next_league_instance).select_related('user').order_by('-xp_global', 'id')
+                next_rankings_data = []
+                for idx, ul in enumerate(next_rankings, start=1):
+                    next_rankings_data.append({
+                        "user_id": ul.user.id,
+                        "username": ul.user.username,
+                        "profile_picture": ul.user.profile_picture.url if ul.user.profile_picture else None,
+                        "xp": ul.xp_global,
+                        "streaks": ul.user.streak,
+                        "rank": idx,
+                        "advancement": "TBD"  # Update this based on the new rankings logic if necessary
+                    })
+                next_league_start = next_league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
+                next_league_end = next_league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+                data = {
+                    "league_id": next_league_instance.id,
+                    "league_name": next_league_instance.league.name,
+                    "league_level": 11 - next_league_instance.league.order,
+                    "league_start": next_league_start,
+                    "league_end": next_league_end,
+                    "rankings": next_rankings_data,
+                }
+                async_to_sync(channel_layer.group_send)(
+                    f'global_league_{league.id}',
+                    {
+                        'type': 'send_league_update',  # Changed this to send the next league data
+                        'data': data,
+                    }
+                )
+                print(f"Sent next league update for league {next_league_instance.id}")
+
+        # league.is_active = False
+        # league.save()
 
 
 @shared_task
@@ -512,6 +678,9 @@ def process_company_league_promotions():
             )
             print(f"Sent gem update for user {user.id}")
 
+        league.is_active = False
+        league.save()
+
         rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', 'id')
         rankings_data = []
         for idx, ul in enumerate(rankings, start=1):
@@ -535,22 +704,22 @@ def process_company_league_promotions():
             })
         league_start = league.league_start.isoformat(timespec='milliseconds') + 'Z'
         league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
-        data = {
-            "league_id": league.id,
-            "league_name": league.league.name,
-            "league_level": 11 - league.league.order,
-            "league_start": league_start,
-            "league_end": league_end,
-            "rankings": rankings_data,
-        }
-        async_to_sync(channel_layer.group_send)(
-            f'company_league_{league.id}',
-            {
-                'type': 'send_league_update',
-                'data': data,
-            }
-        )
-        print(f"Sent league update for league {league.id}")
+        # data = {
+        #     "league_id": league.id,
+        #     "league_name": league.league.name,
+        #     "league_level": 11 - league.league.order,
+        #     "league_start": league_start,
+        #     "league_end": league_end,
+        #     "rankings": rankings_data,
+        # }
+        # async_to_sync(channel_layer.group_send)(
+        #     f'company_league_{league.id}',
+        #     {
+        #         'type': 'send_league_update',
+        #         'data': data,
+        #     }
+        # )
+        # print(f"Sent league update for league {league.id}")
 
         for user_league in users_in_league:
             user = user_league.user
@@ -573,5 +742,44 @@ def process_company_league_promotions():
             )
             print(f'Sent status update to user {user.id}')
 
-        league.is_active = False
-        league.save()
+        # Prepare and send data for the next league instance
+        for user_league in users_in_league:
+            user = user_league.user
+            next_user_league = UserLeague.objects.filter(user=user, league_instance__is_active=True, league_instance__company__isnull=False).select_related('league_instance').first()
+            if next_user_league:
+
+                next_league_instance = next_user_league.league_instance
+                print(next_league_instance.id)
+                next_rankings = UserLeague.objects.filter(league_instance=next_league_instance).select_related('user').order_by('-xp_company', 'id')
+                next_rankings_data = []
+                for idx, ul in enumerate(next_rankings, start=1):
+                    next_rankings_data.append({
+                        "user_id": ul.user.id,
+                        "username": ul.user.username,
+                        "profile_picture": ul.user.profile_picture.url if ul.user.profile_picture else None,
+                        "xp": ul.xp_global,
+                        "streaks": ul.user.streak,
+                        "rank": idx,
+                        "advancement": "TBD"  # Update this based on the new rankings logic if necessary
+                    })
+                next_league_start = next_league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
+                next_league_end = next_league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+                data = {
+                    "league_id": next_league_instance.id,
+                    "league_name": next_league_instance.league.name,
+                    "league_level": 11 - next_league_instance.league.order,
+                    "league_start": next_league_start,
+                    "league_end": next_league_end,
+                    "rankings": next_rankings_data,
+                }
+                async_to_sync(channel_layer.group_send)(
+                    f'company_league_{league.id}',
+                    {
+                        'type': 'send_league_update',  # Changed this to send the next league data
+                        'data': data,
+                    }
+                )
+                print(f"Sent next league update for league {next_league_instance.id}")
+
+        # league.is_active = False
+        # league.save()

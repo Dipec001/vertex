@@ -51,6 +51,7 @@ class GlobalLeagueConsumer(AsyncWebsocketConsumer):
         
         # Accept the WebSocket connection
         await self.accept()
+        print("CONNECTED")
 
     @database_sync_to_async
     def get_user_global_league(self, user):
