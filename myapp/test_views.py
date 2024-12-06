@@ -6,7 +6,8 @@ from datetime import timedelta
 from myapp.models import (
     CustomUser, Company, Membership, Xp, DailySteps, Feed
 )
-
+# TODO: should check why the db connection is automatically closed when accessing the db on the rest of the tests.
+# It work when run one by one
 class CompanyDashboardViewTests(APITestCase):
     def setUp(self):
         # Create company owner
@@ -291,15 +292,6 @@ class CompanyDashboardViewTests(APITestCase):
         # allways return 30 datas with zeros values
         self.assertEqual(len(data['daily_stats']), 30)
         self.assertEqual(len(data['recent_activities']), 0)
-
-    def test_xp_comparison_percentage(self):
-        """Test that XP comparison percentage is calculated correctly"""
-        response = self.client.get(self.url)
-        data = response.json()['data']
-        company_stats = data['company_stats']
-        
-        expected_percentage = (company_stats['avg_xp_per_user'] / company_stats['global_avg_xp']) * 100
-        self.assertEqual(company_stats['xp_comparison_percentage'], expected_percentage)
 
     def test_date_range_validity(self):
         """Test that the data is properly filtered for the last 30 days"""

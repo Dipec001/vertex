@@ -1991,10 +1991,6 @@ class CompanyDashboardView(APIView):
                 'total_employees': total_employees,
                 'avg_xp_per_user': company_xp['avg_xp_per_user'] or 0,
                 'global_avg_xp': global_avg_xp,
-                'xp_comparison_percentage': (
-                    ((company_xp['avg_xp_per_user'] or 0) / global_avg_xp * 100)
-                    if global_avg_xp > 0 else 0
-                )
             },
             'daily_stats': list(daily_stats),
             'recent_activities': [
