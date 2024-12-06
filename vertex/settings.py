@@ -368,15 +368,13 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'myapp.tasks.reset_gems_for_local_timezones',
         'schedule': crontab(minute='*/30'),  # Every 10 minutes
     },
-    'process_league_promotions_every_6_hours': {
+    'process_league_promotions_every_10_seconds': {
         'task': 'myapp.tasks.process_league_promotions',
-        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
-        'schedule': crontab(minute='*'),
+        'schedule': timedelta(seconds=10),
     },
-    'process_company_league_promotions_every_6_hours': {
+    'process_company_league_promotions_every_10_seconds': {
         'task': 'myapp.tasks.process_company_league_promotions',
-        # 'schedule': crontab(minute=0, hour='*/6'),  # Runs every 6 hours
-        'schedule': crontab(minute='*'),
+        'schedule': timedelta(seconds=10),
     },
 }
 
