@@ -15,7 +15,6 @@ def validate_google_token(id_token):
 
         # Check if the audience (aud) matches one of the expected client IDs
         aud = token_info.get('aud')
-        print(aud)
         # if aud not in [
         #     settings.GOOGLE_WEB_CLIENT_ID,
         #     settings.GOOGLE_IOS_CLIENT_ID,
@@ -43,5 +42,4 @@ def validate_google_token(id_token):
 
     except (requests.RequestException, ValueError) as e:
         # You can log the error for debugging purposes
-        print(f"Token validation error: {str(e)}")
         return None

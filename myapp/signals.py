@@ -95,7 +95,7 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
             streak_record.highestStreak = highest_streak
             streak_record.timeStamp = instance.timeStamp
             streak_record.save()
-            print(f"Streak record updated for date: {xp_date}")
+            # print(f"Streak record updated for date: {xp_date}")
         else:
             print(f"Streak record created for date: {xp_date}")
 
@@ -138,7 +138,7 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
             # Extract the last recorded milestone streak from the feed content
             last_milestone = 0
             if last_milestone_feed:
-                print('last milestone')
+                # print('last milestone')
                 try:
                     # Use regex to extract the milestone number
                     match = re.search(r'has reached a (\d+)-day streak', last_milestone_feed.content)
@@ -227,11 +227,9 @@ def update_gem_for_xp(sender, instance, **kwargs):
     # Check if the XP was gained within the current week
     xp_date = instance.date  # Assuming `date` field exists in Xp model
     xp_timestamp = instance.timeStamp
-    print(xp_timestamp, 'xp timestamp')
 
     # Convert the local xp_date to UTC before querying the database
     xp_utc_time = xp_timestamp.astimezone(pytz.utc)
-    print('utc timstamp of xp', xp_utc_time)
 
     if xp_date < current_week_monday:
 
@@ -248,10 +246,9 @@ def update_gem_for_xp(sender, instance, **kwargs):
 
     # Ensure the total does not exceed 5
     if total_xp_gem_today > 5:
-        print('gem is greated than 5')
+        # print('gem is greated than 5')
         total_xp_gem_today = 5
 
-    print('reached to add')
     # Update the gem record
     gem.xp_gem = total_xp_gem_today
     gem.copy_xp_gem = total_xp_gem_today
@@ -265,7 +262,6 @@ def update_gem_for_xp(sender, instance, **kwargs):
     ).first()
 
     if existing_notification:
-        print('found')
         # Update the existing "received_gem" notification content
         existing_notification.content = f"You earned {xp_today} XP and therefore, claimed {total_xp_gem_today} gems."
         existing_notification.created_at = timezone.now()  # Update the timestamp to the current time
@@ -349,7 +345,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
     Adds a user to the first available Pathfinder league instance for their company upon joining.
     If no instance has room, a new Pathfinder instance is created.
     """
-    print('Add to Company league triggered')
+    # print('Add to Company league triggered')
     user = instance.user
     total_xp = instance.totalXpAllTime
     company = user.company
@@ -359,7 +355,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
         pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
 
         if not pathfinder_league:
-            print("Error: Pathfinder league not found.")
+            # print("Error: Pathfinder league not found.")
             return
 
         # Check if the user is already assigned to a Pathfinder league for this company

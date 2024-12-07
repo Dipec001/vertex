@@ -1,6 +1,41 @@
 from datetime import timedelta
 from myapp.models import DailySteps, Gem, Xp
 from django.db.models import Sum
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+
+def send_user_notification(user, notif):
+    """
+    Sends a WebSocket notification to a specific user.
+
+    Args:
+        user: The User instance to send the notification to.
+        notif: The Notification instance containing the details.
+    """
+    channel_layer = get_channel_layer()
+
+     # Get the user's timezone; default to UTC if not set
+    user_timezone = user.timezone
+    print(user_timezone, 'user timezone')
+
+    # Convert the created_at timestamp to the user's local timezone
+    user_local_time = notif.created_at.astimezone(user_timezone)
+    print(user_local_time, 'user local time')
+
+    async_to_sync(channel_layer.group_send)(
+        f'notifications_{user.id}',
+        {
+            'type': 'send_notification',
+            'data': {
+                'id': notif.id,
+                'notif_type': notif.notif_type,
+                'content': notif.content,
+                'created_at': user_local_time.isoformat()
+            }
+        }
+    )
+
 
 def add_manual_gem(user, manual_gem_count, date):
     gem, created = Gem.objects.get_or_create(user=user, date=date)

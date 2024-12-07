@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from myapp.utils import get_last_30_days, get_daily_steps_and_xp
+from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
                           DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
@@ -990,7 +990,10 @@ class ConvertGemView(APIView):
                 }
                 notification_serializer = NotifSerializer(data=notif_data, context={'request': request})
                 if notification_serializer.is_valid():
-                    notification_serializer.save()  # Save the notification
+                    notification = notification_serializer.save()  # Save the notification
+
+                    # Send WebSocket notification using the helper function
+                    send_user_notification(user, notification)
                 else:
                     return Response(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             else:
