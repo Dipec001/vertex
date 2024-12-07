@@ -7,10 +7,11 @@ from myapp.utils import get_last_30_days, get_daily_steps_and_xp
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
                           DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
-                          DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer)
+                          DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
+                          NotifSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
-                     League, Gem, DrawImage)
+                     League, Gem, DrawImage, Notif)
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
@@ -42,6 +43,7 @@ from .tasks import upload_file_task
 import tempfile
 import os
 from django.conf import settings
+from rest_framework.pagination import PageNumberPagination
 
 
 class StreakRateThrottle(UserRateThrottle):
@@ -929,6 +931,11 @@ class ConvertGemView(APIView):
                 
                 user.streak_savers += quantity  # Properly increment the streak savers count
 
+                # Create notification for receiving streak savers
+                notif_type = "purchase_streaksaver"
+                content = f"You converted {total_gem_cost} gems into {quantity} streak savers."
+
+
             elif item_type == 'ticket_global':
 
                 # Ensure there is an active global draw
@@ -939,6 +946,10 @@ class ConvertGemView(APIView):
                 # Add entries to the global draw
                 entries = [DrawEntry(user=user, draw=global_draw) for _ in range(quantity)]
                 DrawEntry.objects.bulk_create(entries)
+
+                # Create notification for purchasing global draw tickets
+                notif_type = "purchase_globaldraw"
+                content = f"You converted {total_gem_cost} gems into {quantity} global draw tickets."
 
             elif item_type == 'ticket_company':
                 if company_draw_id is None:
@@ -954,6 +965,11 @@ class ConvertGemView(APIView):
                 entries = [DrawEntry(user=user, draw=company_draw) for _ in range(quantity)]
                 DrawEntry.objects.bulk_create(entries)
 
+                # Create notification for purchasing company draw tickets
+                notif_type = "purchase_companydraw"
+                content = f"You converted {total_gem_cost} gems into {quantity} company draw tickets."
+
+
             user.save(update_fields=['gems_spent', 'streak_savers'])
 
             # Record the purchase
@@ -966,6 +982,17 @@ class ConvertGemView(APIView):
 
             if purchase_serializer.is_valid():
                 purchase_serializer.save(user=user)  # Save the purchase with the user
+                # Create the notification
+                notif_data = {
+                    'user': user.id,
+                    'notif_type': notif_type,  # Or any type you want
+                    'content': content
+                }
+                notification_serializer = NotifSerializer(data=notif_data, context={'request': request})
+                if notification_serializer.is_valid():
+                    notification_serializer.save()  # Save the notification
+                else:
+                    return Response(notification_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             else:
                 return Response(purchase_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1210,7 +1237,7 @@ class GlobalActiveLeagueView(APIView):
             return Response({"error": "No active global league found for the user"}, status=404)
 
         league_instance = user_league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global', 'id')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global','-user__streak', 'id')
 
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)  # Top 10%
@@ -1407,7 +1434,7 @@ class CompanyActiveLeagueView(APIView):
         lowest_league_order = approved_leagues.first().league.order
         highest_league_order = approved_leagues.last().league.order
 
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company','-user__streak', 'id')
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
@@ -2003,4 +2030,30 @@ class CompanyDashboardView(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class NotificationPagination(PageNumberPagination):
+    page_size = 20  # Number of notifications per page
+    page_size_query_param = 'page_size'  # Allows the client to define the page size
+    max_page_size = 100  # Maximum number of items per page
+
+
+class NotificationsView(APIView):
+    pagination_class = NotificationPagination  # Assign the pagination class here
     
+    def get(self, request):
+        # Get the current user
+        user = request.user
+        
+        # Fetch notifications for the user, ordered by created_at (most recent first)
+        notifications = Notif.objects.filter(user=user).order_by('-created_at')
+        
+        # Paginate the results
+        paginator = self.pagination_class()
+        result_page = paginator.paginate_queryset(notifications, request)
+        
+        # Serialize the paginated results using NotifSerializer
+        serializer = NotifSerializer(result_page, many=True, context={'request': request})
+        
+        # Return the paginated response
+        return paginator.get_paginated_response(serializer.data)

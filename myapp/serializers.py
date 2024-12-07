@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, 
-                     DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing, Gem, DrawImage)
+                     DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing, Gem, DrawImage, Notif)
 import random
 import string
 from allauth.socialaccount.models import SocialAccount
@@ -933,3 +933,38 @@ class DrawWinnerSerializer(serializers.ModelSerializer):
     class Meta:
         model = DrawWinner
         fields = ['draw', 'user', 'prize', 'win_date']
+
+
+class NotifSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notif
+        fields = ['id', 'user', 'notif_type', 'content', 'created_at']
+        read_only_fields = ['id', 'created_at']  # Optional: if you want these fields to be read-only
+
+    def create(self, validated_data):
+        # Get the user from the view context (request)
+        user = self.context['request'].user
+        
+        # Ensure the user is included in validated_data
+        validated_data['user'] = user
+        
+        return super().create(validated_data)
+
+    def to_representation(self, instance):
+        # Get the current user from the view context
+        user = self.context['request'].user
+        
+        # Get the user's timezone
+        user_timezone = user.timezone  # Assuming the 'timezone' field exists in the user model
+        utc_time = instance.created_at  # Assuming `created_at` is a timezone-aware datetime
+        
+        # Convert the `created_at` to the user's local time
+        user_local_time = utc_time.astimezone(user_timezone)
+        
+        # Create the serialized data
+        representation = super().to_representation(instance)
+        
+        # Replace `created_at` with the converted local time
+        representation['created_at'] = user_local_time.isoformat()  # Use ISO 8601 format for the datetime string
+        
+        return representation

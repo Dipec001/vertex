@@ -7,6 +7,7 @@ from django.db.models import Sum
 from django.utils.timezone import now
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.conf import settings
 # Create your models here.
 
 TIMEZONES = tuple(zip(pytz.all_timezones, pytz.all_timezones))
@@ -443,4 +444,39 @@ class Clap(models.Model):
 
     def __str__(self):
         return f"Clap on {self.feed}"
-    
+
+
+class Notif(models.Model):
+    # Define constants for each notification type
+    RECEIVED_GEM = "received_gem", "Received Gem"
+    LEAGUE_PROMOTION = "league_promotion", "League Promotion"
+    LEAGUE_DEMOTION = "league_demotion", "League Demotion"
+    LEAGUE_RETAINED = "league_retained", "League Retained"
+    PURCHASE_COMPANY_DRAW = "purchase_companydraw", "Purchase Company Draw"
+    PURCHASE_GLOBAL_DRAW = "purchase_globaldraw", "Purchase Global Draw"
+    PURCHASE_STREAK_SAVER = "purchase_streaksaver", "Purchase Streak Saver"
+
+    # Define the tuple list
+    NOTIF_TYPES = [
+        RECEIVED_GEM,
+        LEAGUE_PROMOTION,
+        LEAGUE_DEMOTION,
+        LEAGUE_RETAINED,
+        PURCHASE_COMPANY_DRAW,
+        PURCHASE_GLOBAL_DRAW,
+        PURCHASE_STREAK_SAVER,
+    ]
+
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    content = models.TextField(max_length=1024)
+    notif_type = models.CharField(max_length=50, choices=NOTIF_TYPES)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.notif_type}: {self.content}"

@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Feed, Gem
+from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Feed, Gem, Notif
 from dateutil.relativedelta import relativedelta
 from django.db.models import Count, F
 from datetime import timedelta, datetime
@@ -226,6 +226,13 @@ def update_gem_for_xp(sender, instance, **kwargs):
 
     # Check if the XP was gained within the current week
     xp_date = instance.date  # Assuming `date` field exists in Xp model
+    xp_timestamp = instance.timeStamp
+    print(xp_timestamp, 'xp timestamp')
+
+    # Convert the local xp_date to UTC before querying the database
+    xp_utc_time = xp_timestamp.astimezone(pytz.utc)
+    print('utc timstamp of xp', xp_utc_time)
+
     if xp_date < current_week_monday:
 
         return  # Do not award gems if the XP was gained before the current week
@@ -249,6 +256,28 @@ def update_gem_for_xp(sender, instance, **kwargs):
     gem.xp_gem = total_xp_gem_today
     gem.copy_xp_gem = total_xp_gem_today
     gem.save()
+
+    # Check if there's already a "received_gem" notification for the user on this day
+    existing_notification = Notif.objects.filter(
+        user=user,
+        notif_type="received_gem",
+        created_at__date=xp_utc_time
+    ).first()
+
+    if existing_notification:
+        print('found')
+        # Update the existing "received_gem" notification content
+        existing_notification.content = f"You earned {xp_today} XP and therefore, claimed {total_xp_gem_today} gems."
+        existing_notification.created_at = timezone.now()  # Update the timestamp to the current time
+        existing_notification.save()
+    else:
+        if total_xp_gem_today > 0:
+            # Create a new "received_gem" notification if one doesn't exist for the day
+            Notif.objects.create(
+                user=user,
+                notif_type="received_gem",
+                content=f"You earned {xp_today} XP and therefore, claimed {total_xp_gem_today} gems.",
+            )
 
 
 
