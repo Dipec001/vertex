@@ -178,7 +178,11 @@ CHANNEL_LAYERS = {
 #     }
 # }
 
-if DEBUG:
+if DEBUG and os.getenv("DATABASE_URL"):
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=0, conn_health_checks=True)
+    }
+elif DEBUG:
     DATABASES = {
     "default": {
         "ENGINE": os.getenv("DB_ENGINE"),
@@ -191,10 +195,6 @@ if DEBUG:
         'CONN_MAX_NUM': 20,   # Maximum number of connections in the pool
     }
 }
-elif DEBUG and os.getenv("DATABASE_URL"):
-    DATABASES = {
-        'default': dj_database_url.config(conn_max_age=0, conn_health_checks=True)
-    }
 else:
     DATABASES = {
     'default': dj_database_url.config(conn_max_age=0, conn_health_checks=True)

@@ -1,3 +1,6 @@
+from pprint import pprint
+from unittest import skipIf
+
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -6,12 +9,11 @@ from datetime import timedelta
 from myapp.models import (
     CustomUser, Company, Membership, Xp, DailySteps, Feed
 )
-from django.conf import settings
-from django.test import skipIf
+from vertex import settings
 
 # TODO: should check why the db connection is automatically closed when accessing the db on the rest of the tests.
 # It work when run one by one
-@skipIf(settings.DEBUG, "Skip tests in production environment")
+@skipIf(not settings.DEBUG, "Skip tests in production environment")
 class CompanyDashboardViewTests(APITestCase):
     def setUp(self):
         # Create company owner

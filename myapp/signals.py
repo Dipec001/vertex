@@ -8,7 +8,7 @@ from datetime import timedelta, datetime
 from django.db import transaction
 import pytz
 from django.db import connection
-from django.conf import settings
+from vertex import settings
 from django.core.signals import request_finished
 from django.dispatch import receiver
 import re
