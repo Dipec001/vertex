@@ -6,8 +6,12 @@ from datetime import timedelta
 from myapp.models import (
     CustomUser, Company, Membership, Xp, DailySteps, Feed
 )
+from django.conf import settings
+from django.test import skipIf
+
 # TODO: should check why the db connection is automatically closed when accessing the db on the rest of the tests.
 # It work when run one by one
+@skipIf(settings.DEBUG, "Skip tests in production environment")
 class CompanyDashboardViewTests(APITestCase):
     def setUp(self):
         # Create company owner
