@@ -190,11 +190,15 @@ if DEBUG:
         "CONN_MAX_AGE": 0,  # Maximum connection age in seconds (e.g., 5 minutes)
         'CONN_MAX_NUM': 20,   # Maximum number of connections in the pool
     }
-} 
+}
+elif DEBUG and os.getenv("DATABASE_URL"):
+    DATABASES = {
+        'default': dj_database_url.config(conn_max_age=0, conn_health_checks=True)
+    }
 else:
     DATABASES = {
     'default': dj_database_url.config(conn_max_age=0, conn_health_checks=True)
-}
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
