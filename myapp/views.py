@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django_filters import rest_framework
 from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification
 from .filters import EmployeeFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
@@ -2078,11 +2078,12 @@ class NotificationsView(APIView):
 class EmployeeByCompanyModelView(ListAPIView):
     permission_classes = [IsCompanyOwner]
     serializer_class = EmployeeSerializer
+    filter_backends = [rest_framework.DjangoFilterBackend]
     filterset_class = EmployeeFilterSet
 
     def get_queryset(self):
         company_id = self.kwargs['company_id']
-        return CustomUser.objects.filter(company_id=company_id, membership__role="employee")
+        return CustomUser.objects.filter(company_id=company_id, membership__role="employee").order_by('id')
 
     def handle_exception(self, exc):
         if isinstance(exc, (ValueError, KeyError)):
