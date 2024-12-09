@@ -58,4 +58,5 @@ urlpatterns = [
     path('league/company/status/', views.CompanyLeagueStatusView.as_view(), name='custom-user-company-league-status'),
     path('company/dashboard/', views.CompanyDashboardView.as_view(), name='company-dashboard'),
      path('notifications/', views.NotificationsView.as_view(), name='notifications-list'),
+    path("company/<int:company_id>/employees/", views.EmployeeByCompanyModelView.as_view(), name='employee-by-company')
 ]

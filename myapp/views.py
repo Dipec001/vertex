@@ -1,4 +1,7 @@
+from pprint import pprint
+
 from rest_framework import status, permissions
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
@@ -2047,20 +2050,42 @@ class NotificationPagination(PageNumberPagination):
 
 class NotificationsView(APIView):
     pagination_class = NotificationPagination  # Assign the pagination class here
-    
+
     def get(self, request):
         # Get the current user
         user = request.user
-        
+
         # Fetch notifications for the user, ordered by created_at (most recent first)
         notifications = Notif.objects.filter(user=user).order_by('-created_at')
-        
+
         # Paginate the results
         paginator = self.pagination_class()
         result_page = paginator.paginate_queryset(notifications, request)
-        
+
         # Serialize the paginated results using NotifSerializer
         serializer = NotifSerializer(result_page, many=True, context={'request': request})
-        
+
         # Return the paginated response
         return paginator.get_paginated_response(serializer.data)
+
+
+
+class EmployeeByCompanyModelView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = EmployeeSerializer
+    filterset_class = EmployeeFilterSet
+
+    def get_queryset(self):
+        company_id = self.kwargs['company_id']
+        # should be by employee too
+        return CustomUser.objects.filter(company_id=company_id, membership__role="employee", )
+
+class EmployeeAdminModelView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = EmployeeSerializer
+    # TODO: filtering
+    filterset_class = EmployeeFilterSet
+
+    def get_queryset(self):
+        # should be by employee too
+        return CustomUser.objects.filter(membership__role="employee")
