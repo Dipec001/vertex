@@ -325,7 +325,7 @@ class CompanyDashboardViewTests(APITestCase):
 @skipIf(not settings.DEBUG, "Skip tests in production environment")
 class EmployeeByCompanyModelViewTest(APITestCase):
     def setUp(self):
-        # Create a company owner
+        # Create a company
         self.owner = CustomUser.objects.create_user(
             username="owner",
             email="owner@test.com",
@@ -376,6 +376,36 @@ class EmployeeByCompanyModelViewTest(APITestCase):
         paginated_data = response.json()["data"]
         # Check the response data
         expected_data = EmployeeSerializer([self.employee1, self.employee2], many=True).data
+        self.assertEqual(paginated_data["results"], expected_data)
+
+    def test_filter_employees_by_username(self):
+        # Authenticate as the company owner
+        self.client.force_authenticate(user=self.owner)
+
+        # Filter by username
+        url = reverse('employee-by-company', kwargs={'company_id': self.company.id})
+        response = self.client.get(url, {'username': 'employee1'})
+
+        # Check the response status
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        paginated_data = response.json()["data"]
+        # Check the response data
+        expected_data = EmployeeSerializer([self.employee1], many=True).data
+        self.assertEqual(paginated_data["results"], expected_data)
+
+    def test_filter_employees_by_email(self):
+        # Authenticate as the company owner
+        self.client.force_authenticate(user=self.owner)
+
+        # Filter by email
+        url = reverse('employee-by-company', kwargs={'company_id': self.company.id})
+        response = self.client.get(url, {'email': 'employee2@test.com'})
+
+        # Check the response status
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        paginated_data = response.json()["data"]
+        # Check the response data
+        expected_data = EmployeeSerializer([self.employee2], many=True).data
         self.assertEqual(paginated_data["results"], expected_data)
 
     def test_unauthorized_access(self):
