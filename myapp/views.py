@@ -49,6 +49,11 @@ import tempfile
 import os
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
+import logging
+from .permissions import IsCompanyOwner
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class StreakRateThrottle(UserRateThrottle):
@@ -2071,14 +2076,21 @@ class NotificationsView(APIView):
 
 
 class EmployeeByCompanyModelView(ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsCompanyOwner]
     serializer_class = EmployeeSerializer
     filterset_class = EmployeeFilterSet
 
     def get_queryset(self):
         company_id = self.kwargs['company_id']
-        # should be by employee too
-        return CustomUser.objects.filter(company_id=company_id, membership__role="employee", )
+        return CustomUser.objects.filter(company_id=company_id, membership__role="employee")
+
+    def handle_exception(self, exc):
+        if isinstance(exc, (ValueError, KeyError)):
+            # Log the error
+            logger.error(f"Exception occurred: {exc}")
+            # Return a 500 Internal Server Error response
+            return Response({"error": "An internal server error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return super().handle_exception(exc)
 
 class EmployeeAdminModelView(ListAPIView):
     permission_classes = [IsAuthenticated]
