@@ -1,14 +1,16 @@
 from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification
-from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
-                          InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
-                          DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
+from .filters import EmployeeFilterSet
+from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
+                          InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
+                          DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
-                          NotifSerializer)
+                          NotifSerializer, EmployeeSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
                      League, Gem, DrawImage, Notif)
@@ -2009,7 +2011,7 @@ class CompanyDashboardView(APIView):
         # )
         # Get recent feed items (high performers and milestones)
         # TODO: probably add websocket consumer version of this
-        recent_feeds = Feed.objects.filter(
+        recent_feeds = Feed.objects.select_related("user").filter(
             user__membership__company=company,
             feed_type__in=['Milestone', 'Promotion'],
             created_at__gte=thirty_days_ago
@@ -2018,15 +2020,18 @@ class CompanyDashboardView(APIView):
         response_data = {
             'company_stats': {
                 'total_employees': total_employees,
+                # TODO(1): maybe use a different endpoint so that we can filter it by date
                 'avg_xp_per_user': company_xp['avg_xp_per_user'] or 0,
                 'global_avg_xp': global_avg_xp,
             },
+            # TODO: same as TODO(1)
             'daily_stats': list(daily_stats),
             'recent_activities': [
                 {
+                    'user': EmployeeSerializer(feed.user).data,
                     'type': feed.feed_type,
                     'content': feed.content,
-                    'timestamp': feed.created_at
+                    'timestamp': feed.created_at,
                 } for feed in recent_feeds
             ]
         }
