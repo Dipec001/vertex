@@ -8,6 +8,7 @@ from datetime import timedelta, datetime
 from django.db import transaction
 import pytz
 from django.db import connection
+from django.conf import settings
 from django.core.signals import request_finished
 from django.dispatch import receiver
 import re
@@ -27,7 +28,9 @@ def close_redis_connection(sender, **kwargs):
 
 @receiver(request_finished)
 def close_db_connection(sender, **kwargs):
-    connection.close()
+    # Only close connection in production
+    if not settings.DEBUG:  
+        connection.close()
 
 
 
