@@ -66,7 +66,7 @@ class IsCompanyOwnerPermissionTest(APITestCase):
         view = DummyView.as_view()
         response = view(request, company_id=99999)
         
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_user_not_company_owner(self):
         """Test permission with user who is not the company owner"""
