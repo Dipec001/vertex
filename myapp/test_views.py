@@ -494,3 +494,60 @@ class EmployeeDetailsByCompanyModelViewSet(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.json()["errors"]["detail"], 'No Company matches the given query.')
+
+    def test_delete_employee(self):
+        """Test that a company owner can delete an employee"""
+        self.client.force_authenticate(user=self.owner)
+        url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': self.employee1.pk})
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        # Verify the employee was deleted
+        self.assertFalse(CustomUser.objects.filter(pk=self.employee1.pk).exists())
+        # Verify the membership was deleted
+        self.assertFalse(Membership.objects.filter(user=self.employee1, company=self.company).exists())
+
+    def test_delete_employee_by_unauthorized_user(self):
+        """Test that non-owners cannot delete employees"""
+        self.client.force_authenticate(user=self.employee2)
+        url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': self.employee1.pk})
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # Verify the employee was not deleted
+        self.assertTrue(CustomUser.objects.filter(pk=self.employee1.pk).exists())
+        # Verify the membership was not deleted
+        self.assertTrue(Membership.objects.filter(user=self.employee1, company=self.company).exists())
+    
+    def test_delete_employee_from_wrong_company(self):
+        """Test that an owner cannot delete employees from another company"""
+        # Create another company and owner
+        other_owner = CustomUser.objects.create_user(
+            username="other_owner",
+            email="other_owner@test.com",
+            password="password",
+            is_company_owner=True,
+        )
+        other_company = Company.objects.create(
+            name="Other Company", 
+            domain="http://othercompany.com", 
+            owner=other_owner
+        )
+        
+        self.client.force_authenticate(user=other_owner)
+        url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': self.employee1.pk})
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # Verify the employee was not deleted
+        self.assertTrue(CustomUser.objects.filter(pk=self.employee1.pk).exists())
+        # Verify the membership was not deleted
+        self.assertTrue(Membership.objects.filter(user=self.employee1, company=self.company).exists())
+    
+    def test_delete_non_existent_employee(self):
+        NON_EXISTENT_EMPLOYEE_ID = 9999999
+        self.client.force_authenticate(user=self.owner)
+        url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': NON_EXISTENT_EMPLOYEE_ID})
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
