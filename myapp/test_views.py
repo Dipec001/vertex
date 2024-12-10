@@ -1,5 +1,6 @@
 from unittest import skipIf
 
+from django.test import client
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -426,3 +427,70 @@ class EmployeeByCompanyModelViewTest(APITestCase):
 
         # Check the response status
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+@skipIf(not settings.DEBUG, "Skip tests in production environment")
+class EmployeeDetailsByCompanyModelViewSet(APITestCase):
+    def setUp(self) -> None:
+        # Create a company
+        self.owner = CustomUser.objects.create_user(
+            username="owner",
+            email="owner@test.com",
+            password="password",
+            is_company_owner=True,
+        )
+        self.company = Company.objects.create(name="Test Company", domain="http://testcompany.com", owner=self.owner)
+        self.owner.company = self.company
+        self.owner.save()
+
+        # Create a company owner
+        Membership.objects.create(user=self.owner, company=self.company, role="owner")
+
+        # Create employees
+        self.employee1 = CustomUser.objects.create_user(
+            username="employee1",
+            email="employee1@test.com",
+            password="password",
+            company=self.company
+        )
+        Membership.objects.create(user=self.employee1, company=self.company, role="employee")
+
+        self.employee2 = CustomUser.objects.create_user(
+            username="employee2",
+            email="employee2@test.com",
+            password="password",
+            company=self.company
+        )
+        Membership.objects.create(user=self.employee2, company=self.company, role="employee")
+
+        # Create a user not in the company
+        self.other_user = CustomUser.objects.create_user(
+            username="other",
+            email="other@test.com",
+            password="password"
+        )
+
+    def test_retrieve_employee_by_company_id_and_user_id(self):
+        url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': self.employee1.pk})
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(url)
+        data = response.json()["data"]
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(data, EmployeeSerializer(self.employee1).data)
+
+    def test_retrieve_by_unauthenticated_user(self):
+        url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': self.employee1.pk})
+        response = self.client.get(url)
+        data = response.json()["data"]
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_retrieve_return_not_found(self):
+        NON_EXISTENT_COMPANY_ID = 2
+        self.client.force_authenticate(user=self.owner)
+        url = reverse('employee-details-by-company', kwargs={'company_id': NON_EXISTENT_COMPANY_ID, 'pk': self.employee1.pk})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.json()["errors"]["detail"], 'No Company matches the given query.')
