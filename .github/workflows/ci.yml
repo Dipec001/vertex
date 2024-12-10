@@ -27,6 +27,16 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+      redis:
+        image: redis:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -35,6 +45,9 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
+
+      - name: Set DEBUG environment variable
+        run: echo "DEBUG=$(if [ ${{ github.ref }} != 'refs/heads/master' ]; then echo 'True'; else echo 'False'; fi)" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
@@ -50,5 +63,6 @@ jobs:
       - name: Run Tests
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
         run: |
           python manage.py test
