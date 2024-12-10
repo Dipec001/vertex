@@ -160,9 +160,9 @@ class LeagueInstanceAdmin(admin.ModelAdmin):
 # Customizing the display and functionality of the UserLeague model in the admin interface
 @admin.register(UserLeague)
 class UserLeagueAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'league_instance', 'xp_company','xp_global', 'is_retained')  # Fields to display
+    list_display = ('id', 'user', 'league_instance', 'xp_company','xp_global')  # Fields to display
     search_fields = ('id','user__username', 'league_instance__league__name')  # Search by user and league
-    list_filter = ('is_retained',)  # Filter by retention status
+    list_filter = ('user',)  # Filter by user
     ordering = ('user', 'league_instance')  # Order by user and league
     list_per_page = 20  # Pagination
 

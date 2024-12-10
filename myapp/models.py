@@ -374,7 +374,6 @@ class UserLeague(models.Model):
     league_instance = models.ForeignKey(LeagueInstance, on_delete=models.CASCADE)
     xp_company = models.IntegerField(default=0)  # XP specific to company leagues
     xp_global = models.IntegerField(default=0)    # XP specific to global leagues
-    is_retained = models.BooleanField(default=False)  # Grace period flag
 
     class Meta:
         unique_together = ('user', 'league_instance')
