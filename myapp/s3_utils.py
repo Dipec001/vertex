@@ -8,6 +8,9 @@ import os
 from io import BytesIO
 import tempfile
 
+import logging
+logger = logging.getLogger(__name__)
+
 def save_image_to_s3(image_file, folder_name):
     s3 = boto3.client(
         's3',
@@ -20,13 +23,20 @@ def save_image_to_s3(image_file, folder_name):
         # Generate a unique file name using UUID and keep the original file extension
         unique_filename = f"{uuid.uuid4()}{os.path.splitext(image_file.name)[1]}"
         s3_object_key = f'{folder_name}/{unique_filename}'
-        
+
+        logger.info(f"Uploading {image_file.name} to S3 bucket {settings.AWS_STORAGE_BUCKET_NAME} at {s3_object_key}")
         s3.upload_fileobj(image_file, settings.AWS_STORAGE_BUCKET_NAME, s3_object_key)
+        logger.info("Upload successful")
 
         # Return the path or URL to the uploaded image
         return s3_object_key
     except NoCredentialsError:
+        logger.error("No AWS credentials found")
         return None  # Handle as needed
+    except Exception as e:
+        logger.error(f"Error occurred during upload: {e}")
+        return None
+
 
 def compress_file(file_path, file_type):
     if file_type == 'image':

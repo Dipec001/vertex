@@ -31,7 +31,6 @@ class CustomUser(AbstractUser):
     profile_picture_url = models.URLField(max_length=2000, blank=True, null=True)
     date_joined = models.DateTimeField(auto_now_add=True)  # Automatically set when the user is created
     streak_savers = models.PositiveIntegerField(default=0)  # Count of streak savers
-    xp = models.PositiveIntegerField(default=0)
     gems_spent = models.PositiveIntegerField(default=0)  # Total gems the user has spent
     # Add a foreign key to the company (a user can only belong to one company)
     company = models.ForeignKey(
@@ -362,10 +361,10 @@ class League(models.Model):
 class LeagueInstance(models.Model):
     league = models.ForeignKey(League, on_delete=models.CASCADE)
     league_start = models.DateTimeField()  # Track the start of each week
-    league_end = models.DateTimeField()
-    company = models.ForeignKey(Company, null=True, blank=True, on_delete=models.CASCADE)
+    league_end = models.DateTimeField(db_index=True)
+    company = models.ForeignKey(Company, null=True, blank=True, on_delete=models.CASCADE,db_index=True)
     max_participants = models.PositiveIntegerField(default=30)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True,db_index=True)
 
     def __str__(self):
         return f"{self.league.name} - {self.league_start}"

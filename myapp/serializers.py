@@ -551,26 +551,48 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 logger.error(f"Error creating/updating DailySteps for user {user.id}: {str(e)}")
                 raise serializers.ValidationError(f"An error occurred while processing the request:{str(e)}")
             
+    # def update_user_leagues(self, user, new_xp, xp_date):
+    #     active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
+    #     for user_league in active_leagues:
+    #         # Get the league start date in UTC
+    #         league_start_date = user_league.league_instance.league_start
+
+    #         # Retrieve the user's timezone 
+    #         user_timezone = ZoneInfo(user.timezone.key)
+
+    #         # Convert the XP date from user's local time to UTC 
+    #         xp_date_local = xp_date.replace(tzinfo=user_timezone) 
+    #         xp_date_utc = xp_date_local.astimezone(timezone.utc)
+
+    #         # Ensure the XP record date is not earlier than the league start date
+    #         if xp_date_utc >= league_start_date:
+    #             if user_league.league_instance.company is not None:
+    #                 user_league.xp_company += new_xp
+    #             else:
+    #                 user_league.xp_global += new_xp
+    #             user_league.save()
+
     def update_user_leagues(self, user, new_xp, xp_date):
-        active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
+        active_leagues = UserLeague.objects.filter(
+            user=user, 
+            league_instance__is_active=True
+        ).select_related('league_instance__company')
+        
         for user_league in active_leagues:
-            # Get the league start date in UTC
-            league_start_date = user_league.league_instance.league_start
+            league_instance = user_league.league_instance
+            league_start_date = league_instance.league_start
 
-            # Retrieve the user's timezone 
             user_timezone = ZoneInfo(user.timezone.key)
-
-            # Convert the XP date from user's local time to UTC 
-            xp_date_local = xp_date.replace(tzinfo=user_timezone) 
+            xp_date_local = xp_date.replace(tzinfo=user_timezone)
             xp_date_utc = xp_date_local.astimezone(timezone.utc)
 
-            # Ensure the XP record date is not earlier than the league start date
             if xp_date_utc >= league_start_date:
-                if user_league.league_instance.company is not None:
+                if league_instance.company is not None:
                     user_league.xp_company += new_xp
                 else:
                     user_league.xp_global += new_xp
                 user_league.save()
+
 
     def update_user_xp(self, user, date, new_xp, timestamp):
         user_xp, created_xp = Xp.objects.get_or_create(
@@ -756,27 +778,49 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             user_xp.totalXpToday += workout_activity.xp
             user_xp.totalXpAllTime += workout_activity.xp
             user_xp.save()
-
-
+    
     def update_user_leagues(self, user, new_xp, xp_date):
-        active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
+        active_leagues = UserLeague.objects.filter(
+            user=user, 
+            league_instance__is_active=True
+        ).select_related('league_instance__company')
+        
         for user_league in active_leagues:
-            # Get the league start date in UTC
-            league_start_date = user_league.league_instance.league_start
+            league_instance = user_league.league_instance
+            league_start_date = league_instance.league_start
 
-            # Retrieve the user's timezone 
             user_timezone = ZoneInfo(user.timezone.key)
-            # Convert the XP date from user's local time to UTC 
-            xp_date_local = xp_date.replace(tzinfo=user_timezone) 
+            xp_date_local = xp_date.replace(tzinfo=user_timezone)
             xp_date_utc = xp_date_local.astimezone(timezone.utc)
 
-            # Ensure the XP record date is not earlier than the league start date
             if xp_date_utc >= league_start_date:
-                if user_league.league_instance.company is not None:
+                if league_instance.company is not None:
                     user_league.xp_company += new_xp
                 else:
                     user_league.xp_global += new_xp
                 user_league.save()
+
+
+
+    # def update_user_leagues(self, user, new_xp, xp_date):
+    #     active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
+    #     for user_league in active_leagues:
+    #         # Get the league start date in UTC
+    #         league_start_date = user_league.league_instance.league_start
+
+    #         # Retrieve the user's timezone 
+    #         user_timezone = ZoneInfo(user.timezone.key)
+    #         # Convert the XP date from user's local time to UTC 
+    #         xp_date_local = xp_date.replace(tzinfo=user_timezone) 
+    #         xp_date_utc = xp_date_local.astimezone(timezone.utc)
+
+    #         # Ensure the XP record date is not earlier than the league start date
+    #         if xp_date_utc >= league_start_date:
+    #             if user_league.league_instance.company is not None:
+    #                 user_league.xp_company += new_xp
+    #             else:
+    #                 user_league.xp_global += new_xp
+    #             user_league.save()
 
 
 

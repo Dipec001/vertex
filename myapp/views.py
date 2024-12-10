@@ -560,16 +560,17 @@ class UserProfileView(APIView):
         if serializer.is_valid():
             profile_picture = request.FILES.get('profile_picture')
             if profile_picture:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(profile_picture.name)[1]) as temp_file: 
-                    temp_file.write(profile_picture.read()) 
-                    temp_file_path = temp_file.name 
+                # Save image to S3 directly
+                s3_object_key = save_image_to_s3(profile_picture, 'profile_pictures')
                 
-                upload_file_task.delay(temp_file_path, 'profile_pictures', 'image', user_id=user.id) 
-                serializer.save(profile_picture="uploading")
+                if s3_object_key:
+                    serializer.save(profile_picture=s3_object_key)
+                else:
+                    return Response({"error": "Failed to upload profile picture"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
                 serializer.save()  # Save without updating the profile picture
 
-            return Response({"success": "Profile updated initiated successfully"}, status=status.HTTP_200_OK)
+            return Response({"success": "Profile updated successfully"}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1253,12 +1254,10 @@ class GlobalActiveLeagueView(APIView):
         rankings_data = []
         for index, ul in enumerate(rankings, start=1):
             if is_highest_league:
-                print(True)
                 # Highest league: users can only be retained
                 advancement = "Retained"
                 gems_obtained = 10
             elif is_lowest_league:
-                print(False)
                 # Lowest league: users can be promoted based on ranking (top 30%)
                 if index <= promotion_threshold:
                     advancement = "Promoted"
