@@ -429,7 +429,8 @@ def process_company_league_promotions(self):
     """
     now = timezone.now()
     expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=False).select_related('league')
-    logger.info('Expired company leagues:', expired_leagues)
+    logger.info(f'Expired company leagues: {expired_leagues}')
+
 
     for league in expired_leagues:
         users_in_league = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', '-user__streak', 'id')
