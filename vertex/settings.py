@@ -18,6 +18,7 @@ import dj_database_url
 from celery.schedules import crontab
 import sentry_sdk
 from firebase_admin import initialize_app
+from kombu import Queue
 # Import your custom logging configuration 
 # from .logging import LOGGING
 
@@ -348,6 +349,23 @@ APPLE_CLIENT_ID = os.getenv('APPLE_CLIENT_ID')
 APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 
 
+
+
+CELERY_TASK_QUEUES = (
+    Queue('default'),
+    Queue('priority_high'),
+)
+
+CELERY_DEFAULT_QUEUE = 'default'
+CELERY_TASK_ROUTES = {
+    'myapp.tasks.process_league_promotions': {'queue': 'priority_high'},
+    'myapp.tasks.process_company_league_promotions': {'queue': 'priority_high'},
+    'myapp.tasks.send_gem_update': {'queue': 'default'}, 
+    'myapp.tasks.send_status_update': {'queue': 'default'}, 
+    'myapp.tasks.send_next_league_update': {'queue': 'default'},
+}
+
+
 CELERY_BEAT_SCHEDULE = {
     'reset-daily-streaks-every-midnight': {
         'task': 'myapp.tasks.reset_daily_streaks',
@@ -373,11 +391,13 @@ CELERY_BEAT_SCHEDULE = {
     },
     'process_league_promotions_every_10_seconds': {
         'task': 'myapp.tasks.process_league_promotions',
-        'schedule': timedelta(seconds=10),
+        'schedule': timedelta(seconds=5), # Every 10s
+        'options': {'queue': 'priority_high'}
     },
     'process_company_league_promotions_every_10_seconds': {
         'task': 'myapp.tasks.process_company_league_promotions',
-        'schedule': timedelta(seconds=10),
+        'schedule': timedelta(seconds=5), # Every 10 seconds
+        'options': {'queue': 'priority_high'}
     },
 }
 
@@ -419,4 +439,24 @@ CELERY_BEAT_SCHEDULE = {
 #      # are deleted upon receiving error response from FCM
 #      # default: False
 #     "DELETE_INACTIVE_DEVICES": True,
+# }
+
+import os
+
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'handlers': {
+#         'console': {
+#             'level': 'WARNING',  # Change to 'ERROR' if you want even fewer messages
+#             'class': 'logging.StreamHandler',
+#         },
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['console'],
+#             'level': 'WARNING',  # Change to 'ERROR' if you want even fewer messages
+#             'propagate': True,
+#         },
+#     },
 # }
