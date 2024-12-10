@@ -413,12 +413,11 @@ def process_league_promotions(self):
         user_ids = [user_league.user.id for user_league in users_in_league]
         logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {user_ids}')
 
-    
+        send_next_league_update.delay(user_ids, league.id)
+
         send_gem_update.delay(channel_messages)
 
         send_status_update.delay(user_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
-    
-        send_next_league_update.delay(user_ids, league.id)
     
     logger.info("Completed processing expired leagues.")
 
@@ -535,11 +534,11 @@ def process_company_league_promotions(self):
         user_ids = [user_league.user.id for user_league in users_in_league]
         logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {user_ids}')
 
+        send_next_league_update.delay(user_ids, league.id)
+
         send_gem_update.delay(channel_messages)
 
         send_status_update.delay(user_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
-    
-        send_next_league_update.delay(user_ids, league.id)
 
 
 
