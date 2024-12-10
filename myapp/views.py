@@ -1,7 +1,8 @@
 from pprint import pprint
 
 from rest_framework import status, permissions
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView, DestroyAPIView
+from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
@@ -2074,6 +2075,22 @@ class NotificationsView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+class EmployeeByCompanyModelDetailsView(RetrieveAPIView, DestroyAPIView):
+    permission_classes = [IsCompanyOwner]
+    serializer_class = EmployeeSerializer
+
+    def get_queryset(self):
+        company_id = self.kwargs['company_id']
+        return CustomUser.objects.filter(company_id=company_id, membership__role="employee")
+
+    def handle_exception(self, exc):
+        if isinstance(exc, (ValueError, KeyError)):
+            # Log the error
+            logger.error(f"Exception occurred: {exc}")
+            # Return a 500 Internal Server Error response
+            return Response({"error": "An internal server error occurred."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return super().handle_exception(exc)
 
 class EmployeeByCompanyModelView(ListAPIView):
     permission_classes = [IsCompanyOwner]
