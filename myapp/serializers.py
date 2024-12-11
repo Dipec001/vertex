@@ -19,6 +19,10 @@ from django.utils import timezone as t
 logger = logging.getLogger(__name__)
 
 CustomUser = get_user_model()
+class EmployeeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
 
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
