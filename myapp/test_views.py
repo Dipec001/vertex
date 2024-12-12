@@ -323,6 +323,51 @@ class CompanyDashboardViewTests(APITestCase):
             None
         )
         self.assertIsNone(old_data)
+
+    def test_user_downloaded_app(self):
+        """Test that the system correctly identifies if a user has downloaded the app."""
+        # Assuming self.employee1 is a user who has downloaded the app
+        self.employee1.last_login = timezone.now()  # Simulate that the user has logged in
+        self.employee1.save()
+
+        # Authenticate as the company owner
+        self.client.force_authenticate(user=self.owner)
+
+        # Make a request to the relevant endpoint
+        response = self.client.get(self.url)
+        data = response.json()
+        recent_reactivities = data["data"]["recent_activities"]
+        # get the employee 1 from the list of employees in recent activities
+        employees = [activity['user'] for activity in recent_reactivities]
+        employee1 = [employee for employee in employees if employee["id"]==self.employee1.id][0]
+
+        # Check the response status
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Check if the response contains the expected data indicating the app has been downloaded
+        self.assertIn('downloaded_the_app', employee1)
+        self.assertTrue(employee1['downloaded_the_app'])  # Ensure it returns True
+
+    def test_user_not_downloaded_app(self):
+        """Test that the system correctly identifies if a user has not downloaded the app."""
+        # Assuming self.employee2 is a user who has not downloaded the app
+        # Authenticate as the company owner
+        self.client.force_authenticate(user=self.owner)
+
+        # Make a request to the relevant endpoint
+        response = self.client.get(self.url)
+        data = response.json()
+        recent_reactivities = data["data"]["recent_activities"]
+        # get the employee 1 from the list of employees in recent activities
+        employees = [activity['user'] for activity in recent_reactivities]
+        employee1 = [employee for employee in employees if employee["id"] == self.employee1.id][0]
+
+        # Check the response status
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check if the response contains the expected data indicating the app has not been downloaded
+        self.assertIn('downloaded_the_app', employee1)
+        self.assertFalse(employee1['downloaded_the_app'])  # Ensure it returns False
+
 @skipIf(not settings.DEBUG, "Skip tests in production environment")
 class EmployeeByCompanyModelViewTest(APITestCase):
     def setUp(self):
@@ -518,7 +563,7 @@ class EmployeeDetailsByCompanyModelViewSet(APITestCase):
         self.assertTrue(CustomUser.objects.filter(pk=self.employee1.pk).exists())
         # Verify the membership was not deleted
         self.assertTrue(Membership.objects.filter(user=self.employee1, company=self.company).exists())
-    
+
     def test_delete_employee_from_wrong_company(self):
         """Test that an owner cannot delete employees from another company"""
         # Create another company and owner
@@ -529,11 +574,11 @@ class EmployeeDetailsByCompanyModelViewSet(APITestCase):
             is_company_owner=True,
         )
         other_company = Company.objects.create(
-            name="Other Company", 
-            domain="http://othercompany.com", 
+            name="Other Company",
+            domain="http://othercompany.com",
             owner=other_owner
         )
-        
+
         self.client.force_authenticate(user=other_owner)
         url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': self.employee1.pk})
         response = self.client.delete(url)
@@ -543,7 +588,7 @@ class EmployeeDetailsByCompanyModelViewSet(APITestCase):
         self.assertTrue(CustomUser.objects.filter(pk=self.employee1.pk).exists())
         # Verify the membership was not deleted
         self.assertTrue(Membership.objects.filter(user=self.employee1, company=self.company).exists())
-    
+
     def test_delete_non_existent_employee(self):
         NON_EXISTENT_EMPLOYEE_ID = 9999999
         self.client.force_authenticate(user=self.owner)
