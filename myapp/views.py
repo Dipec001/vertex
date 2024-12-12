@@ -1,14 +1,20 @@
+from pprint import pprint
+
 from rest_framework import status, permissions
+from rest_framework.generics import ListAPIView, RetrieveAPIView, DestroyAPIView
+from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from django_filters import rest_framework
 from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification
-from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer, 
-                          InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer, 
-                          DailyStepsSerializer, WorkoutActivitySerializer,PurchaseSerializer, 
+from .filters import EmployeeFilterSet
+from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
+                          InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
+                          DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
-                          NotifSerializer)
+                          NotifSerializer, EmployeeSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
                      League, Gem, DrawImage, Notif)
@@ -44,6 +50,11 @@ import tempfile
 import os
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
+import logging
+from .permissions import IsCompanyOwner
+
+# Set up logging
+logger = logging.getLogger(__name__)
 # from notifications.utils import send_notification
 
 
@@ -2018,7 +2029,7 @@ class CompanyDashboardView(APIView):
         # )
         # Get recent feed items (high performers and milestones)
         # TODO: probably add websocket consumer version of this
-        recent_feeds = Feed.objects.filter(
+        recent_feeds = Feed.objects.select_related("user").filter(
             user__membership__company=company,
             feed_type__in=['Milestone', 'Promotion'],
             created_at__gte=thirty_days_ago
@@ -2027,15 +2038,18 @@ class CompanyDashboardView(APIView):
         response_data = {
             'company_stats': {
                 'total_employees': total_employees,
+                # TODO(1): maybe use a different endpoint so that we can filter it by date
                 'avg_xp_per_user': company_xp['avg_xp_per_user'] or 0,
                 'global_avg_xp': global_avg_xp,
             },
+            # TODO: same as TODO(1)
             'daily_stats': list(daily_stats),
             'recent_activities': [
                 {
+                    'user': EmployeeSerializer(feed.user).data,
                     'type': feed.feed_type,
                     'content': feed.content,
-                    'timestamp': feed.created_at
+                    'timestamp': feed.created_at,
                 } for feed in recent_feeds
             ]
         }
@@ -2051,20 +2065,66 @@ class NotificationPagination(PageNumberPagination):
 
 class NotificationsView(APIView):
     pagination_class = NotificationPagination  # Assign the pagination class here
-    
+
     def get(self, request):
         # Get the current user
         user = request.user
-        
+
         # Fetch notifications for the user, ordered by created_at (most recent first)
         notifications = Notif.objects.filter(user=user).order_by('-created_at')
-        
+
         # Paginate the results
         paginator = self.pagination_class()
         result_page = paginator.paginate_queryset(notifications, request)
-        
+
         # Serialize the paginated results using NotifSerializer
         serializer = NotifSerializer(result_page, many=True, context={'request': request})
-        
+
         # Return the paginated response
         return paginator.get_paginated_response(serializer.data)
+
+
+class EmployeeByCompanyModelDetailsView(RetrieveAPIView, DestroyAPIView):
+    permission_classes = [IsCompanyOwner]
+    serializer_class = EmployeeSerializer
+
+    def get_queryset(self):
+        company_id = self.kwargs['company_id']
+        return CustomUser.objects.filter(company_id=company_id, membership__role="employee")
+
+    def handle_exception(self, exc):
+        if isinstance(exc, (ValueError, KeyError)):
+            # Log the error
+            logger.error(f"Exception occurred: {exc}")
+            # Return a 500 Internal Server Error response
+            return Response({"error": "An internal server error occurred."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return super().handle_exception(exc)
+
+class EmployeeByCompanyModelView(ListAPIView):
+    permission_classes = [IsCompanyOwner]
+    serializer_class = EmployeeSerializer
+    filter_backends = [rest_framework.DjangoFilterBackend]
+    filterset_class = EmployeeFilterSet
+
+    def get_queryset(self):
+        company_id = self.kwargs['company_id']
+        return CustomUser.objects.filter(company_id=company_id, membership__role="employee").order_by('id')
+
+    def handle_exception(self, exc):
+        if isinstance(exc, (ValueError, KeyError)):
+            # Log the error
+            logger.error(f"Exception occurred: {exc}")
+            # Return a 500 Internal Server Error response
+            return Response({"error": "An internal server error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return super().handle_exception(exc)
+
+class EmployeeAdminModelView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = EmployeeSerializer
+    # TODO: filtering
+    filterset_class = EmployeeFilterSet
+
+    def get_queryset(self):
+        # should be by employee too
+        return CustomUser.objects.filter(membership__role="employee")
