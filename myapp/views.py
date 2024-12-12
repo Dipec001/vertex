@@ -44,6 +44,7 @@ import tempfile
 import os
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
+# from notifications.utils import send_notification
 
 
 class StreakRateThrottle(UserRateThrottle):
@@ -1635,6 +1636,9 @@ class FollowToggleAPIView(APIView):
         if not created:
             follow_instance.delete()
             return Response({"message": "Unfollowed"}, status=status.HTTP_200_OK)
+        
+        # Send follow notification 
+        # send_notification(user_to_follow, "New Follower", f"{request.user.username} started following you.", "follow")
 
         return Response({"message": "Followed"}, status=status.HTTP_201_CREATED)
     
@@ -1665,6 +1669,10 @@ class ClapToggleAPIView(APIView):
         if not created:
             clap_instance.delete()
             return Response({"message": "Unclapped"}, status=status.HTTP_200_OK)
+        
+        # Send clap notification 
+        # send_notification(feed_creator, "New Clap", f"{current_user.username} clapped your feed.", "clap")
+
         return Response({"message": "Clapped"}, status=status.HTTP_201_CREATED)
 
 
@@ -1842,6 +1850,7 @@ class GlobalLeagueStatusView(APIView):
         global_leagues = UserLeague.objects.filter(
             user=user, league_instance__company__isnull=True
         ).select_related('league_instance').order_by('-league_instance__league_end')
+        print(global_leagues)
 
         if global_leagues.count() < 2: 
             return Response({"error": "No previous global league found for the user"}, status=404) 
@@ -1872,7 +1881,7 @@ class GlobalLeagueStatusView(APIView):
                     "league_id": league_instance.id,
                     "league_name": league_instance.league.name,
                     "league_level": 11 - league_instance.league.order,
-                    "league_end": league_instance.league_end,
+                    "league_end": league_instance.league_end.isoformat(timespec='milliseconds') + 'Z',
                     "status": status,
                     "rank": index
                 }
@@ -1890,7 +1899,7 @@ class CompanyLeagueStatusView(APIView):
         ).select_related('league_instance').order_by('-league_instance__league_end')
 
         if company_leagues.count() < 2: 
-            return Response({"error": "No previous global league found for the user"}, status=404) 
+            return Response({"error": "No previous company league found for the user"}, status=404) 
         
         company_league = company_leagues[1] # Get the second-to-last league instance
 
@@ -1918,7 +1927,7 @@ class CompanyLeagueStatusView(APIView):
                     "league_id": league_instance.id,
                     "league_name": league_instance.league.name,
                     "league_level": 11 - league_instance.league.order,
-                    "league_end": league_instance.league_end,
+                    "league_end": league_instance.league_end.isoformat(timespec='milliseconds') + 'Z',
                     "status": status,
                     "rank": index
                 }
@@ -1927,7 +1936,7 @@ class CompanyLeagueStatusView(APIView):
 
 
 
-# views.py
+# TO BE REMOVED
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status

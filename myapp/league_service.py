@@ -42,7 +42,7 @@ def promote_user(user, gems_obtained, current_league_instance):
             try:
                 UserLeague.objects.create(user=user, league_instance=next_league_instance, xp_global=0)
                 print(f'user promoted to {next_league} successfully')
-                current_league_instance.userleague_set.filter(user=user).delete()
+                # current_league_instance.userleague_set.filter(user=user).delete()
                 return f"{user.username} has been promoted to {next_league.name}"
             except IntegrityError:
                 return f"{user.username} is already in the target league instance."
@@ -70,7 +70,7 @@ def promote_user(user, gems_obtained, current_league_instance):
 
             try:
                 UserLeague.objects.create(user=user, league_instance=highest_league_instance, xp_global=0)
-                current_league_instance.userleague_set.filter(user=user).delete()
+                # current_league_instance.userleague_set.filter(user=user).delete()
                 print("user has been added to an instance of the highest instance")
                 return f"{user.username} has been reassigned within the highest league: {current_league.name}."
             except IntegrityError:
@@ -109,7 +109,7 @@ def demote_user(user, gems_obtained, current_league_instance):
             try:
                 UserLeague.objects.create(user=user, league_instance=previous_league_instance, xp_global=0)
                 # Deactivate the current league membership by deleting the current UserLeague entry
-                current_league_instance.userleague_set.filter(user=user).delete()
+                # current_league_instance.userleague_set.filter(user=user).delete()
                 return f"{user.username} has been demoted to {previous_league.name}"
             except IntegrityError:
                 return f"{user.username} is already in the target league instance."
@@ -137,7 +137,7 @@ def demote_user(user, gems_obtained, current_league_instance):
 
             try:
                 UserLeague.objects.create(user=user, league_instance=lowest_league_instance, xp_global=0)
-                current_league_instance.userleague_set.filter(user=user).delete()
+                # current_league_instance.userleague_set.filter(user=user).delete()
                 print(f"{user.username} has been reassigned to another lowest league instance")
                 return f"{user.username} has been reassigned within the lowest league: {current_league.name}."
             except IntegrityError:
@@ -187,7 +187,7 @@ def retain_user(user, gems_obtained, current_league_instance):
             UserLeague.objects.create(user=user, league_instance=retain_league_instance, xp_global=0)
             # Remove the user from the old league instance
             # current_user_league.delete()
-            current_league_instance.userleague_set.filter(user=user).delete()
+            # current_league_instance.userleague_set.filter(user=user).delete()
             print(f"{user.username} has been retained within the league: {current_league.name}.")
             return f"{user.username} has been retained within the league: {current_league.name}."
         except IntegrityError as e:
@@ -248,7 +248,7 @@ def promote_company_user(user,gems_obtained, current_league_instance):
 
             try:
                 UserLeague.objects.create(user=user, league_instance=next_league_instance, xp_company=0)
-                current_league_instance.userleague_set.filter(user=user).delete()
+                # current_league_instance.userleague_set.filter(user=user).delete()
                 print('current league instance deleted')
                 return f"{user.username} has been promoted to {next_league.name}"
             except IntegrityError:
@@ -276,7 +276,7 @@ def promote_company_user(user,gems_obtained, current_league_instance):
 
             try:
                 UserLeague.objects.create(user=user, league_instance=current_instance, xp_company=0)
-                current_league_instance.userleague_set.filter(user=user).delete()
+                # current_league_instance.userleague_set.filter(user=user).delete()
                 print('current league instance deleted')
                 return f"{user.username} is reassigned within the highest league level: {current_league.name}."
             except IntegrityError:
@@ -297,7 +297,7 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
         add_manual_gem(user=user, manual_gem_count=gems_obtained, date=timezone.now().date())
 
         if previous_league:
-            current_league_instance.userleague_set.filter(user=user).delete()
+            # current_league_instance.userleague_set.filter(user=user).delete()
 
             previous_league_instance = (
                 LeagueInstance.objects
@@ -341,7 +341,7 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
             try:
                 UserLeague.objects.create(user=user, league_instance=lowest_league_instance, xp_company=0)
                 print(f"User {user.username} demoted to league {lowest_league_instance.league}")
-                current_league_instance.userleague_set.filter(user=user).delete()
+                # current_league_instance.userleague_set.filter(user=user).delete()
                 return f"{user.username} is reassigned within the lowest league: {current_league.name}."
             except IntegrityError:
                 return f"{user.username} is already in the target league instance."
@@ -383,7 +383,7 @@ def retain_company_user(user,gems_obtained,  current_league_instance):
         try:
             UserLeague.objects.create(user=user, league_instance=retain_league_instance, xp_company=0)
             print(f"User {user.username} reassigned to league {retain_league_instance.league}")
-            current_league_instance.userleague_set.filter(user=user).delete()
+            # current_league_instance.userleague_set.filter(user=user).delete()
             return f"{user.username} has been retained within the company league: {current_league.name}."
         except IntegrityError:
             return f"{user.username} is already in the target company league instance."
