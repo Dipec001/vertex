@@ -1858,12 +1858,15 @@ class GlobalLeagueStatusView(APIView):
     def get(self, request):
         user = request.user
         # Get the last global league instance for the user, sorted by league_end date
-        # Fetch the most recent active global league instance for the user
-        global_league = UserLeague.objects.filter(
-            user=user, 
-            league_instance__company__isnull=True,
-            league_instance__is_active=False  # Only get not active league instances
-        ).select_related('league_instance').order_by('-league_instance__league_end').first()
+        global_leagues = UserLeague.objects.filter(
+            user=user, league_instance__company__isnull=True
+        ).select_related('league_instance').order_by('-league_instance__league_end')
+        print(global_leagues)
+
+        if global_leagues.count() < 2: 
+            return Response({"error": "No previous global league found for the user"}, status=404) 
+        
+        global_league = global_leagues[1] # Get the second-to-last league instance
 
         data = self.get_league_status(global_league, user)
         return Response(data, status=status.HTTP_200_OK)
@@ -1914,10 +1917,14 @@ class CompanyLeagueStatusView(APIView):
     def get(self, request):
         user = request.user
         # Get the last global league instance for the user, sorted by league_end date
-        company_league = UserLeague.objects.filter(
-            user=user, league_instance__company__isnull=False, league_instance__is_active=False
-        ).select_related('league_instance').order_by('-league_instance__league_end').first()
+        company_leagues = UserLeague.objects.filter(
+            user=user, league_instance__company__isnull=False
+        ).select_related('league_instance').order_by('-league_instance__league_end')
 
+        if company_leagues.count() < 2: 
+            return Response({"error": "No previous company league found for the user"}, status=404) 
+        
+        company_league = company_leagues[1] # Get the second-to-last league instance
 
         data = self.get_league_status(company_league, user)
         return Response(data, status=status.HTTP_200_OK)
