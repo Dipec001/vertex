@@ -316,6 +316,9 @@ def process_league_promotions(self):
     # expired_leagues.update(is_active=False)
 
     for league in expired_leagues:
+        is_highest_league = league.league.order == 10
+        is_lowest_league = league.league.order == 1
+
         users_in_league = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_global', '-user__streak', 'id')
         total_users = users_in_league.count()
 
@@ -332,8 +335,6 @@ def process_league_promotions(self):
             user = user_league.user
             logger.info(f'Processing user {user.id} in league {league.id}')
 
-            is_highest_league = league.league.order == 10
-            is_lowest_league = league.league.order == 1
             notif_type = ""
             content = ""
 
@@ -450,12 +451,13 @@ def process_company_league_promotions(self):
         lowest_league_order = approved_leagues.first().league.order
         highest_league_order = approved_leagues.last().league.order
 
+        is_highest_league = league.league.order == highest_league_order
+        is_lowest_league = league.league.order == lowest_league_order
+
         for rank, user_league in enumerate(users_in_league, start=1):
             user = user_league.user
             logger.info(f"Processing user {user.id} in league {league.id}")
 
-            is_highest_league = league.league.order == highest_league_order
-            is_lowest_league = league.league.order == lowest_league_order
             notif_type = ""
             content = ""
 
@@ -599,12 +601,12 @@ def send_status_update(user_ids, league_id, status, is_lowest_league, is_highest
                 "advancement": advancement
             })
         
-        league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
+        # league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
         data_for_status = {
             "league_id": league.id,
             "league_name": league.league.name,
             "league_level": 11 - league.league.order,
-            "league_end": league_end,
+            "league_end": league.league_end,
         }
 
         # Send status updates for the just concluded league

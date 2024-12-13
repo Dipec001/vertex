@@ -1858,15 +1858,12 @@ class GlobalLeagueStatusView(APIView):
     def get(self, request):
         user = request.user
         # Get the last global league instance for the user, sorted by league_end date
-        global_leagues = UserLeague.objects.filter(
-            user=user, league_instance__company__isnull=True
-        ).select_related('league_instance').order_by('-league_instance__league_end')
-        print(global_leagues)
-
-        if global_leagues.count() < 2: 
-            return Response({"error": "No previous global league found for the user"}, status=404) 
-        
-        global_league = global_leagues[1] # Get the second-to-last league instance
+        # Fetch the most recent active global league instance for the user
+        global_league = UserLeague.objects.filter(
+            user=user, 
+            league_instance__company__isnull=True,
+            league_instance__is_active=False  # Only get not active league instances
+        ).select_related('league_instance').order_by('-league_instance__league_end').first()
 
         data = self.get_league_status(global_league, user)
         return Response(data, status=status.HTTP_200_OK)
@@ -1879,20 +1876,32 @@ class GlobalLeagueStatusView(APIView):
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
 
+        is_highest_league = league_instance.league.order == 10
+        is_lowest_league = league_instance.league.order == 1
+
         for index, ul in enumerate(rankings, start=1):
             if ul.user == user:
-                if index <= promotion_threshold:
-                    status = "Promoted"
-                elif index <= demotion_threshold:
+                # Highest league logic
+                if is_highest_league:
                     status = "Retained"
+                elif is_lowest_league:
+                    if index <= promotion_threshold:
+                        status = "Promoted"
+                    else:
+                        status = "Retained"
                 else:
-                    status = "Demoted"
+                    if index <= promotion_threshold:
+                        status = "Promoted"
+                    elif index <= demotion_threshold:
+                        status = "Retained"
+                    else:
+                        status = "Demoted"
 
                 return {
                     "league_id": league_instance.id,
                     "league_name": league_instance.league.name,
                     "league_level": 11 - league_instance.league.order,
-                    "league_end": league_instance.league_end.isoformat(timespec='milliseconds') + 'Z',
+                    "league_end": league_instance.league_end,
                     "status": status,
                     "rank": index
                 }
@@ -1905,19 +1914,16 @@ class CompanyLeagueStatusView(APIView):
     def get(self, request):
         user = request.user
         # Get the last global league instance for the user, sorted by league_end date
-        company_leagues = UserLeague.objects.filter(
-            user=user, league_instance__company__isnull=False
-        ).select_related('league_instance').order_by('-league_instance__league_end')
+        company_league = UserLeague.objects.filter(
+            user=user, league_instance__company__isnull=False, league_instance__is_active=False
+        ).select_related('league_instance').order_by('-league_instance__league_end').first()
 
-        if company_leagues.count() < 2: 
-            return Response({"error": "No previous company league found for the user"}, status=404) 
-        
-        company_league = company_leagues[1] # Get the second-to-last league instance
 
         data = self.get_league_status(company_league, user)
         return Response(data, status=status.HTTP_200_OK)
 
     def get_league_status(self, league, user):
+
         league_instance = league.league_instance
         rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
 
@@ -1925,20 +1931,37 @@ class CompanyLeagueStatusView(APIView):
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
 
+        # Get the highest and lowest league orders for the company
+        approved_leagues = LeagueInstance.objects.filter(company=league_instance.company, is_active=True)
+        lowest_league_order = approved_leagues.first().league.order
+        highest_league_order = approved_leagues.last().league.order
+
+        is_highest_league = league_instance.league.order == highest_league_order
+        is_lowest_league = league_instance.league.order == lowest_league_order
+
         for index, ul in enumerate(rankings, start=1):
             if ul.user == user:
-                if index <= promotion_threshold:
-                    status = "Promoted"
-                elif index <= demotion_threshold:
+                # Highest league logic
+                if is_highest_league:
                     status = "Retained"
+                elif is_lowest_league:
+                    if index <= promotion_threshold:
+                        status = "Promoted"
+                    else:
+                        status = "Retained"
                 else:
-                    status = "Demoted"
+                    if index <= promotion_threshold:
+                        status = "Promoted"
+                    elif index <= demotion_threshold:
+                        status = "Retained"
+                    else:
+                        status = "Demoted"
 
                 return {
                     "league_id": league_instance.id,
                     "league_name": league_instance.league.name,
                     "league_level": 11 - league_instance.league.order,
-                    "league_end": league_instance.league_end.isoformat(timespec='milliseconds') + 'Z',
+                    "league_end": league_instance.league_end,
                     "status": status,
                     "rank": index
                 }
