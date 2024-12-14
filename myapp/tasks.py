@@ -618,11 +618,12 @@ def send_status_update(user_ids, league_id, status, is_lowest_league, is_highest
                 "advancement": advancement
             })
         
+        league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
         data_for_status = {
             "league_id": league.id,
             "league_name": league.league.name,
             "league_level": 11 - league.league.order,
-            "league_end": league.league_end.isoformat(timespec='milliseconds') + 'Z',
+            "league_end": league_end
         }
 
         # Send status updates for the just concluded league
@@ -703,8 +704,8 @@ def send_next_league_update(user_ids, league_id):
                 # Find the current user's rank
                 user_rank = next((index for index, r in enumerate(next_rankings_data, start=1) if r["user_id"] == user.id), None)
                 
-                next_league_start = next_league_instance.league_start
-                next_league_end = next_league_instance.league_end
+                next_league_start = next_league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
+                next_league_end = next_league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
                 data = {
                     "league_id": next_league_instance.id,
                     "league_name": next_league_instance.league.name,
