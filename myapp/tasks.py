@@ -618,12 +618,11 @@ def send_status_update(user_ids, league_id, status, is_lowest_league, is_highest
                 "advancement": advancement
             })
         
-        # league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
         data_for_status = {
             "league_id": league.id,
             "league_name": league.league.name,
             "league_level": 11 - league.league.order,
-            "league_end": league.league_end,
+            "league_end": league.league_end.isoformat(timespec='milliseconds') + 'Z',
         }
 
         # Send status updates for the just concluded league
