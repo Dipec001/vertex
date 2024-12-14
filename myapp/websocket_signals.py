@@ -41,9 +41,13 @@ def broadcast_global_league_ranking_update(sender, instance, **kwargs):
     rankings_data = []
     for index, ul in enumerate(rankings, start=1):
         if is_highest_league:
-            # Highest league: users can only be retained
-            advancement = "Retained"
-            gems_obtained = 10
+            # Highest league: users can only be retained or demoted
+            if index <= demotion_threshold:
+                advancement = "Retained"
+                gems_obtained = 10
+            else:
+                advancement = "Demoted"
+                gems_obtained = 0  # No gems for demoted users
         elif is_lowest_league:
             # Lowest league: users can be promoted based on ranking (top 30%)
             if index <= promotion_threshold:
@@ -154,30 +158,47 @@ def broadcast_company_league_ranking_update(sender, instance, **kwargs):
     promotion_threshold = int(total_users * 0.30)  # Top 30%
     demotion_threshold = int(total_users * 0.80)  # Bottom 20%
 
+    is_highest_league = league_instance.league.order == highest_league_order
+    is_lowest_league = league_instance.league.order == lowest_league_order
+
     rankings_data = []
     for index, ul in enumerate(rankings, start=1):
-        is_highest_league = league_instance.league.order == highest_league_order
-        is_lowest_league = league_instance.league.order == lowest_league_order
 
-        # Determine advancement status
-        if total_users <= 3:
-            if ul.xp_company == 0:
-                advancement = "Demoted" if not is_lowest_league else "Retained"
-                gems_obtained = 0
-            else:
-                advancement = "Retained" if is_highest_league else "Promoted"
-                gems_obtained = 10
-        else:
-            # Standard promotion/retention/demotion logic
-            if index <= promotion_threshold and not is_highest_league:
-                gems_obtained = 20 - (index - 1) * 2
-                advancement = "Promoted"
-            elif index <= demotion_threshold or is_highest_league:
-                gems_obtained = 10
+        if is_highest_league:
+            # Highest league: users can only be retained or demoted
+            if index <= demotion_threshold:
                 advancement = "Retained"
+                gems_obtained = 10
             else:
-                gems_obtained = 0 if not is_lowest_league else 10
-                advancement = "Demoted" if not is_lowest_league else "Retained"
+                advancement = "Demoted"
+                gems_obtained = 0  # No gems for demoted users
+        elif is_lowest_league:
+            # Lowest league: users can be promoted based on ranking (top 30%)
+            if index <= promotion_threshold:
+                advancement = "Promoted"
+                gems_obtained = 20 - (index - 1) * 2  # Rewards for promotion (adjust as needed)
+            else:
+                advancement = "Retained"
+                gems_obtained = 10 if ul.xp_global > 0 else 0  # Retained users get a base reward
+        else:
+            # Determine advancement status
+            if total_users <= 3:
+                if ul.xp_global == 0:
+                    advancement = "Demoted"
+                    gems_obtained = 0
+                else:
+                    advancement = "Retained"
+                    gems_obtained = 10
+            else:
+                if index <= promotion_threshold:
+                    gems_obtained = 20 - (index - 1) * 2  # Reward for promotion
+                    advancement = "Promoted"
+                elif index <= demotion_threshold:
+                    gems_obtained = 10  # Retained users get a base reward
+                    advancement = "Retained"
+                else:
+                    gems_obtained = 0  # Demoted users receive no gems
+                    advancement = "Demoted"
 
         # Prefix for S3 bucket URL
         s3_bucket_url = "https://video-play-api-bucket.s3.amazonaws.com/"

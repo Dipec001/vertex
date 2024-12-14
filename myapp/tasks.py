@@ -339,10 +339,19 @@ def process_league_promotions(self):
             content = ""
 
             if is_highest_league:
-                gems_obtained = 10
-                status = "Retained"
-                notif_type = "league_retained"
-                content = f"You have been retained in Global League {11 - league.league.order} ({league.league.name})"
+                # Highest league: users can only be retained or demoted
+                if rank <= demotion_threshold:
+                    status = "Retained"
+                    gems_obtained = 10
+                    notif_type = "league_retained"
+                    content = f"You have been retained in Global League {11 - league.league.order} ({league.league.name})"
+                    retain_user(user, gems_obtained, league)
+                else:
+                    status = "Demoted"
+                    gems_obtained = 0  # No gems for demoted users
+                    notif_type = "league_demotion"
+                    content = f"You have been demoted to Global League {11 - league.league.order} ({league.league.name})"
+                    demote_user(user, gems_obtained, league)
                
             elif is_lowest_league:
                 if rank <= promotion_threshold:
@@ -462,11 +471,19 @@ def process_company_league_promotions(self):
             content = ""
 
             if is_highest_league:
-                gems_obtained = 10
-                status = "Retained"
-                notif_type = "league_retained"
-                content = f"You have been retained in company League {11 - league.league.order} ({league.league.name})"
-                retain_company_user(user, gems_obtained, league)
+                # Highest league: users can only be retained or demoted
+                if rank <= demotion_threshold:
+                    status = "Retained"
+                    gems_obtained = 10
+                    notif_type = "league_retained"
+                    content = f"You have been retained in Global League {11 - league.league.order} ({league.league.name})"
+                    retain_company_user(user, gems_obtained, league)
+                else:
+                    status = "Demoted"
+                    gems_obtained = 0  # No gems for demoted users
+                    notif_type = "league_demotion"
+                    content = f"You have been demoted to Global League {11 - league.league.order} ({league.league.name})"
+                    demote_company_user(user, gems_obtained, league)
             elif is_lowest_league:
                 if rank <= promotion_threshold:
                     gems_obtained = 20 - (rank - 1) * 2
@@ -683,15 +700,19 @@ def send_next_league_update(user_ids, league_id):
                         "rank": idx,
                         "advancement": "TBD"  # Update this based on the new rankings logic if necessary
                     })
+
+                # Find the current user's rank
+                user_rank = next((index for index, r in enumerate(next_rankings_data, start=1) if r["user_id"] == user.id), None)
                 
-                next_league_start = next_league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
-                next_league_end = next_league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
+                next_league_start = next_league_instance.league_start
+                next_league_end = next_league_instance.league_end
                 data = {
                     "league_id": next_league_instance.id,
                     "league_name": next_league_instance.league.name,
                     "league_level": 11 - next_league_instance.league.order,
                     "league_start": next_league_start,
                     "league_end": next_league_end,
+                    "user_rank": user_rank,
                     "rankings": next_rankings_data,
                 }
                 
