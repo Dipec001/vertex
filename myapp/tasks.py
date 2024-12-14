@@ -330,6 +330,7 @@ def process_league_promotions(self):
         bulk_updates = [] 
         notifications = [] 
         channel_messages = []
+        gems_data = [] # Collect gems data
 
         for rank, user_league in enumerate(users_in_league, start=1):
             user = user_league.user
@@ -337,6 +338,8 @@ def process_league_promotions(self):
 
             notif_type = ""
             content = ""
+            gems_obtained = 0 # Default to 0
+
 
             if is_highest_league:
                 # Highest league: users can only be retained or demoted
@@ -413,6 +416,14 @@ def process_league_promotions(self):
                 'channel_name': f'gem_{user.id}', 
             })
 
+            # Collect gems data 
+            gems_data.append(
+                { 
+                    "user_id": user.id, 
+                    "gems_obtained": gems_obtained 
+                }
+            )
+
         UserLeague.objects.bulk_update(bulk_updates, ['xp_global']) 
         Notif.objects.bulk_create(notifications)
 
@@ -423,11 +434,11 @@ def process_league_promotions(self):
         user_ids = [user_league.user.id for user_league in users_in_league]
         logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {user_ids}')
 
-        send_next_league_update.delay(user_ids, league.id)
+        send_status_update.delay(user_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
+
+        send_next_league_update.delay(user_ids, league.id, gems_data)
 
         send_gem_update.delay(channel_messages)
-
-        send_status_update.delay(user_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
     
     logger.info("Completed processing expired leagues.")
 
@@ -454,6 +465,7 @@ def process_company_league_promotions(self):
         bulk_updates = [] 
         notifications = [] 
         channel_messages = []
+        gems_data = [] # Collect gems data
 
         # Get the highest and lowest league orders for the company
         approved_leagues = LeagueInstance.objects.filter(company=league.company, is_active=True)
@@ -469,6 +481,7 @@ def process_company_league_promotions(self):
 
             notif_type = ""
             content = ""
+            gems_obtained = 0 # Default to 0
 
             if is_highest_league:
                 # Highest league: users can only be retained or demoted
@@ -544,6 +557,14 @@ def process_company_league_promotions(self):
                 'channel_name': f'gem_{user.id}', 
             })
 
+            # Collect gems data 
+            gems_data.append(
+                { 
+                    "user_id": user.id, 
+                    "gems_obtained": gems_obtained 
+                }
+            )
+
         UserLeague.objects.bulk_update(bulk_updates, ['xp_company']) 
         Notif.objects.bulk_create(notifications)
 
@@ -554,12 +575,11 @@ def process_company_league_promotions(self):
         user_ids = [user_league.user.id for user_league in users_in_league]
         logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {user_ids}')
 
-        send_next_league_update.delay(user_ids, league.id)
-
-        send_gem_update.delay(channel_messages)
-
         send_status_update.delay(user_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
 
+        send_next_league_update.delay(user_ids, league.id, gems_data)
+
+        send_gem_update.delay(channel_messages)
 
 
 @shared_task
@@ -649,7 +669,7 @@ def send_status_update(user_ids, league_id, status, is_lowest_league, is_highest
         logger.error(f'Error occurred: {e}', exc_info=True)
 
 @shared_task
-def send_next_league_update(user_ids, league_id):
+def send_next_league_update(user_ids, league_id, gems_data):
     try:
         logger.info('sending next league info')
         users_in_league = CustomUser.objects.filter(id__in=user_ids)
@@ -691,6 +711,7 @@ def send_next_league_update(user_ids, league_id):
 
                 next_rankings_data = []
                 for idx, ul in enumerate(next_rankings, start=1):
+                    gems_obtained = next((item['gems_obtained'] for item in gems_data if item['user_id'] == ul.user.id), 0)
                     next_rankings_data.append({
                         "user_id": ul.user.id,
                         "username": ul.user.username,
@@ -698,6 +719,7 @@ def send_next_league_update(user_ids, league_id):
                         "xp": ul.xp_company if league_type == 'company' else ul.xp_global,
                         "streaks": ul.user.streak,
                         "rank": idx,
+                        "gems_obtained": gems_obtained,
                         "advancement": "TBD"  # Update this based on the new rankings logic if necessary
                     })
 
