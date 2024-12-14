@@ -20,9 +20,14 @@ logger = logging.getLogger(__name__)
 
 CustomUser = get_user_model()
 class EmployeeSerializer(serializers.ModelSerializer):
+    downloaded_the_app = serializers.SerializerMethodField()
     class Meta:
         model = CustomUser
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', "company",
+                  "downloaded_the_app", "last_login"]
+
+    def get_downloaded_the_app(self, obj: CustomUser):
+        return obj.last_login is not None
 
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
