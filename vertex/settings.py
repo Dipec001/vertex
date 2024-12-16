@@ -19,6 +19,9 @@ from celery.schedules import crontab
 import sentry_sdk
 from firebase_admin import initialize_app
 from kombu import Queue
+import firebase_admin
+from firebase_admin import credentials
+
 # Import your custom logging configuration 
 # from .logging import LOGGING
 
@@ -55,6 +58,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "myapp",
+    'notifications',
     'rest_framework',
     'rest_framework_simplejwt',
     # 'rest_framework_simplejwt.token_blacklist',  # Add token_blacklist app
@@ -403,6 +407,18 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': timedelta(seconds=5), # Every 10 seconds
         'options': {'queue': 'priority_high'}
     },
+    # 'notify-draw-one-day-before': {
+    #     'task': 'notifications.tasks.notify_draw_one_day_before',
+    #     'schedule': crontab(hour=3, minute=0),  # Runs daily at 3 AM UTC
+    # },
+    # 'notify-draw-one-hour-before': {
+    #     'task': 'notifications.tasks.notify_draw_one_hour_before',
+    #     'schedule': crontab(minute=0),  # Runs at the start of every hour
+    # },
+    # 'notify-draw-live': {
+    #     'task': 'notifications.tasks.notify_draw_live',
+    #     'schedule': crontab(minute=0),  # Runs at the start of every hour
+    # },
 }
 
 
@@ -420,32 +436,30 @@ CELERY_BEAT_SCHEDULE = {
 # )
 
 
-# import firebase_admin
-# from firebase_admin import credentials
 
-# # Path to the service account file
-# SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'vertex-3d035-firebase-adminsdk-6an7v-0ef36d7759.json')
+# Path to the service account file
+SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'activityrewardsanalytics-firebase-adminsdk-2jcxu-5f8fc00b19.json')
 
-# # Initialize Firebase Admin with the service account credentials
-# cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
-# firebase_admin.initialize_app(cred)
+# Initialize Firebase Admin with the service account credentials
+cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
+firebase_admin.initialize_app(cred)
 
-# FCM_DJANGO_SETTINGS = {
-#      # an instance of firebase_admin.App to be used as default for all fcm-django requests
-#      # default: None (the default Firebase app)
-#     "DEFAULT_FIREBASE_APP": None,
-#      # default: _('FCM Django')
-#     "APP_VERBOSE_NAME": "My Notification Service",
-#      # true if you want to have only one active device per registered user at a time
-#      # default: False
-#     "ONE_DEVICE_PER_USER": True,
-#      # devices to which notifications cannot be sent,
-#      # are deleted upon receiving error response from FCM
-#      # default: False
-#     "DELETE_INACTIVE_DEVICES": True,
-# }
+FCM_DJANGO_SETTINGS = {
+     # an instance of firebase_admin.App to be used as default for all fcm-django requests
+     # default: None (the default Firebase app)
+    "DEFAULT_FIREBASE_APP": None,
+     # default: _('FCM Django')
+    "APP_VERBOSE_NAME": "My Notification Service",
+     # true if you want to have only one active device per registered user at a time
+     # default: False
+    "ONE_DEVICE_PER_USER": True,
+     # devices to which notifications cannot be sent,
+     # are deleted upon receiving error response from FCM
+     # default: False
+    "DELETE_INACTIVE_DEVICES": True,
+}
 
-import os
+
 
 # LOGGING = {
 #     'version': 1,
