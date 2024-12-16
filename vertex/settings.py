@@ -21,6 +21,8 @@ from firebase_admin import initialize_app
 from kombu import Queue
 import firebase_admin
 from firebase_admin import credentials
+import boto3 
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
 # Import your custom logging configuration 
 # from .logging import LOGGING
@@ -435,13 +437,21 @@ CELERY_BEAT_SCHEDULE = {
 #     },
 # )
 
+S3_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+S3_FILE_NAME = os.getenv("S3_FILE_NAME")
 
-
-# Path to the service account file
-SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'activityrewardsanalytics-firebase-adminsdk-2jcxu-5f8fc00b19.json')
+LOCAL_FILE_PATH = os.path.join(BASE_DIR, S3_FILE_NAME)
+# Download the file from S3 
+s3 = boto3.client('s3') 
+try: 
+    s3.download_file(S3_BUCKET_NAME, S3_FILE_NAME, LOCAL_FILE_PATH) 
+except (NoCredentialsError, PartialCredentialsError) as e: 
+    print("Error downloading from S3:", e) 
+except Exception as e: 
+    print("Error downloading from S3:", e)
 
 # Initialize Firebase Admin with the service account credentials
-cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
+cred = credentials.Certificate(LOCAL_FILE_PATH)
 firebase_admin.initialize_app(cred)
 
 FCM_DJANGO_SETTINGS = {
