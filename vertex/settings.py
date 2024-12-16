@@ -438,22 +438,28 @@ CELERY_BEAT_SCHEDULE = {
 
 S3_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 S3_FILE_NAME = os.getenv("S3_FILE_NAME")
+# Check if S3_FILE_NAME is available
 if S3_FILE_NAME:
     LOCAL_FILE_PATH = os.path.join(BASE_DIR, S3_FILE_NAME)
     print(f"LOCAL_FILE_PATH: {LOCAL_FILE_PATH}")
-# Download the file from S3 
-s3 = boto3.client('s3') 
-try: 
-    s3.download_file(S3_BUCKET_NAME, S3_FILE_NAME, LOCAL_FILE_PATH) 
-    print(f"Downloaded {S3_FILE_NAME} to {LOCAL_FILE_PATH}")
-except (NoCredentialsError, PartialCredentialsError) as e: 
-    print("Error downloading from S3:", e) 
-except Exception as e: 
-    print("Error downloading from S3:", e)
 
-# Initialize Firebase Admin with the service account credentials
-cred = credentials.Certificate(LOCAL_FILE_PATH)
-firebase_admin.initialize_app(cred)
+    # Download the file from S3
+    s3 = boto3.client('s3')
+    try:
+        s3.download_file(S3_BUCKET_NAME, S3_FILE_NAME, LOCAL_FILE_PATH)
+        print(f"Downloaded {S3_FILE_NAME} to {LOCAL_FILE_PATH}")
+
+        # Initialize Firebase Admin with the service account credentials
+        cred = credentials.Certificate(LOCAL_FILE_PATH)
+        firebase_admin.initialize_app(cred)
+
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        print("Error downloading from S3 due to credential issues:", e)
+    except Exception as e:
+        print("Error downloading from S3:", e)
+
+else:
+    print("S3_FILE_NAME is not set. Skipping S3 file download and Firebase initialization.")
 
 FCM_DJANGO_SETTINGS = {
      # an instance of firebase_admin.App to be used as default for all fcm-django requests
