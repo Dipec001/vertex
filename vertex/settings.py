@@ -148,8 +148,6 @@ WSGI_APPLICATION = "vertex.wsgi.application"
 ASGI_APPLICATION = "vertex.asgi.application"
 
 
-import os
-
 # Retrieve the Redis URL from environment variables
 REDIS_URL = os.getenv('REDIS_URL')  # This is usually set by your cloud provider like Heroku
 
@@ -437,14 +435,17 @@ CELERY_BEAT_SCHEDULE = {
 #     },
 # )
 
+print(f"BASE_DIR: {BASE_DIR}")
 S3_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 S3_FILE_NAME = os.getenv("S3_FILE_NAME")
 
 LOCAL_FILE_PATH = os.path.join(BASE_DIR, S3_FILE_NAME)
+print(f"LOCAL_FILE_PATH: {LOCAL_FILE_PATH}")
 # Download the file from S3 
 s3 = boto3.client('s3') 
 try: 
     s3.download_file(S3_BUCKET_NAME, S3_FILE_NAME, LOCAL_FILE_PATH) 
+    print(f"Downloaded {S3_FILE_NAME} to {LOCAL_FILE_PATH}")
 except (NoCredentialsError, PartialCredentialsError) as e: 
     print("Error downloading from S3:", e) 
 except Exception as e: 
