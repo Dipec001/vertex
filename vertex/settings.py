@@ -441,13 +441,13 @@ S3_FILE_NAME = os.getenv("S3_FILE_NAME")
 # Check if S3_FILE_NAME is available
 if S3_FILE_NAME:
     LOCAL_FILE_PATH = os.path.join(BASE_DIR, S3_FILE_NAME)
-    print(f"LOCAL_FILE_PATH: {LOCAL_FILE_PATH}")
+    # print(f"LOCAL_FILE_PATH: {LOCAL_FILE_PATH}")
 
     # Download the file from S3
     s3 = boto3.client('s3')
     try:
         s3.download_file(S3_BUCKET_NAME, S3_FILE_NAME, LOCAL_FILE_PATH)
-        print(f"Downloaded {S3_FILE_NAME} to {LOCAL_FILE_PATH}")
+        # print(f"Downloaded {S3_FILE_NAME} to {LOCAL_FILE_PATH}")
 
         # Initialize Firebase Admin with the service account credentials
         cred = credentials.Certificate(LOCAL_FILE_PATH)

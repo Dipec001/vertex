@@ -53,7 +53,6 @@ urlpatterns = [
     path('following-feed/', views.FeedListView.as_view(), name='following-feed-list'),
     path('company-feed/', views.CompanyFeedListView.as_view(), name='company-feed-list'),
     path('user-gem-status/', views.UserGemStatusView.as_view(), name='user-gem-status'),
-    path('send-notification/', views.SendNotificationAPIView.as_view(), name='send_notification'),
     path('league/global/status/', views.GlobalLeagueStatusView.as_view(), name='custom-user-league-status'),
     path('league/company/status/', views.CompanyLeagueStatusView.as_view(), name='custom-user-company-league-status'),
     path('company/dashboard/', views.CompanyDashboardView.as_view(), name='company-dashboard'),

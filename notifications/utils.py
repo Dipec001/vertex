@@ -50,3 +50,21 @@ def send_draw_notification(users, title, body, notification_type):
                 notification.save()
         except Exception as e:
             logger.error(f'Error sending notification to {user.email}: {str(e)}')
+
+
+
+def send_followclap_notification(user, title, body):
+    try:
+        user_devices = FCMDevice.objects.filter(user=user)
+        for device in user_devices:
+            message = messaging.Message(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body,
+                ),
+                token=device.registration_id
+            )
+            response = messaging.send(message)
+            logger.info(f'Successfully sent message to {device.registration_id}: {response}')
+    except Exception as e:
+        logger.error(f'Error sending notification to {user.email}: {str(e)}')

@@ -400,15 +400,18 @@ class Feed(models.Model):
     MILESTONE = 'Milestone'
     STREAK = 'Streak'
     PRIZE = 'Prize'
+    ACTIVITY = 'activity'
 
     FEED_TYPES = [
         (PROMOTION, 'Promotion'),
         (MILESTONE, 'Milestone'),
         (STREAK, 'Streak'),
         (PRIZE, 'Prize'),
+        (ACTIVITY, 'Activity'),
     ]
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     feed_type = models.CharField(max_length=30, choices=FEED_TYPES)  # Add the feed type
+    feed_detail = models.TextField(max_length=1000, blank=True, null=True)
     content = models.TextField(max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)
     claps_count = models.PositiveIntegerField(default=0)

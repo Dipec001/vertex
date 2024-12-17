@@ -36,7 +36,7 @@ from allauth.socialaccount.models import SocialAccount
 from django.db import transaction
 from .s3_utils import save_image_to_s3
 from django.utils import timezone
-from django.db.models import Sum, F, Max, Avg
+from django.db.models import Sum, F, Max, Avg, Count
 from datetime import datetime, timedelta
 from rest_framework.exceptions import PermissionDenied
 from django.utils.dateparse import parse_date
@@ -52,6 +52,7 @@ from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
 import logging
 from .permissions import IsCompanyOwner
+from notifications.utils import send_followclap_notification
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -1587,7 +1588,7 @@ class FollowToggleAPIView(APIView):
             return Response({"message": "Unfollowed"}, status=status.HTTP_200_OK)
         
         # Send follow notification 
-        # send_notification(user_to_follow, "New Follower", f"{request.user.username} started following you.", "follow")
+        send_followclap_notification(user_to_follow, "New Follower", f"{request.user.username} started following you.")
 
         return Response({"message": "Followed"}, status=status.HTTP_201_CREATED)
     
@@ -1620,83 +1621,98 @@ class ClapToggleAPIView(APIView):
             return Response({"message": "Unclapped"}, status=status.HTTP_200_OK)
         
         # Send clap notification 
-        # send_notification(feed_creator, "New Clap", f"{current_user.username} clapped your feed.", "clap")
+        send_followclap_notification(feed_creator, "New Clap", f"{current_user.username} clapped your feed.")
 
         return Response({"message": "Clapped"}, status=status.HTTP_201_CREATED)
+    
+class FeedPagination(PageNumberPagination): 
+    page_size = 10 
+    page_size_query_param = 'page_size' 
+    max_page_size = 100
 
 
 class FeedListView(APIView):
+    pagination_class = FeedPagination
+
     def get(self, request):
+        user = request.user
         # Get the list of users the current user is following
-        following_users = request.user.following.values_list('following', flat=True)
+        following_users = user.following.values_list('following', flat=True)
+
+        user_timezone = user.timezone
+        local_today = now().astimezone(user_timezone)
+        last_week = local_today - timedelta(days=7)
+
+        feeds = Feed.objects.filter(user__in=following_users, created_at__gte=last_week)
         
-        # Fetch all feeds from users the current user follows
-        feeds = Feed.objects.filter(user__in=following_users).order_by('-created_at')
+        # Fetch all feeds from users the current user follows also top clapped
+        top_clapped = self.request.query_params.get('top_clapped', '').lower() == 'true'
+        if top_clapped: 
+            feeds = feeds.order_by('-claps_count')[:10] 
+        else: 
+            feeds = feeds.order_by('-created_at')
+
+        # Calculate the number of feeds the user has clapped for today 
+        today = local_today.date() 
+        user_claps_today = Clap.objects.filter(user=user, created_at__date=today).count()
+
+        # Paginate the results
+        paginator = self.pagination_class()
+        result_page = paginator.paginate_queryset(feeds, request)
         
         # Serialize the feeds with the request context for `has_clapped`
-        serializer = FeedSerializer(feeds, many=True, context={'request': request})
+        serializer = FeedSerializer(result_page, many=True, context={'request': request})
         
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return paginator.get_paginated_response(
+            { 
+                'feeds': serializer.data, 
+                'user_claps_today': user_claps_today 
+            }
+        )
     
 
 class CompanyFeedListView(APIView):
     def get(self, request):
+        user = request.user
         # Check if the user belongs to a company
-        user_company = request.user.company
+        user_company = user.company
         if not user_company:
             return Response({"detail": "User is not part of a company"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Get the list of users in the same company as the current user, excluding the current user
         company_users = user_company.members.exclude(id=request.user.id).values_list('id', flat=True)
 
+        user_timezone = user.timezone
+        local_today = now().astimezone(user_timezone)
+        last_week = local_today - timedelta(days=7)
+
         # Fetch all feeds from users in the same company as the current user, excluding their own posts
-        feeds = Feed.objects.filter(user__in=company_users).order_by('-created_at')
+        feeds = Feed.objects.filter(user__in=company_users, created_at__gte=last_week)
+
+        # Fetch all feeds from users the current user follows also top clapped
+        top_clapped = self.request.query_params.get('top_clapped', '').lower() == 'true'
+        if top_clapped: 
+            feeds = feeds.order_by('-claps_count')[:10] 
+        else: 
+            feeds = feeds.order_by('-created_at')
+
+        # Calculate the number of feeds the user has clapped for today 
+        today = local_today.date() 
+        user_claps_today = Clap.objects.filter(user=user, created_at__date=today).count()
+
+        # Paginate the results
+        paginator = self.pagination_class()
+        result_page = paginator.paginate_queryset(feeds, request)
 
         # Serialize the feeds with the request context for `has_clapped`
-        serializer = FeedSerializer(feeds, many=True, context={'request': request})
+        serializer = FeedSerializer(result_page, many=True, context={'request': request})
 
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# class UserGemStatusView(APIView):
-#     """ This view returns the gem status for the authenticated user. 
-    
-#     The response includes: 
-#         - total_gems: The total number of gems the user currently has. 
-#         - xp_gems_earned_today: The number of XP gems the user has earned today. 
-#         - remaining_gems_today: The number of remaining gems the user can earn today, with a maximum of 5 per day. 
-        
-#     The user's local time is used to determine today's date for querying the gem records. 
-#     Permission: User must be authenticated. 
-#     """
-#     permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
-
-#     def get(self, request):
-#         user = request.user
-
-#         # Fetch today's date in the user's local time
-        # user_timezone = user.timezone
-        # user_local_time = now().astimezone(user_timezone)
-        # today = user_local_time.date()
-#         print(today)
-
-#         # Fetch today's gem record
-#         gem_record = Gem.objects.filter(user=user, date=today).first()
-
-#         # Total gems the user currently has
-#         total_gems = user.get_gem_count()
-
-#         # Gems the user has earned today
-#         gems_earned_today = gem_record.xp_gem if gem_record else 0
-
-#         # Remaining gems the user can earn today
-#         remaining_gems_today = max(0, 5 - gems_earned_today)
-
-#         return Response({
-#             "total_gems": total_gems,
-#             "xp_gems_earned_today": gems_earned_today,
-#             "remaining_gems_today": remaining_gems_today,
-#         })
+        return paginator.get_paginated_response(
+            { 
+                'feeds': serializer.data, 
+                'user_claps_today': user_claps_today 
+            }
+        )
 
 
 class UserGemStatusView(APIView):
@@ -1919,35 +1935,6 @@ class CompanyLeagueStatusView(APIView):
                     "rank": index
                 }
         return {"error": "User not found in the league"}
-
-
-
-
-# TO BE REMOVED
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from firebase_admin.messaging import Message, Notification, send
-import firebase_admin
-
-class SendNotificationAPIView(APIView): 
-    permission_classes = [AllowAny] 
-    def post(self, request, *args, **kwargs): 
-        fcm_token = request.data.get("fcm_token") 
-        title = request.data.get("title") 
-        body = request.data.get("body") 
-        data = request.data.get("data", {}) 
-        image_url = request.data.get("image_url", None) 
-        if not fcm_token or not title or not body: 
-            return Response({"error": "FCM token, title, and body are required."}, status=status.HTTP_400_BAD_REQUEST) 
-        try: 
-            message = Message( notification=Notification( title=title, body=body, image=image_url ), 
-                              data=data, token=fcm_token ) 
-            response = send(message) 
-            return Response({"success": True, "response": response}) 
-        except Exception as e: 
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class CompanyDashboardView(APIView):
     permission_classes = [IsAuthenticated]

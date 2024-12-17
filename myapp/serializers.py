@@ -336,16 +336,36 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
 class FeedSerializer(serializers.ModelSerializer):
     has_clapped = serializers.SerializerMethodField()
     claps_count = serializers.IntegerField(read_only=True)
+    profile_picture = serializers.SerializerMethodField()
 
     class Meta:
         model = Feed
-        fields = ['id', 'user','feed_type', 'content', 'created_at', 'claps_count', 'has_clapped']
+        fields = ['id', 'user','feed_type','feed_detail', 'content', 'created_at', 'claps_count', 'has_clapped','profile_picture']
 
     def get_has_clapped(self, obj):
         user = self.context.get('request').user
         if user.is_authenticated:
             return Clap.objects.filter(user=user, feed=obj).exists()
         return False
+    
+    def get_profile_picture(self, obj): 
+        user = obj.user 
+        if user.profile_picture: 
+            return user.profile_picture.url 
+        elif user.profile_picture_url: 
+            return user.profile_picture_url 
+        return None
+    
+    # def get_user_claps_today(self, obj): 
+    #     user = self.context.get('request').user 
+    #     if user.is_authenticated: 
+    #         utc_time = timezone.now()
+    #         user_timezone = user.timezone
+    #         local_time = user_timezone.astimezone(utc_time)
+    #         today = local_time.date()
+    #         return Clap.objects.filter(user=user, created_at__date=today).count() 
+    #     return 0
+
 
 
 # Serializer for Clap model
@@ -559,27 +579,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             except Exception as e:
                 logger.error(f"Error creating/updating DailySteps for user {user.id}: {str(e)}")
                 raise serializers.ValidationError(f"An error occurred while processing the request:{str(e)}")
-            
-    # def update_user_leagues(self, user, new_xp, xp_date):
-    #     active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
-    #     for user_league in active_leagues:
-    #         # Get the league start date in UTC
-    #         league_start_date = user_league.league_instance.league_start
-
-    #         # Retrieve the user's timezone 
-    #         user_timezone = ZoneInfo(user.timezone.key)
-
-    #         # Convert the XP date from user's local time to UTC 
-    #         xp_date_local = xp_date.replace(tzinfo=user_timezone) 
-    #         xp_date_utc = xp_date_local.astimezone(timezone.utc)
-
-    #         # Ensure the XP record date is not earlier than the league start date
-    #         if xp_date_utc >= league_start_date:
-    #             if user_league.league_instance.company is not None:
-    #                 user_league.xp_company += new_xp
-    #             else:
-    #                 user_league.xp_global += new_xp
-    #             user_league.save()
 
     def update_user_leagues(self, user, new_xp, xp_date):
         active_leagues = UserLeague.objects.filter(
@@ -808,29 +807,6 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
                 else:
                     user_league.xp_global += new_xp
                 user_league.save()
-
-
-
-    # def update_user_leagues(self, user, new_xp, xp_date):
-    #     active_leagues = UserLeague.objects.filter(user=user, league_instance__is_active=True)
-    #     for user_league in active_leagues:
-    #         # Get the league start date in UTC
-    #         league_start_date = user_league.league_instance.league_start
-
-    #         # Retrieve the user's timezone 
-    #         user_timezone = ZoneInfo(user.timezone.key)
-    #         # Convert the XP date from user's local time to UTC 
-    #         xp_date_local = xp_date.replace(tzinfo=user_timezone) 
-    #         xp_date_utc = xp_date_local.astimezone(timezone.utc)
-
-    #         # Ensure the XP record date is not earlier than the league start date
-    #         if xp_date_utc >= league_start_date:
-    #             if user_league.league_instance.company is not None:
-    #                 user_league.xp_company += new_xp
-    #             else:
-    #                 user_league.xp_global += new_xp
-    #             user_league.save()
-
 
 
 class XpSerializer(serializers.ModelSerializer):

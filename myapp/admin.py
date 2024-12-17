@@ -178,7 +178,7 @@ class UserFollowingAdmin(admin.ModelAdmin):
 
 @admin.register(Feed)
 class FeedAdmin(admin.ModelAdmin):
-    list_display = ('user', 'content', 'created_at', 'claps_count')  # Fields to display in the list
+    list_display = ('id','user', 'content', 'created_at', 'claps_count')  # Fields to display in the list
     search_fields = ('user__username', 'content')  # Allow searching by username and feed content
     list_filter = ('created_at',)  # Filter by creation date
     ordering = ('-created_at',)  # Ordering by the most recent feed first

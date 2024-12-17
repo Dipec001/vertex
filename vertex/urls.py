@@ -27,6 +27,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("myapp.urls")),
+    path("api/", include("notifications.urls")),
     path('auth/', include('rest_framework.urls')),  # DRF browsable API login/logout
     path('social-auth/', include('allauth.urls')), # For social login (Google, Facebook, etc.) 
     path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
