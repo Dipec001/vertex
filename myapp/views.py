@@ -567,6 +567,9 @@ class UserProfileView(APIView):
 
     #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     def put(self, request):
+        logger.info(f"Incoming request data: {request.data}")
+        logger.info(f"User making the request: {request.user}")
+
         user = request.user
         serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
 
@@ -583,8 +586,11 @@ class UserProfileView(APIView):
             else:
                 serializer.save()  # Save without updating the profile picture
 
+            logger.info("Profile updated successfully.")
             return Response({"success": "Profile updated successfully"}, status=status.HTTP_200_OK)
 
+        logger.error("Serializer errors:") 
+        logger.error(serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -1673,7 +1679,7 @@ class FeedListView(APIView):
 
 class CompanyFeedListView(APIView):
     pagination_class = FeedPagination
-    
+
     def get(self, request):
         user = request.user
         # Check if the user belongs to a company

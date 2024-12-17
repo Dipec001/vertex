@@ -7,7 +7,7 @@ from .models import (CustomUser, Company, Membership, Invitation, Xp, Streak, Wo
 # Customizing the display and functionality of the CustomUser model in the admin interface
 @admin.register(CustomUser)
 class CustomUserAdmin(admin.ModelAdmin):
-    list_display = ('id','email', 'username', 'is_company_owner', 'login_type', 'date_joined', 'streak')  # Fields to display in the list view
+    list_display = ('id','email', 'username', 'is_company_owner', 'login_type', 'date_joined', 'streak', 'timezone')  # Fields to display in the list view
     search_fields = ('email', 'username')  # Search by email and username
     list_filter = ('is_company_owner', 'login_type', 'date_joined')  # Filter options in the sidebar
     ordering = ('email',)  # Ordering of the list

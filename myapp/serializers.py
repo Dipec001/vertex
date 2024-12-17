@@ -355,16 +355,6 @@ class FeedSerializer(serializers.ModelSerializer):
         elif user.profile_picture_url: 
             return user.profile_picture_url 
         return None
-    
-    # def get_user_claps_today(self, obj): 
-    #     user = self.context.get('request').user 
-    #     if user.is_authenticated: 
-    #         utc_time = timezone.now()
-    #         user_timezone = user.timezone
-    #         local_time = user_timezone.astimezone(utc_time)
-    #         today = local_time.date()
-    #         return Clap.objects.filter(user=user, created_at__date=today).count() 
-    #     return 0
 
 
 
