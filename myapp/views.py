@@ -1672,6 +1672,8 @@ class FeedListView(APIView):
     
 
 class CompanyFeedListView(APIView):
+    pagination_class = FeedPagination
+    
     def get(self, request):
         user = request.user
         # Check if the user belongs to a company
