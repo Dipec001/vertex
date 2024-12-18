@@ -308,7 +308,7 @@ def process_league_promotions(self):
     logger.info('Processing expired leagues...') 
     
     expired_leagues = LeagueInstance.objects.filter( league_end__lte=now, is_active=True, company__isnull=True )\
-        .select_related('league').prefetch_related("userleague_set", "userleague_set__user")
+        .select_related('league', 'company').prefetch_related("userleague_set", "userleague_set__user")
     # update the league status as soon as possible so other concurrent do not fetch it anymore
     expired_leagues.update(is_active=True)
 
@@ -693,13 +693,13 @@ def send_next_league_update(users, league_instance, gems_data):
                     league_instance__is_active=True, 
                     league_instance__company__isnull=False, 
                     league_instance__company=league.company
-                ).select_related('league_instance').first()
+                ).select_related('league_instance', 'league_instance__league').first()
             else:
                 next_user_league = UserLeague.objects.filter(
                     user=user, 
                     league_instance__is_active=True, 
                     league_instance__company__isnull=True
-                ).select_related('league_instance').first()
+                ).select_related('league_instance', 'league_instance__league').first()
             
             if next_user_league:
                 next_league_instance = next_user_league.league_instance
@@ -718,6 +718,7 @@ def send_next_league_update(users, league_instance, gems_data):
                 user_rank = None
                 # TODO: This should be only processed once!
                 #  We should oly process _user_ data here and use another part(not in this loop: for user in users_in_league)
+                # need something like (next_league)=>{'user_id': {rank, ...user}}
                 for idx, ul in enumerate(next_rankings, start=1):
                     if ul.user.id == user.id:
                         user_rank = idx
