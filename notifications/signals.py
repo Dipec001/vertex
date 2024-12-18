@@ -22,6 +22,8 @@ def subscribe_to_topic(sender, instance, created, **kwargs):
 def notify_streak(sender, instance, **kwargs):
     """Send streak achievement notification"""
     logger.info("streak acheivement signal triggered")
+    print(instance.currentStreak)
+    print(instance.timeStamp)
     try:
         # Check if the current streak is a multiple of 5
         if instance.currentStreak > 0 and instance.currentStreak % 5 == 0:
@@ -48,11 +50,9 @@ def notify_streak_maintenance(sender, instance, **kwargs):
         if instance.totalXpToday >= 200 and instance.totalXpToday < 250:
             
             xp_needed = 250 - instance.totalXpToday
-            print(xp_needed)
             notification, created = PushNotificationStatus.objects.get_or_create(user=instance.user, notification_type='streak')
             
             if not notification.sent:
-                print(True)
                 user_devices = FCMDevice.objects.filter(user=instance.user)
                 for device in user_devices:
                     message = messaging.Message(

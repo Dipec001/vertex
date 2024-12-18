@@ -524,8 +524,10 @@ class DailyStepsSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context['request']
         user = request.user
+        print(user.email)
         step_count = validated_data.get('step_count')
         timestamp = validated_data.get('timestamp')
+        print(timestamp, 'here is the timestamp passed')
 
         with transaction.atomic():
             local_date = timestamp.date()

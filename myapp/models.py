@@ -187,8 +187,8 @@ class Streak(models.Model):
     date = models.DateField()  # Explicitly store the date part
     currentStreak = models.IntegerField(default=0)  # Current active streak days
     highestStreak = models.IntegerField(default=0)  # Highest streak ever achieved
-    currentStreakSaver = models.IntegerField(default=0)  # Optional field for streak savers
-
+    streak_saved = models.BooleanField(default=False)
+    
     def __str__(self):
         return f'{self.user.email} - Streak: {self.currentStreak}'
     

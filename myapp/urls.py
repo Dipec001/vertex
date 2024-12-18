@@ -58,5 +58,6 @@ urlpatterns = [
     path('company/dashboard/', views.CompanyDashboardView.as_view(), name='company-dashboard'),
     path('notifications/', views.NotificationsView.as_view(), name='notifications-list'),
     path("company/<int:company_id>/employees/", views.EmployeeByCompanyModelView.as_view(), name='employee-by-company'),
-    path("company/<int:company_id>/employees/<int:pk>/", views.EmployeeByCompanyModelDetailsView.as_view(), name='employee-details-by-company')
+    path("company/<int:company_id>/employees/<int:pk>/", views.EmployeeByCompanyModelDetailsView.as_view(), name='employee-details-by-company'),
+    path('user-feed/', views.UserFeedView.as_view(), name='user-feed'),
 ]

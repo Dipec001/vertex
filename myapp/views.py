@@ -1660,7 +1660,7 @@ class FeedListView(APIView):
 
         # Calculate the number of feeds the user has clapped for today 
         today = local_today.date() 
-        user_claps_today = Clap.objects.filter(user=user, created_at__date=today).count()
+        user_claps_today = Clap.objects.filter(user=user, feed__user__in=following_users, created_at__date=today).count()
 
         # Paginate the results
         paginator = self.pagination_class()
@@ -1706,7 +1706,7 @@ class CompanyFeedListView(APIView):
 
         # Calculate the number of feeds the user has clapped for today 
         today = local_today.date() 
-        user_claps_today = Clap.objects.filter(user=user, created_at__date=today).count()
+        user_claps_today = Clap.objects.filter(user=user, feed__user__in=company_users, created_at__date=today).count()
 
         # Paginate the results
         paginator = self.pagination_class()
@@ -1721,6 +1721,31 @@ class CompanyFeedListView(APIView):
                 'user_claps_today': user_claps_today 
             }
         )
+
+
+class UserFeedView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = FeedPagination
+
+    def get(self, request):
+        user = request.user
+
+        user_timezone = user.timezone
+        local_today = now().astimezone(user_timezone)
+        last_week = local_today - timedelta(days=7)
+
+        # Fetch user's own feeds from the last 7 days
+        feeds = Feed.objects.filter(user=user, created_at__gte=last_week).order_by('-created_at')
+
+        # Paginate the results
+        paginator = self.pagination_class()
+        result_page = paginator.paginate_queryset(feeds, request)
+        
+        # Serialize the feeds with the request context for `has_clapped`
+        serializer = FeedSerializer(result_page, many=True, context={'request': request})
+        
+        return paginator.get_paginated_response(serializer.data)
+
 
 
 class UserGemStatusView(APIView):

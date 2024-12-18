@@ -371,6 +371,8 @@ CELERY_TASK_ROUTES = {
     'myapp.tasks.send_gem_update': {'queue': 'default'}, 
     'myapp.tasks.send_status_update': {'queue': 'default'}, 
     'myapp.tasks.send_next_league_update': {'queue': 'default'},
+    'notifications.tasks.check_and_notify_users': {'queue': 'default'},
+    'notifications.tasks.notify_gem_reset': {'queue': 'default'},
 }
 
 
@@ -382,43 +384,49 @@ CELERY_BEAT_SCHEDULE = {
     'run-company-draws-every-month': {
         'task': 'myapp.tasks.run_company_draws',
         'schedule': crontab(day_of_month=1, hour=15, minute=0),  # 1st of every month at 3pm utc
-        # 'schedule': crontab(minute='*'),
     },
     'run-global-draw-every-quarter': {
         'task': 'myapp.tasks.run_global_draw',
         'schedule': crontab(month_of_year='*/3', day_of_month=1, hour=15, minute=0), # every 1st of 3 months at 3pm utc
-        # 'schedule': crontab(minute='*'),
     },
     'run-global-draw-every-day': {
         'task': 'myapp.tasks.create_global_draw',
-        'schedule': timedelta(days=1),  # Every minute
+        'schedule': timedelta(days=1),  # Every day
     },
     'reset-gems-every-monday-midnight': {
         'task': 'myapp.tasks.reset_gems_for_local_timezones',
-        'schedule': crontab(minute='*/30'),  # Every 10 minutes
+        'schedule': crontab(minute='*/30'),  # Every 30 minutes
     },
-    'process_league_promotions_every_10_seconds': {
-        'task': 'myapp.tasks.process_league_promotions',
-        'schedule': timedelta(seconds=5), # Every 10s
-        'options': {'queue': 'priority_high'}
+    # 'process_league_promotions_every_10_seconds': {
+    #     'task': 'myapp.tasks.process_league_promotions',
+    #     'schedule': timedelta(seconds=5), # Every 10s
+    #     'options': {'queue': 'priority_high'}
+    # },
+    # 'process_company_league_promotions_every_10_seconds': {
+    #     'task': 'myapp.tasks.process_company_league_promotions',
+    #     'schedule': timedelta(seconds=5), # Every 10 seconds
+    #     'options': {'queue': 'priority_high'}
+    # },
+    'notify-draw-one-day-before': {
+        'task': 'notifications.tasks.notify_draw_one_day_before',
+        'schedule': crontab(hour=3, minute=0),  # Runs daily at 3 AM UTC
     },
-    'process_company_league_promotions_every_10_seconds': {
-        'task': 'myapp.tasks.process_company_league_promotions',
-        'schedule': timedelta(seconds=5), # Every 10 seconds
-        'options': {'queue': 'priority_high'}
+    'notify-draw-one-hour-before': {
+        'task': 'notifications.tasks.notify_draw_one_hour_before',
+        'schedule': crontab(minute=0),  # Runs at the start of every hour
     },
-    # 'notify-draw-one-day-before': {
-    #     'task': 'notifications.tasks.notify_draw_one_day_before',
-    #     'schedule': crontab(hour=3, minute=0),  # Runs daily at 3 AM UTC
-    # },
-    # 'notify-draw-one-hour-before': {
-    #     'task': 'notifications.tasks.notify_draw_one_hour_before',
-    #     'schedule': crontab(minute=0),  # Runs at the start of every hour
-    # },
-    # 'notify-draw-live': {
-    #     'task': 'notifications.tasks.notify_draw_live',
-    #     'schedule': crontab(minute=0),  # Runs at the start of every hour
-    # },
+    'notify-draw-live': {
+        'task': 'notifications.tasks.notify_draw_live',
+        'schedule': crontab(minute=0),  # Runs at the start of every hour
+    },
+    'check_and_notify_users': {
+        'task': 'notifications.tasks.check_and_notify_users',
+        'schedule': crontab(minute=0),  # Every hour
+    },
+    'notify_gem_reset': {
+        'task': 'notifications.tasks.notify_gem_reset',
+        'schedule': crontab(minute=0),  # Every hour
+    }
 }
 
 
