@@ -431,7 +431,7 @@ def process_league_promotions(self):
         league.save()
         custom_users = [user_league.user for user_league in users_in_league]
         logger.info(f'Users in league {league.id}: {users_in_league}')
-
+        # TODO: build users with rank Data structure here
         send_status_update.delay(custom_users, league, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
 
         send_next_league_update.delay(custom_users, league, gems_data)
@@ -645,16 +645,15 @@ def send_status_update(custom_users, league_instance, status, is_lowest_league, 
 
         # Build users with ranks
         # {user_id: rank} so we can access the rank in 0(1)
-        users_ranks = {}
-        for rank,user in enumerate(users_in_league, start=1):
-            users_ranks[user.id]=rank
+        # users_ranks = {}
+        # for rank,user in enumerate(users_in_league, start=1):
+        #     users_ranks[user.id]=rank
 
         # Send status updates for the just concluded league
-        for user in users_in_league:
+        for rank,user in enumerate(users_in_league, start=1):
             logger.info(user.email)
-            user_rank = users_ranks[user.id]
             data_for_status.update({
-                "rank": user_rank,
+                "rank": rank,
                 "status": status
             })
             logger.info(f'Sending status update to user {user.id}')
@@ -684,7 +683,7 @@ def send_next_league_update(users, league_instance, gems_data):
         league_type = 'company' if league.company else 'global'
 
         # Prepare and send data for the next league instance
-        for user in users_in_league:
+        for rank,user in enumerate(users_in_league, start=1):
             if league_type == 'company':
                 next_user_league = UserLeague.objects.filter(
                     user=user, 
@@ -727,8 +726,8 @@ def send_next_league_update(users, league_instance, gems_data):
                     })
 
                 # Find the current user's rank
-                user_rank = next((index for index, r in enumerate(next_rankings_data, start=1) if r["user_id"] == user.id), None)
-                
+                user_rank = rank
+
                 next_league_start = next_league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
                 next_league_end = next_league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
                 data = {
