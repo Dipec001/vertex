@@ -715,7 +715,13 @@ def send_next_league_update(users, league_instance, gems_data):
                     ).select_related('user').order_by('-xp_global','-user__streak', 'id')
 
                 next_rankings_data = []
+                user_rank = None
+                # TODO: This should be only processed once!
+                #  We should oly process _user_ data here and use another part(not in this loop: for user in users_in_league)
                 for idx, ul in enumerate(next_rankings, start=1):
+                    if ul.user.id == user.id:
+                        user_rank = idx
+
                     gems_obtained = next((item['gems_obtained'] for item in gems_data if item['user_id'] == ul.user.id), 0)
                     next_rankings_data.append({
                         "user_id": ul.user.id,
@@ -727,9 +733,6 @@ def send_next_league_update(users, league_instance, gems_data):
                         "gems_obtained": gems_obtained,
                         "advancement": "TBD"  # Update this based on the new rankings logic if necessary
                     })
-
-                user_rank = next(
-                    (index for index, r in enumerate(next_rankings_data, start=1) if r["user_id"] == user.id), None)
 
                 next_league_start = next_league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
                 next_league_end = next_league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
