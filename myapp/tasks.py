@@ -308,7 +308,9 @@ def process_league_promotions(self):
     logger.info('Processing expired leagues...') 
     
     expired_leagues = LeagueInstance.objects.filter( league_end__lte=now, is_active=True, company__isnull=True ).select_related('league')
-    
+    # update the league status as soon as possible so other concurrent do not fetch it anymore
+    expired_leagues.update(is_active=True)
+
     logger.info(f'Found {expired_leagues.count()} expired leagues')
     logger.info(f'Found {expired_leagues} expired leagues')
 
@@ -427,8 +429,6 @@ def process_league_promotions(self):
         UserLeague.objects.bulk_update(bulk_updates, ['xp_global']) 
         Notif.objects.bulk_create(notifications)
 
-        league.is_active = False
-        league.save()
         custom_users = [user_league.user for user_league in users_in_league]
         logger.info(f'Users in league {league.id}: {users_in_league}')
         # TODO: build users with rank Data structure here
@@ -447,7 +447,10 @@ def process_company_league_promotions(self):
     Handles promotions and demotions of users in company leagues at the end of a league period.
     """
     now = timezone.now()
+    # TODO (refactor): the only difference is the company filtering
     expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=False).select_related('league')
+    # update the league status as soon as possible so other concurrent do not fetch it anymore
+    expired_leagues.update(is_active=True)
     logger.info(f'Expired company leagues: {expired_leagues}')
 
 
