@@ -728,8 +728,8 @@ def send_next_league_update(users, league_instance, gems_data):
                         "advancement": "TBD"  # Update this based on the new rankings logic if necessary
                     })
 
-                # Find the current user's rank
-                user_rank = rank
+                user_rank = next(
+                    (index for index, r in enumerate(next_rankings_data, start=1) if r["user_id"] == user.id), None)
 
                 next_league_start = next_league_instance.league_start.isoformat(timespec='milliseconds') + 'Z'
                 next_league_end = next_league_instance.league_end.isoformat(timespec='milliseconds') + 'Z'
