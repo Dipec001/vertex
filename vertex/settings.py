@@ -397,16 +397,16 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'myapp.tasks.reset_gems_for_local_timezones',
         'schedule': crontab(minute='*/30'),  # Every 30 minutes
     },
-    # 'process_league_promotions_every_10_seconds': {
-    #     'task': 'myapp.tasks.process_league_promotions',
-    #     'schedule': timedelta(seconds=5), # Every 10s
-    #     'options': {'queue': 'priority_high'}
-    # },
-    # 'process_company_league_promotions_every_10_seconds': {
-    #     'task': 'myapp.tasks.process_company_league_promotions',
-    #     'schedule': timedelta(seconds=5), # Every 10 seconds
-    #     'options': {'queue': 'priority_high'}
-    # },
+    'process_league_promotions_every_10_seconds': {
+        'task': 'myapp.tasks.process_league_promotions',
+        'schedule': timedelta(seconds=5), # Every 10s
+        'options': {'queue': 'priority_high'}
+    },
+    'process_company_league_promotions_every_10_seconds': {
+        'task': 'myapp.tasks.process_company_league_promotions',
+        'schedule': timedelta(seconds=5), # Every 10 seconds
+        'options': {'queue': 'priority_high'}
+    },
     'notify-draw-one-day-before': {
         'task': 'notifications.tasks.notify_draw_one_day_before',
         'schedule': crontab(hour=3, minute=0),  # Runs daily at 3 AM UTC
