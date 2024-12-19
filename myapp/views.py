@@ -1,11 +1,12 @@
 from pprint import pprint
 
 from rest_framework import status, permissions
-from rest_framework.generics import ListAPIView, RetrieveAPIView, DestroyAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView, DestroyAPIView, ListCreateAPIView, \
+    RetrieveUpdateDestroyAPIView
 from rest_framework.mixins import RetrieveModelMixin
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import ReadOnlyModelViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters import rest_framework
 from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification
@@ -14,7 +15,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
-                          NotifSerializer, EmployeeSerializer)
+                          NotifSerializer, EmployeeSerializer, CompanySerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
                      League, Gem, DrawImage, Notif)
@@ -1203,6 +1204,15 @@ class CompanyDrawEditView(APIView):
         except Draw.DoesNotExist:
             raise PermissionDenied("You do not have permission to access or manage this draw.")
 
+class CompanyListView(ListCreateAPIView):
+    permission_classes = [IsCompanyOwner | permissions.IsAdminUser]
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
+
+class CompanyDetailView(RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsCompanyOwner | permissions.IsAdminUser]
+    queryset = Company.objects.all()
+    serializer_class = CompanySerializer
 
 class CompanyDrawListView(APIView):
     permission_classes = [IsAuthenticated]
