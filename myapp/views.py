@@ -52,7 +52,7 @@ import os
 from django.conf import settings
 from rest_framework.pagination import PageNumberPagination
 import logging
-from .permissions import IsCompanyOwner
+from .permissions import IsCompanyOwner, IsCompanyOwnerPK
 from notifications.utils import send_followclap_notification
 
 # Set up logging
@@ -1205,12 +1205,12 @@ class CompanyDrawEditView(APIView):
             raise PermissionDenied("You do not have permission to access or manage this draw.")
 
 class CompanyListView(ListCreateAPIView):
-    permission_classes = [IsCompanyOwner | permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
 
 class CompanyDetailView(RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsCompanyOwner | permissions.IsAdminUser]
+    permission_classes = [IsCompanyOwnerPK | permissions.IsAdminUser]
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
 

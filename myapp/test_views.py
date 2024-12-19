@@ -596,3 +596,104 @@ class EmployeeDetailsByCompanyModelViewSet(APITestCase):
         response = self.client.delete(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+@skipIf(not settings.DEBUG, "Skip tests in production environment")
+class CompanyViewTests(APITestCase):
+    def setUp(self):
+        # Create a company owner
+        self.owner = CustomUser.objects.create_user(
+            username='owner@test.com',
+            email='owner@test.com',
+            password='testpass123',
+            is_company_owner=True
+        )
+        self.company = Company.objects.create(
+            name='Test Company',
+            owner=self.owner,
+            domain='test.com'
+        )
+        self.client.force_authenticate(user=self.owner)
+
+    def test_company_list_view(self):
+        """Test that the company list view returns the correct data"""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(reverse('company-list'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()['data']['results']
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]['name'], self.company.name)
+        self.assertEqual(data[0]['owner'], self.owner.id)
+
+    def test_company_detail_view(self):
+        """Test that the company detail view returns the correct data"""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(reverse('company-detail', kwargs={'pk': self.company.id}))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()['data']
+        self.assertEqual(data['name'], self.company.name)
+        self.assertEqual(data['owner'], self.owner.id)  # Assuming owner ID is returned
+
+    def test_company_detail_view_not_found(self):
+        """Test that accessing a non-existent company returns a 404"""
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(reverse('company-detail', kwargs={'pk': 999999}))  # Non-existent ID
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_create_company(self):
+        """Test that a company can be created"""
+        new_company_data = {
+            'name': 'New Company',
+            'domain': 'https://newcompany.com',
+            'owner': self.owner.id
+        }
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(reverse('company-list'), new_company_data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Verify the company was created
+        self.assertEqual(Company.objects.count(), 2)  # One existing + one new
+        new_company = Company.objects.get(name='New Company')
+        self.assertEqual(new_company.domain, 'https://newcompany.com')
+        # Ensure the owner is set correctly
+        self.assertEqual(new_company.owner, self.owner)
+
+    def test_update_company(self):
+        """Test that a company can be updated"""
+        updated_data = {
+            'name': 'Updated Company',
+            'domain': 'https://updatedcompany.com'
+        }
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.patch(reverse('company-detail', kwargs={'pk': self.company.id}), updated_data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Verify the company was updated
+        self.company.refresh_from_db()
+        self.assertEqual(self.company.name, 'Updated Company')
+        self.assertEqual(self.company.domain, 'https://updatedcompany.com')
+
+    def test_delete_company(self):
+        """Test that a company can be deleted"""
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(reverse('company-detail', kwargs={'pk': self.company.id}))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Verify the company was deleted
+        self.assertEqual(Company.objects.count(), 0)
+
+    def test_unauthenticated_access_to_company_list(self):
+        """Test that unauthenticated users cannot access the company list"""
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse('company-list'))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_unauthenticated_access_to_company_detail(self):
+        """Test that unauthenticated users cannot access the company detail"""
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse('company-detail', kwargs={'pk': self.company.id}))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
