@@ -29,6 +29,13 @@ class EmployeeSerializer(serializers.ModelSerializer):
     def get_downloaded_the_app(self, obj: CustomUser):
         return obj.last_login is not None
 
+
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = ['id', 'name', 'owner', 'domain', 'created_at']
+
+
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
