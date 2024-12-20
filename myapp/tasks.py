@@ -307,8 +307,9 @@ def process_league_promotions(self):
     now = timezone.now()
     logger.info('Processing expired leagues...') 
     
-    expired_leagues = LeagueInstance.objects.filter( league_end__lte=now, is_active=True, company__isnull=True )\
-        .select_related('league', 'company').prefetch_related("userleague_set", "userleague_set__user")
+    expired_leagues = (LeagueInstance.objects.filter( league_end__lte=now, is_active=True, company__isnull=True )
+                       .select_related('league', 'company'))
+    # .prefetch_related("userleague_set", "userleague_set__user"))
     # update the league status as soon as possible so other concurrent do not fetch it anymore
     expired_leagues.update(is_active=True)
 
@@ -322,7 +323,9 @@ def process_league_promotions(self):
         is_highest_league = league.league.order == 10
         is_lowest_league = league.league.order == 1
 
-        users_in_league = league.userleague_set.select_related("user").order_by('-xp_global', '-user__streak', 'id')
+        # users_in_league = league.userleague_set.order_by('-xp_global', '-user__streak', 'id')
+        users_in_league = UserLeague.objects.filter(league_instance=league).select_related('user').order_by(
+            '-xp_global', '-user__streak', 'id')
         total_users = users_in_league.count()
         logger.info(f'Total users in league {league.id}: {total_users}')
 
