@@ -430,18 +430,18 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 
-# sentry_sdk.init(
-#     dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
-#     # Set traces_sample_rate to 1.0 to capture 100%
-#     # of transactions for tracing.
-#     traces_sample_rate=1.0,
-#     _experiments={
-#         # Set continuous_profiling_auto_start to True
-#         # to automatically start the profiler on when
-#         # possible.
-#         "continuous_profiling_auto_start": True,
-#     },
-# )
+sentry_sdk.init(
+    dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
+    # Set traces_sample_rate to 1.0 to capture 100%
+    # of transactions for tracing.
+    traces_sample_rate=1.0,
+    _experiments={
+        # Set continuous_profiling_auto_start to True
+        # to automatically start the profiler on when
+        # possible.
+        "continuous_profiling_auto_start": True,
+    },
+)
 
 
 S3_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
