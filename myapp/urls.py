@@ -2,11 +2,11 @@ from django.urls import path
 from . import views
 
 
-# def trigger_error(request):
-#     division_by_zero = 1 / 0
+def trigger_error(request):
+    division_by_zero = 1 / 0
 
 urlpatterns = [
-    # path('sentry-debug/', trigger_error),
+    path('sentry-debug/', trigger_error),
     
     # WEBSOCKET TEST URLS
     path('test-league-rankings/', views.test_league_rankings, name='test-league-rankings'),
