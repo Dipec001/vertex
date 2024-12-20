@@ -429,12 +429,12 @@ def process_league_promotions(self):
         UserLeague.objects.bulk_update(bulk_updates, ['xp_global']) 
         Notif.objects.bulk_create(notifications)
 
-        custom_users_ids = [user_league.user.id for user_league in users_in_league]
+        custom_users = [user_league.user for user_league in users_in_league]
         logger.info(f'Users in league {league.id}: {users_in_league}')
         # TODO: build users with rank Data structure here
-        send_status_update.delay(custom_users_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
+        send_status_update.delay(custom_users, league, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
 
-        send_next_league_update.delay(custom_users_ids, league.id, gems_data)
+        send_next_league_update.delay(custom_users, league, gems_data)
 
         send_gem_update.delay(channel_messages)
     
@@ -573,12 +573,12 @@ def process_company_league_promotions(self):
         league.save()
         logger.info(f'Users in league {league.id}: {list(users_in_league)}')
 
-        custom_users_ids = [user_league.user.id for user_league in users_in_league]
-        logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {custom_users_ids}')
+        custom_users = [user_league.user for user_league in users_in_league]
+        logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {custom_users}')
 
-        send_status_update.delay(custom_users_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
+        send_status_update.delay(custom_users, league, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
 
-        send_next_league_update.delay(custom_users_ids, league.id, gems_data)
+        send_next_league_update.delay(custom_users, league, gems_data)
 
         send_gem_update.delay(channel_messages)
 
@@ -604,13 +604,13 @@ def send_gem_update(channel_messages):
         logger.info(f'Error occurred: {e}', exc_info=True)
 
 @shared_task
-def send_status_update(custom_users_ids, league_instance_id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold):
+def send_status_update(custom_users, league_instance, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold):
     try:
         logger.info("Sending status updates.")
-        users_in_league = CustomUser.objects.filter(id__in=custom_users_ids)
-
+        users_in_league = custom_users
+        
         # Fetch the league instance
-        league = LeagueInstance.objects.get(id=league_instance_id)
+        league = league_instance
         
         # Determine league type based on the presence of a company
         league_type = 'company' if league.company else 'global'
@@ -674,13 +674,13 @@ def send_status_update(custom_users_ids, league_instance_id, status, is_lowest_l
         logger.error(f'Error occurred: {e}', exc_info=True)
 
 @shared_task
-def send_next_league_update(user_ids, league_instance_id, gems_data):
+def send_next_league_update(users, league_instance, gems_data):
     try:
         logger.info('sending next league info')
-        users_in_league = CustomUser.objects.filter(id__in=user_ids)
+        users_in_league = users
 
         # Fetch the current league instance
-        league = LeagueInstance.objects.get(id=league_instance_id)
+        league = league_instance
         
         # Determine league type based on the presence of a company
         league_type = 'company' if league.company else 'global'
@@ -749,7 +749,7 @@ def send_next_league_update(user_ids, league_instance_id, gems_data):
                 
                 channel_layer = get_channel_layer()
                 async_to_sync(channel_layer.group_send)(
-                    f'{league_type}_league_{league_instance_id}',
+                    f'{league_type}_league_{league_instance.id}',
                     {
                         'type': 'send_league_update',  # Changed this to send the next league data
                         'data': data,
@@ -758,6 +758,6 @@ def send_next_league_update(user_ids, league_instance_id, gems_data):
                 logger.info(f"Sent next league update for league {next_league_instance.id}")
         
         # Logic to send league update notification
-        logger.info(f'Sent next league update for league users {league_instance_id}')
+        logger.info(f'Sent next league update for league users {league_instance.id}')
     except Exception as e:
         logger.error(f'Error occurred: {e}', exc_info=True)

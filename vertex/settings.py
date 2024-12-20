@@ -18,7 +18,7 @@ import dj_database_url
 from celery.schedules import crontab
 import sentry_sdk
 from firebase_admin import initialize_app
-from kombu import Queue
+from kombu import Queue, Exchange
 import firebase_admin
 from firebase_admin import credentials
 import boto3 
@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "myapp",
     'notifications',
+    'missions',
     'rest_framework',
     'rest_framework_simplejwt',
     # 'rest_framework_simplejwt.token_blacklist',  # Add token_blacklist app
@@ -359,9 +360,9 @@ APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 
 
 
-CELERY_TASK_QUEUES = (
-    Queue('default'),
-    Queue('priority_high'),
+CELERY_TASK_QUEUES = ( 
+    Queue('default', Exchange('default'), routing_key='default'), 
+    Queue('priority_high', Exchange('priority_high'), routing_key='priority_high'), 
 )
 
 CELERY_DEFAULT_QUEUE = 'default'
@@ -373,6 +374,7 @@ CELERY_TASK_ROUTES = {
     'myapp.tasks.send_next_league_update': {'queue': 'default'},
     'notifications.tasks.check_and_notify_users': {'queue': 'default'},
     'notifications.tasks.notify_gem_reset': {'queue': 'default'},
+    'missions.tasks.assign_daily_tasks': {'queue': 'default'},
 }
 
 
@@ -426,7 +428,12 @@ CELERY_BEAT_SCHEDULE = {
     'notify_gem_reset': {
         'task': 'notifications.tasks.notify_gem_reset',
         'schedule': crontab(minute=0),  # Every hour
+    },
+    'assign_daily_tasks': {
+        'task': 'missions.tasks.assign_daily_tasks',
+        'schedule': timedelta(seconds=5),  # Every hour
     }
+
 }
 
 
