@@ -12,12 +12,26 @@ from channels.layers import get_channel_layer
 from django.db.models import Max, F
 from .s3_utils import save_file_to_s3
 import os
+from celery import signals
+
+import sentry_sdk
+from sentry_sdk.integrations.celery import CeleryIntegration
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
 logger = logging.getLogger(__name__)
 
 
+
+
+@signals.celeryd_init.connect
+def init_sentry(**kwargs):
+    sentry_sdk.init(
+        dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
+        integrations=[CeleryIntegration(monitor_beat_tasks=True)],  # 👈
+        environment="prod",
+        release="v1.0",
+    )
 
 @shared_task
 def send_invitation_email_task(invite_code, company_name, inviter_name, to_email):
