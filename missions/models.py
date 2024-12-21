@@ -20,6 +20,14 @@ class UserTask(models.Model):
     completed_date = models.DateTimeField(null=True, blank=True)
     is_claimed = models.BooleanField(default=False)  # New field to track claim status
 
+    TASK_GOALS = { 
+        'steps': 1000, 
+        'swim': 10, 
+        'run': 3, 
+        'streak': 1, 
+        'meditation': 10, 
+    }
+
     def __str__(self):
         return f'{self.user.username} - {self.task_type.get_name_display()}'
 
@@ -27,3 +35,17 @@ class UserTask(models.Model):
         self.is_completed = True
         self.completed_date = now()
         self.save()
+
+
+    def progress_percentage(self): 
+        goal = self.TASK_GOALS.get(self.task_type.name, 1) 
+        return min(100, int((self.progress / goal) * 100)) 
+    
+    @property 
+    def progress_with_goal(self): 
+        goal = self.TASK_GOALS.get(self.task_type.name, 1) 
+        return f"{self.progress}/{goal}" 
+    
+    @property 
+    def progress_percentage_display(self): 
+        return f"{self.progress_percentage()}%"

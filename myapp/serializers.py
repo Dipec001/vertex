@@ -655,8 +655,9 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         """
         milestone = milestone_increment
         last_feed = Feed.objects.filter(user=user, feed_type=Feed.MILESTONE).order_by('-created_at').first()
+        print(last_feed.content, 'last milestone content')
         last_milestone = int(last_feed.content.split(" ")[-2]) if last_feed else 0
-        # print("last milestone", last_milestone)
+        print("last milestone", last_milestone)
 
         while milestone <= total_daily_step_count:
             if milestone > last_milestone:

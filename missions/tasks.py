@@ -28,6 +28,6 @@ def assign_daily_tasks():
             num_tasks = random.randint(3, 5)  # Randomly select between 3 and 5 tasks
             assigned_tasks = task_types.order_by('?')[:num_tasks]  # Randomly pick tasks
             UserTask.objects.bulk_create([
-                UserTask(user=user, task_type=task_type, created_at=user_local_time)
+                UserTask(user=user, task_type=task_type, created_at=now())
                 for task_type in assigned_tasks
             ])

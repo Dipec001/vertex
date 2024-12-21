@@ -79,7 +79,7 @@ def update_workout_tasks(sender, instance, **kwargs):
     if instance.start_datetime.date() != now().date():
         return
 
-    if instance.activity_type == "mindfulness" and instance.activity_name.lower() == "meditation":
+    if instance.activity_type == "mindfulness" and instance.metadata.lower() == "meditation":
         print('mindfulness')
         try:
             meditation_task_type = TaskType.objects.get(name='meditation')

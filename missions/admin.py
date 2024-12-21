@@ -8,6 +8,6 @@ class TaskTypeAdmin(admin.ModelAdmin):
 
 @admin.register(UserTask)
 class UserTaskAdmin(admin.ModelAdmin):
-    list_display = ('user', 'task_type', 'progress', 'is_completed', 'completed_date', 'is_claimed')
+    list_display = ('id','user', 'task_type','created_at', 'progress', 'is_completed', 'completed_date', 'is_claimed')
     list_filter = ('is_completed', 'is_claimed', 'completed_date')
     search_fields = ('user__email', 'user__username', 'task_type__name')
