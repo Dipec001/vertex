@@ -24,11 +24,11 @@ load_dotenv()
 # @receiver(request_finished)
 # def close_redis_connection(sender, **kwargs):
 #     r.close()
-
-# Create a connection pool 
-pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=12150, db=0)
-# Use the connection pool to create a Redis client 
-r = redis.Redis(connection_pool=pool)
+#
+# # Create a connection pool
+# pool = redis.ConnectionPool(host=os.getenv('REDIS_HOST'), port=12150, db=0)
+# # Use the connection pool to create a Redis client
+# r = redis.Redis(connection_pool=pool)
 
 
 @receiver(request_finished)

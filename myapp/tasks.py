@@ -12,12 +12,33 @@ from channels.layers import get_channel_layer
 from django.db.models import Max, F
 from .s3_utils import save_file_to_s3
 import os
+from celery import signals
+
+import sentry_sdk
+from sentry_sdk.integrations.celery import CeleryIntegration
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)  # You can adjust the logging level as needed
 logger = logging.getLogger(__name__)
 
 
+
+@signals.beat_init.connect
+@signals.celeryd_init.connect
+def init_sentry(**kwargs):
+    sentry_sdk.init(
+        dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
+        integrations=[CeleryIntegration(monitor_beat_tasks=True)],  # 👈
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        # Set profiles_sample_rate to 1.0 to profile 100%
+        # of sampled transactions.
+        # We recommend adjusting this value in production.
+        profiles_sample_rate=1.0,
+        environment="prod",
+        release="v1.0",
+    )
 
 @shared_task
 def send_invitation_email_task(invite_code, company_name, inviter_name, to_email):
@@ -259,7 +280,7 @@ def reset_gems_for_local_timezones():
     This task resets the users' gem amount and gems spent every day at midnight in their local timezone.
     """
     now_utc = django_timezone.now()
-    
+
     batch_size = 100  # Adjust based on your needs
     offset = 0
 
@@ -280,16 +301,16 @@ def reset_gems_for_local_timezones():
 
                 # Check if it's midnight (0 hour) in the user's local timezone
                 if user_local_time.hour == 0:
-                    # Calculate the date for the previous day 
+                    # Calculate the date for the previous day
                     previous_day = user_local_time.date() - timedelta(days=1)
 
                     # Reset the user's total gems and gems spent
                     CustomUser.objects.filter(id=user['id']).update(gems_spent=0)
 
-                    # Update gem records for the previous day to keep copies and reset daily values 
-                    Gem.objects.filter(user_id=user['id'], date=previous_day).update( 
-                        xp_gem=0, 
-                        manual_gem=0 
+                    # Update gem records for the previous day to keep copies and reset daily values
+                    Gem.objects.filter(user_id=user['id'], date=previous_day).update(
+                        xp_gem=0,
+                        manual_gem=0
                     )
 
                     print(f"Reset gems and gems spent for user {user['email']}")
@@ -305,8 +326,8 @@ def reset_gems_for_local_timezones():
 @shared_task(bind=True, acks_late=True)
 def process_league_promotions(self):
     now = timezone.now()
-    logger.info('Processing expired leagues...') 
-    
+    logger.info('Processing expired leagues...')
+
     expired_leagues = (LeagueInstance.objects.filter( league_end__lte=now, is_active=True, company__isnull=True )
                        .select_related('league', 'company'))
     # .prefetch_related("userleague_set", "userleague_set__user"))
@@ -316,7 +337,7 @@ def process_league_promotions(self):
     logger.info(f'Found {expired_leagues.count()} expired leagues')
     logger.info(f'Found {expired_leagues} expired leagues')
 
-    # Mark all expired leagues as inactive immediately to prevent reprocessing 
+    # Mark all expired leagues as inactive immediately to prevent reprocessing
     # expired_leagues.update(is_active=False)
 
     for league in expired_leagues:
@@ -332,8 +353,8 @@ def process_league_promotions(self):
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
 
-        bulk_updates = [] 
-        notifications = [] 
+        bulk_updates = []
+        notifications = []
         channel_messages = []
         gems_data = [] # Collect gems data
 
@@ -360,7 +381,7 @@ def process_league_promotions(self):
                     notif_type = "league_demotion"
                     content = f"You have been demoted to Global League {11 - league.league.order} ({league.league.name})"
                     demote_user(user, gems_obtained, league)
-               
+
             elif is_lowest_league:
                 if rank <= promotion_threshold:
                     gems_obtained = 20 - (rank - 1) * 2
@@ -408,39 +429,39 @@ def process_league_promotions(self):
                         content = f"You have been demoted in Global League {11 - league.league.order} ({league.league.name})"
                         demote_user(user, gems_obtained, league)
 
-            notifications.append(Notif(user=user, notif_type=notif_type, content=content)) 
-            
-            user_league.xp_global = 0 
-            
+            notifications.append(Notif(user=user, notif_type=notif_type, content=content))
+
+            user_league.xp_global = 0
+
             bulk_updates.append(user_league)
 
-            new_gem_count = user.get_gem_count() 
-            channel_messages.append({ 
-                'user_id': user.id, 
-                'gem_count': new_gem_count, 
-                'channel_name': f'gem_{user.id}', 
+            new_gem_count = user.get_gem_count()
+            channel_messages.append({
+                'user_id': user.id,
+                'gem_count': new_gem_count,
+                'channel_name': f'gem_{user.id}',
             })
 
-            # Collect gems data 
+            # Collect gems data
             gems_data.append(
-                { 
-                    "user_id": user.id, 
-                    "gems_obtained": gems_obtained 
+                {
+                    "user_id": user.id,
+                    "gems_obtained": gems_obtained
                 }
             )
 
-        UserLeague.objects.bulk_update(bulk_updates, ['xp_global']) 
+        UserLeague.objects.bulk_update(bulk_updates, ['xp_global'])
         Notif.objects.bulk_create(notifications)
 
-        custom_users = [user_league.user for user_league in users_in_league]
+        custom_users_ids = [user_league.user.id for user_league in users_in_league]
         logger.info(f'Users in league {league.id}: {users_in_league}')
         # TODO: build users with rank Data structure here
-        send_status_update.delay(custom_users, league, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
+        send_status_update.delay(custom_users_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
 
-        send_next_league_update.delay(custom_users, league, gems_data)
+        send_next_league_update.delay(custom_users_ids, league.id, gems_data)
 
         send_gem_update.delay(channel_messages)
-    
+
     logger.info("Completed processing expired leagues.")
 
 
@@ -466,8 +487,8 @@ def process_company_league_promotions(self):
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
 
-        bulk_updates = [] 
-        notifications = [] 
+        bulk_updates = []
+        notifications = []
         channel_messages = []
         gems_data = [] # Collect gems data
 
@@ -548,40 +569,40 @@ def process_company_league_promotions(self):
                         content = f"You have been demoted in company League {11 - league.league.order} ({league.league.name})"
                         demote_company_user(user, gems_obtained, league)
 
-            notifications.append(Notif(user=user, notif_type=notif_type, content=content)) 
-            
-            user_league.xp_company = 0 
-            
+            notifications.append(Notif(user=user, notif_type=notif_type, content=content))
+
+            user_league.xp_company = 0
+
             bulk_updates.append(user_league)
 
-            new_gem_count = user.get_gem_count() 
-            channel_messages.append({ 
-                'user_id': user.id, 
-                'gem_count': new_gem_count, 
-                'channel_name': f'gem_{user.id}', 
+            new_gem_count = user.get_gem_count()
+            channel_messages.append({
+                'user_id': user.id,
+                'gem_count': new_gem_count,
+                'channel_name': f'gem_{user.id}',
             })
 
-            # Collect gems data 
+            # Collect gems data
             gems_data.append(
-                { 
-                    "user_id": user.id, 
-                    "gems_obtained": gems_obtained 
+                {
+                    "user_id": user.id,
+                    "gems_obtained": gems_obtained
                 }
             )
 
-        UserLeague.objects.bulk_update(bulk_updates, ['xp_company']) 
+        UserLeague.objects.bulk_update(bulk_updates, ['xp_company'])
         Notif.objects.bulk_create(notifications)
 
-        league.is_active = False    
+        league.is_active = False
         league.save()
         logger.info(f'Users in league {league.id}: {list(users_in_league)}')
 
-        custom_users = [user_league.user for user_league in users_in_league]
-        logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {custom_users}')
+        custom_users_ids = [user_league.user.id for user_league in users_in_league]
+        logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {custom_users_ids}')
 
-        send_status_update.delay(custom_users, league, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
+        send_status_update.delay(custom_users_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
 
-        send_next_league_update.delay(custom_users, league, gems_data)
+        send_next_league_update.delay(custom_users_ids, league.id, gems_data)
 
         send_gem_update.delay(channel_messages)
 
@@ -592,38 +613,38 @@ def send_gem_update(channel_messages):
         logger.info("Sending gem updates.")
         # Logic to send gem update notification
         logger.info(f"Channel messages received: {channel_messages}")
-        channel_layer = get_channel_layer() 
+        channel_layer = get_channel_layer()
         for message in channel_messages:
             logger.debug(f"Sending gem update to user {message['user_id']}.")
-            async_to_sync(channel_layer.group_send)( 
-                message['channel_name'], { 
-                    'type': 'send_gem_update', 
-                    'gem_count': message['gem_count'], 
-                } 
-            ) 
+            async_to_sync(channel_layer.group_send)(
+                message['channel_name'], {
+                    'type': 'send_gem_update',
+                    'gem_count': message['gem_count'],
+                }
+            )
             logger.info(f"Sent gem update for user {message['user_id']}")
         logger.info("Completed sending gem updates.")
     except Exception as e:
         logger.info(f'Error occurred: {e}', exc_info=True)
 
 @shared_task
-def send_status_update(custom_users, league_instance, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold):
+def send_status_update(custom_users_ids, league_instance_id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold):
     try:
         logger.info("Sending status updates.")
-        users_in_league = custom_users
-        
+        users_in_league = CustomUser.objects.filter(id__in=custom_users_ids)
+
         # Fetch the league instance
-        league = league_instance
-        
+        league = LeagueInstance.objects.get(id=league_instance_id)
+
         # Determine league type based on the presence of a company
         league_type = 'company' if league.company else 'global'
-        
+
         # Fetch appropriate XP based on league type
         if league_type == 'company':
             rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', '-user__streak', 'id')
         else:
             rankings = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_global', '-user__streak', 'id')
-        
+
         rankings_data = []
         for idx, ul in enumerate(rankings, start=1):
             xp = ul.xp_company if league_type == 'company' else ul.xp_global
@@ -640,7 +661,7 @@ def send_status_update(custom_users, league_instance, status, is_lowest_league, 
                 "rank": idx,
                 "advancement": advancement
             })
-        
+
         league_end = league.league_end.isoformat(timespec='milliseconds') + 'Z'
         data_for_status = {
             "league_id": league.id,
@@ -677,14 +698,14 @@ def send_status_update(custom_users, league_instance, status, is_lowest_league, 
         logger.error(f'Error occurred: {e}', exc_info=True)
 
 @shared_task
-def send_next_league_update(users, league_instance, gems_data):
+def send_next_league_update(user_ids, league_instance_id, gems_data):
     try:
         logger.info('sending next league info')
-        users_in_league = users
+        users_in_league = CustomUser.objects.filter(id__in=user_ids)
 
         # Fetch the current league instance
-        league = league_instance
-        
+        league = LeagueInstance.objects.get(id=league_instance_id)
+
         # Determine league type based on the presence of a company
         league_type = 'company' if league.company else 'global'
 
@@ -692,22 +713,22 @@ def send_next_league_update(users, league_instance, gems_data):
         for rank,user in enumerate(users_in_league, start=1):
             if league_type == 'company':
                 next_user_league = UserLeague.objects.filter(
-                    user=user, 
-                    league_instance__is_active=True, 
-                    league_instance__company__isnull=False, 
+                    user=user,
+                    league_instance__is_active=True,
+                    league_instance__company__isnull=False,
                     league_instance__company=league.company
                 ).select_related('league_instance', 'league_instance__league').first()
             else:
                 next_user_league = UserLeague.objects.filter(
-                    user=user, 
-                    league_instance__is_active=True, 
+                    user=user,
+                    league_instance__is_active=True,
                     league_instance__company__isnull=True
                 ).select_related('league_instance', 'league_instance__league').first()
-            
+
             if next_user_league:
                 next_league_instance = next_user_league.league_instance
                 logger.info(f'Next league instance ID: {next_league_instance.id}')
-                
+
                 if league_type == 'company':
                     next_rankings = UserLeague.objects.filter(
                         league_instance=next_league_instance
@@ -749,18 +770,18 @@ def send_next_league_update(users, league_instance, gems_data):
                     "user_rank": user_rank,
                     "rankings": next_rankings_data,
                 }
-                
+
                 channel_layer = get_channel_layer()
                 async_to_sync(channel_layer.group_send)(
-                    f'{league_type}_league_{league_instance.id}',
+                    f'{league_type}_league_{league_instance_id}',
                     {
                         'type': 'send_league_update',  # Changed this to send the next league data
                         'data': data,
                     }
                 )
                 logger.info(f"Sent next league update for league {next_league_instance.id}")
-        
+
         # Logic to send league update notification
-        logger.info(f'Sent next league update for league users {league_instance.id}')
+        logger.info(f'Sent next league update for league users {league_instance_id}')
     except Exception as e:
         logger.error(f'Error occurred: {e}', exc_info=True)
