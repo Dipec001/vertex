@@ -23,12 +23,19 @@ logger = logging.getLogger(__name__)
 
 
 
-
+@signals.beat_init.connect
 @signals.celeryd_init.connect
 def init_sentry(**kwargs):
     sentry_sdk.init(
         dsn="https://ddfd780df73f55423570f6550b5d57fa@o4508177221091328.ingest.de.sentry.io/4508256174080080",
         integrations=[CeleryIntegration(monitor_beat_tasks=True)],  # 👈
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        # Set profiles_sample_rate to 1.0 to profile 100%
+        # of sampled transactions.
+        # We recommend adjusting this value in production.
+        profiles_sample_rate=1.0,
         environment="prod",
         release="v1.0",
     )
