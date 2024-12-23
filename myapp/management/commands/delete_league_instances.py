@@ -3,12 +3,12 @@ from django.core.management.base import BaseCommand
 from myapp.models import LeagueInstance
 
 class Command(BaseCommand):
-    help = 'Bulk delete the first 105107 oldest LeagueInstance records'
+    help = 'Bulk delete the first 280 oldest LeagueInstance records'
 
     def handle(self, *args, **kwargs):
-        # Fetch the IDs of the first 105107 oldest LeagueInstance records
+        # Fetch the IDs of the first 280 oldest LeagueInstance records
         league_instance_ids = list(
-            LeagueInstance.objects.order_by('league_start').values_list('id', flat=True)[:105107]
+            LeagueInstance.objects.order_by('league_start').values_list('id', flat=True)[:280]
         )
 
         if not league_instance_ids:
