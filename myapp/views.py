@@ -2114,9 +2114,24 @@ class EmployeeByCompanyModelDetailsView(RetrieveAPIView, DestroyAPIView):
             return Response({"error": "An internal server error occurred."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return super().handle_exception(exc)
+class EmployeeListView(ListAPIView):
+    # TODO: add company owner pk based matching permission
+    permission_classes = [IsAdminUser]
+    serializer_class = EmployeeSerializer
+    filter_backends = [rest_framework.DjangoFilterBackend]
+    filterset_class = EmployeeFilterSet
 
+    def get_queryset(self):
+        company_id = self.kwargs['company_id']
+        current_user = self.request.user
+        # admin users can have access to all emplyoyees
+        queryset = CustomUser.objects.order_by('id')
+        # Company owner can only access data of his employees
+        if current_user.owned_company.filter(id=company_id).exists():
+            queryset.filter(company_id=company_id, membership__role="employee")
+        return queryset
 class EmployeeByCompanyModelView(ListAPIView):
-    permission_classes = [IsCompanyOwner]
+    permission_classes = [ IsAdminUser | IsCompanyOwner]
     serializer_class = EmployeeSerializer
     filter_backends = [rest_framework.DjangoFilterBackend]
     filterset_class = EmployeeFilterSet
