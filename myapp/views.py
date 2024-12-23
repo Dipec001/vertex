@@ -19,7 +19,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
                      League, Gem, DrawImage, Notif)
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.hashers import make_password
@@ -2128,3 +2128,23 @@ class EmployeeAdminModelView(ListAPIView):
     def get_queryset(self):
         # should be by employee too
         return CustomUser.objects.filter(membership__role="employee")
+
+
+# endpoints for in house dashboard
+# Global statistics for the in house dashboard
+class GlobalStats(APIView):
+    # TODO: refine permissions
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        all_users = CustomUser.objects.all()
+        total_users = all_users.count()
+        all_user_that_installed_app = all_users.exclude(last_login__isnull=True)
+        percentage_of_install = all_user_that_installed_app.count() * 100 / total_users
+        total_companies = Company.objects.count()
+
+        data = {
+            "total_users": total_users,
+            "percentage_of_install": percentage_of_install,
+            "total_companies": total_companies,
+        }
+        return Response(data=data)

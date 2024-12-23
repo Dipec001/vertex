@@ -61,5 +61,6 @@ urlpatterns = [
     path("company/<int:pk>/", views.CompanyDetailView.as_view(), name='company-detail'),
     path("company/<int:company_id>/employees/", views.EmployeeByCompanyModelView.as_view(), name='employee-by-company'),
     path("company/<int:company_id>/employees/<int:pk>/", views.EmployeeByCompanyModelDetailsView.as_view(), name='employee-details-by-company'),
+    path('global-stats/', views.GlobalStats.as_view(), name="global-stats"),
     path('user-feed/', views.UserFeedView.as_view(), name='user-feed'),
 ]
