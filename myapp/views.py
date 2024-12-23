@@ -11,7 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters import rest_framework
 from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification, \
     get_global_xp_for_stats_for_last_30_days
-from .filters import EmployeeFilterSet
+from .filters import EmployeeFilterSet, CompanyFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
@@ -1207,8 +1207,12 @@ class CompanyDrawEditView(APIView):
 
 class CompanyListView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Company.objects.all()
     serializer_class = CompanySerializer
+    filter_backends = [rest_framework.DjangoFilterBackend]
+    filter_class = CompanyFilterSet
+
+    def get_queryset(self):
+        return Company.objects.all().order_by("id")
 
 class CompanyDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsCompanyOwnerPK | permissions.IsAdminUser]
