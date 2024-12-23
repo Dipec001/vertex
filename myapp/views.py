@@ -2124,7 +2124,7 @@ class EmployeeListView(ListAPIView):
     def get_queryset(self):
         company_id = self.kwargs['company_id']
         current_user = self.request.user
-        # admin users can have access to all emplyoyees
+        # admin users can have access to all employees
         queryset = CustomUser.objects.order_by('id')
         # Company owner can only access data of his employees
         if current_user.owned_company.filter(id=company_id).exists():
