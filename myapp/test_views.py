@@ -660,6 +660,29 @@ class CompanyViewTests(APITestCase):
         # Ensure the owner is set correctly
         self.assertEqual(new_company.owner, self.owner)
 
+    def test_create_company_without_owner_ko(self):
+        """Test that a company can be created"""
+        new_company_data = {
+            'name': 'New Company',
+            'domain': 'https://newcompany.com',
+        }
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(reverse('company-list'), new_company_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_company_with_unexistent_owner_ko(self):
+        """Test that a company can be created"""
+        new_company_data = {
+            'name': 'New Company',
+            'domain': 'https://newcompany.com',
+            'owner': 999999  # Non-existent ID
+        }
+
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.post(reverse('company-list'), new_company_data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_update_company(self):
         """Test that a company can be updated"""
         updated_data = {
