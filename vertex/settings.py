@@ -21,13 +21,13 @@ from firebase_admin import initialize_app
 from kombu import Queue, Exchange
 import firebase_admin
 from firebase_admin import credentials
-import boto3 
+import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
 
-# Import your custom logging configuration 
+# Import your custom logging configuration
 # from .logging import LOGGING
 
-# Ensure the LOGGING settings are used 
+# Ensure the LOGGING settings are used
 # LOGGING = LOGGING
 
 load_dotenv()
@@ -95,7 +95,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8080",
-    "http://localhost:8080",  # In case you're using localhost without the 
+    "http://localhost:8080",  # In case you're using localhost without the
     "https://frabjous-beijinho-4b366a.netlify.app",
     "https://vertexx-85dc684c56f3.herokuapp.com"
 ]
@@ -343,6 +343,8 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE ='UTC'
+CELERY_TASK_RESULT_EXPIRES = 3600 # Expire results after 1 hour
+CELERYD_PREFETCH_MULTIPLIER = 2
 
 # Load environment variables
 GOOGLE_WEB_CLIENT_ID = os.getenv('GOOGLE_WEB_CLIENT_ID')
@@ -360,17 +362,17 @@ APPLE_CLIENT_SECRET = os.getenv('APPLE_CLIENT_SECRET')
 
 
 
-CELERY_TASK_QUEUES = ( 
-    Queue('default', Exchange('default'), routing_key='default'), 
-    Queue('priority_high', Exchange('priority_high'), routing_key='priority_high'), 
+CELERY_TASK_QUEUES = (
+    Queue('default', Exchange('default'), routing_key='default'),
+    Queue('priority_high', Exchange('priority_high'), routing_key='priority_high'),
 )
 
 CELERY_DEFAULT_QUEUE = 'default'
 CELERY_TASK_ROUTES = {
     'myapp.tasks.process_league_promotions': {'queue': 'priority_high'},
     'myapp.tasks.process_company_league_promotions': {'queue': 'priority_high'},
-    'myapp.tasks.send_gem_update': {'queue': 'default'}, 
-    'myapp.tasks.send_status_update': {'queue': 'default'}, 
+    'myapp.tasks.send_gem_update': {'queue': 'default'},
+    'myapp.tasks.send_status_update': {'queue': 'default'},
     'myapp.tasks.send_next_league_update': {'queue': 'default'},
     'notifications.tasks.check_and_notify_users': {'queue': 'default'},
     'notifications.tasks.notify_gem_reset': {'queue': 'default'},
@@ -401,12 +403,12 @@ CELERY_BEAT_SCHEDULE = {
     },
     'process_league_promotions_every_10_seconds': {
         'task': 'myapp.tasks.process_league_promotions',
-        'schedule': timedelta(seconds=5), # Every 10s
+        'schedule': timedelta(seconds=30), # Every 10s
         'options': {'queue': 'priority_high'}
     },
     'process_company_league_promotions_every_10_seconds': {
         'task': 'myapp.tasks.process_company_league_promotions',
-        'schedule': timedelta(seconds=5), # Every 10 seconds
+        'schedule': timedelta(seconds=30), # Every 10 seconds
         'options': {'queue': 'priority_high'}
     },
     'notify-draw-one-day-before': {

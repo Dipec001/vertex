@@ -332,7 +332,7 @@ def process_league_promotions(self):
                        .select_related('league', 'company'))
     # .prefetch_related("userleague_set", "userleague_set__user"))
     # update the league status as soon as possible so other concurrent do not fetch it anymore
-    expired_leagues.update(is_active=True)
+    # expired_leagues.update(is_active=True)
 
     logger.info(f'Found {expired_leagues.count()} expired leagues')
     logger.info(f'Found {expired_leagues} expired leagues')
@@ -452,7 +452,7 @@ def process_league_promotions(self):
 
         UserLeague.objects.bulk_update(bulk_updates, ['xp_global'])
         Notif.objects.bulk_create(notifications)
-
+        league.is_active = False
         custom_users_ids = [user_league.user.id for user_league in users_in_league]
         logger.info(f'Users in league {league.id}: {users_in_league}')
         # TODO: build users with rank Data structure here
