@@ -330,9 +330,7 @@ def process_league_promotions(self):
 
     expired_leagues = (LeagueInstance.objects.filter( league_end__lte=now, is_active=True, company__isnull=True )
                        .select_related('league', 'company'))
-    # .prefetch_related("userleague_set", "userleague_set__user"))
-    # update the league status as soon as possible so other concurrent do not fetch it anymore
-    # expired_leagues.update(is_active=True)
+
 
     logger.info(f'Found {expired_leagues.count()} expired leagues')
     logger.info(f'Found {expired_leagues} expired leagues')
@@ -452,10 +450,14 @@ def process_league_promotions(self):
 
         UserLeague.objects.bulk_update(bulk_updates, ['xp_global'])
         Notif.objects.bulk_create(notifications)
+        
         league.is_active = False
+        league.save()
+        logger.info(f'Users in league {league.id}: {list(users_in_league)}')
+
         custom_users_ids = [user_league.user.id for user_league in users_in_league]
-        logger.info(f'Users in league {league.id}: {users_in_league}')
-        # TODO: build users with rank Data structure here
+        logger.info(f'USER IDS OF USERS IN LEAGUE XXXXXX: {custom_users_ids}')
+
         send_status_update.delay(custom_users_ids, league.id, status, is_lowest_league, is_highest_league, total_users, promotion_threshold, demotion_threshold)
 
         send_next_league_update.delay(custom_users_ids, league.id, gems_data)
@@ -471,12 +473,9 @@ def process_company_league_promotions(self):
     Handles promotions and demotions of users in company leagues at the end of a league period.
     """
     now = timezone.now()
-    # TODO (refactor): the only difference is the company filtering
-    expired_leagues = LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=False).select_related('league')
-    # update the league status as soon as possible so other concurrent do not fetch it anymore
-    expired_leagues.update(is_active=True)
-    logger.info(f'Expired company leagues: {expired_leagues}')
+    expired_leagues = (LeagueInstance.objects.filter(league_end__lte=now, is_active=True, company__isnull=False).select_related('league','company'))
 
+    logger.info(f'Expired company leagues: {expired_leagues}')
 
     for league in expired_leagues:
         users_in_league = UserLeague.objects.filter(league_instance=league).select_related('user').order_by('-xp_company', '-user__streak', 'id')

@@ -151,7 +151,7 @@ class LeagueAdmin(admin.ModelAdmin):
 # Customizing the display and functionality of the LeagueInstance model in the admin interface
 @admin.register(LeagueInstance)
 class LeagueInstanceAdmin(admin.ModelAdmin):
-    list_display = ('id', 'league', 'league_start', 'league_end', 'company', 'max_participants')  # Fields to display
+    list_display = ('id', 'league', 'league_start', 'league_end', 'company', 'is_active', 'max_participants')  # Fields to display
     search_fields = ('id','league__name', 'company__name')  # Search by league name
     list_filter = ('company', 'league_start', 'league_end', 'is_active')  # Filter options
     ordering = ('league_start',)  # Ordering of the list
