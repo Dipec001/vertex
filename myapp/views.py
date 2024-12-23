@@ -9,7 +9,8 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters import rest_framework
-from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification
+from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification, \
+    get_global_xp_for_stats_for_last_30_days
 from .filters import EmployeeFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
@@ -2148,3 +2149,11 @@ class GlobalStats(APIView):
             "total_companies": total_companies,
         }
         return Response(data=data)
+
+# Xp graphs for 30 days
+class GlobalXpGraph(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        today = timezone.now().date()
+        xps_stats = get_global_xp_for_stats_for_last_30_days(today)
+        return Response(data=xps_stats)

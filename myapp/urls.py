@@ -62,5 +62,6 @@ urlpatterns = [
     path("company/<int:company_id>/employees/", views.EmployeeByCompanyModelView.as_view(), name='employee-by-company'),
     path("company/<int:company_id>/employees/<int:pk>/", views.EmployeeByCompanyModelDetailsView.as_view(), name='employee-details-by-company'),
     path('global-stats/', views.GlobalStats.as_view(), name="global-stats"),
+    path("global-xp-graphs/", views.GlobalXpGraph.as_view(), name="global-xp-graphs"),
     path('user-feed/', views.UserFeedView.as_view(), name='user-feed'),
 ]
