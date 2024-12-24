@@ -607,11 +607,26 @@ class CompanyViewTests(APITestCase):
             password='testpass123',
             is_company_owner=True
         )
+
         self.company = Company.objects.create(
             name='Test Company',
             owner=self.owner,
             domain='test.com'
         )
+        self.employee1 = CustomUser.objects.create_user(
+                    username='emp1@test.com',
+                    email='emp1@test.com',
+                    password='testpass123'
+                )
+        self.employee2 = CustomUser.objects.create_user(
+            username='emp2@test.com',
+            email='emp2@test.com',
+            password='testpass123'
+        )
+
+        # Create memberships
+        Membership.objects.create(user=self.employee1, company=self.company)
+        Membership.objects.create(user=self.employee2, company=self.company)
         self.client.force_authenticate(user=self.owner)
 
     def test_company_list_view(self):
@@ -634,6 +649,8 @@ class CompanyViewTests(APITestCase):
         data = response.json()['data']
         self.assertEqual(data['name'], self.company.name)
         self.assertEqual(data['owner'], self.owner.id)  # Assuming owner ID is returned
+        # number of employees
+        self.assertEqual(data['total_employees'], 2)
 
     def test_company_detail_view_not_found(self):
         """Test that accessing a non-existent company returns a 404"""
@@ -653,12 +670,17 @@ class CompanyViewTests(APITestCase):
         response = self.client.post(reverse('company-list'), new_company_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+        data = response.json()['data']
+
         # Verify the company was created
         self.assertEqual(Company.objects.count(), 2)  # One existing + one new
         new_company = Company.objects.get(name='New Company')
         self.assertEqual(new_company.domain, 'https://newcompany.com')
         # Ensure the owner is set correctly
         self.assertEqual(new_company.owner, self.owner)
+
+        self.assertEqual(0, data.get('total_employees'))
+        self.assertFalse(Membership.objects.filter(company=new_company).exists())
 
     def test_create_company_without_owner_ko(self):
         """Test that a company can be created"""
@@ -693,11 +715,13 @@ class CompanyViewTests(APITestCase):
         self.client.force_authenticate(user=self.owner)
         response = self.client.patch(reverse('company-detail', kwargs={'pk': self.company.id}), updated_data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()["data"]
 
         # Verify the company was updated
         self.company.refresh_from_db()
         self.assertEqual(self.company.name, 'Updated Company')
         self.assertEqual(self.company.domain, 'https://updatedcompany.com')
+        self.assertEqual(data['total_employees'], 2)
 
     def test_delete_company(self):
         """Test that a company can be deleted"""
