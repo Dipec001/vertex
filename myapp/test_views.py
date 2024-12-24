@@ -744,3 +744,104 @@ class CompanyViewTests(APITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get(reverse('company-detail', kwargs={'pk': self.company.id}))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+@skipIf(not settings.DEBUG, "Skip tests in production environment")
+class TestGlobalStats(APITestCase):
+    def setUp(self):
+        self.owner = CustomUser.objects.create_user(
+            username='owner@test.com',
+            email='owner@test.com',
+            password='testpass123',
+            is_company_owner=True
+        )
+
+        self.company = Company.objects.create(
+            name='Test Company',
+            owner=self.owner,
+            domain='test.com'
+        )
+
+        self.owner2 = CustomUser.objects.create_user(
+            username='owner2@test.com',
+            email='owner2@test.com',
+            password='testpass123',
+            is_company_owner=True
+        )
+
+        self.company2 = Company.objects.create(
+            name='Test Company 2',
+            owner=self.owner2,
+            domain='test2.com'
+        )
+
+        self.employee5 = CustomUser.objects.create_user(
+            username='emp5@test2.com',
+            email='emp5@test2.com',
+            password='testpass123'
+        )
+        self.employee6 = CustomUser.objects.create_user(
+            username='emp6@test2.com',
+            email='emp6@test2.com',
+            password='testpass123'
+        )
+
+        # Create memberships for second company
+        Membership.objects.create(user=self.employee5, company=self.company2)
+        Membership.objects.create(user=self.employee6, company=self.company2)
+
+
+        self.employee3 = CustomUser.objects.create_user(
+            username='emp3@test.com',
+            email='emp3@test.com',
+            password='testpass123'
+        )
+        self.employee4 = CustomUser.objects.create_user(
+            username='emp4@test.com',
+            email='emp4@test.com',
+            password='testpass123'
+        )
+
+        # Create memberships for employees not logged in
+        Membership.objects.create(user=self.employee3, company=self.company)
+        Membership.objects.create(user=self.employee4, company=self.company)
+
+
+
+        # Create employees
+        self.employee1 = CustomUser.objects.create_user(
+            username='emp1@test.com',
+            email='emp1@test.com',
+            password='testpass123'
+        )
+        self.employee2 = CustomUser.objects.create_user(
+            username='emp2@test.com',
+            email='emp2@test.com',
+            password='testpass123'
+        )
+
+        # Create memberships
+        Membership.objects.create(user=self.employee1, company=self.company)
+        Membership.objects.create(user=self.employee2, company=self.company)
+
+        # Login these employees once
+        self.employee5.last_login = timezone.now()
+        self.employee5.save()
+
+        self.employee6.last_login = timezone.now()
+        self.employee6.save()
+
+        self.employee1.last_login = timezone.now()
+        self.employee1.save()
+
+        self.employee2.last_login = timezone.now()
+        self.employee2.save()
+    # test global stats
+    def test_global_stats(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(reverse('global-stats'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()['data']
+        self.assertEqual(data['total_companies'], 2)
+        self.assertEqual(data['total_users'], 8)
+        self.assertEqual(data['percentage_of_install'], 50.0)
