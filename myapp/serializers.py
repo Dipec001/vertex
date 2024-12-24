@@ -664,10 +664,19 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         """
         milestone = milestone_increment
         last_feed = Feed.objects.filter(user=user, feed_type=Feed.MILESTONE).order_by('-created_at').first()
-        print(last_feed.content, 'last milestone content')
-        last_milestone = int(last_feed.content.split(" ")[-2]) if last_feed else 0
+
+        # Safely extract the last milestone
+        last_milestone = 0
+        if last_feed and last_feed.content:
+            try:
+                last_milestone = int(last_feed.content.split(" ")[-2])
+            except (ValueError, IndexError):
+                print("Failed to parse last milestone from feed content.")
+
+        print(last_feed.content if last_feed else "No last feed found", 'last milestone content')
         print("last milestone", last_milestone)
 
+        # Check and create new feeds for milestones
         while milestone <= total_daily_step_count:
             if milestone > last_milestone:
                 Feed.objects.create(
@@ -677,6 +686,7 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 )
                 print(f"Feed created for {milestone}-step milestone.")
             milestone += milestone_increment
+
 
 
 class WorkoutActivitySerializer(serializers.ModelSerializer):
