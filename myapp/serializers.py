@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw, 
+from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw,
                      DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing, Gem, DrawImage, Notif)
 import random
 import string
@@ -29,6 +29,15 @@ class EmployeeSerializer(serializers.ModelSerializer):
     def get_downloaded_the_app(self, obj: CustomUser):
         return obj.last_login is not None
 
+
+class CompanySerializer(serializers.ModelSerializer):
+    total_employees = serializers.IntegerField(read_only=True, default=0)
+    class Meta:
+        model = Company
+        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at']
+
+
+
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         required=True,
@@ -48,7 +57,7 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
         base_username = email.split('@')[0]
         username = base_username
         counter = 1
-        
+
         # Check if username already exists, and append a counter if it does
         while CustomUser.objects.filter(username=username).exists():
             username = f"{base_username}{counter}"
@@ -68,7 +77,7 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
 
         # Create the user and set `is_company_owner` to True
         user = CustomUser.objects.create_user(email=email, username=username, password=password, is_company_owner=True)
-        
+
         # Create the company and associate it with the owner
         company = Company.objects.create(name=company_name, owner=user, domain=domain)
 
@@ -102,11 +111,11 @@ class InvitationSerializer(serializers.ModelSerializer):
         # Check if the user is trying to invite themselves
         if email.lower() == user.email.lower():
             raise serializers.ValidationError({"error": "You cannot invite yourself."})
-        
+
         # Prevent inviting an existing user who already belongs to a company
         if CustomUser.objects.filter(email=email, company__isnull=False).exists():
             raise serializers.ValidationError({"error": "The user is already a member of a company."})
-        
+
         # Check if the user has already been invited to this company
         existing_invitation = Invitation.objects.filter(email=email, company=company).first()
 
@@ -169,16 +178,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # Include all fields except the raw profile_picture and profile_picture_url
         fields = [
             'id',
-            'email', 
+            'email',
             'username',
             'first_name',
             'last_name',
-            'is_company_owner', 
+            'is_company_owner',
             'gem',
-            'streak', 
+            'streak',
             'streak_savers',
-            'bio', 
-            'date_joined', 
+            'bio',
+            'date_joined',
             'profile_picture_url',  # Custom field with logic
             'company',
             'global_league',
@@ -220,11 +229,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # If the user has an uploaded profile picture, return its URL
         if obj.profile_picture:
             return obj.profile_picture.url
-        
+
         # If the user has provided an external profile picture URL, return it
         if obj.profile_picture_url:
             return obj.profile_picture_url
-        
+
         # Fallback to a default image if neither is set
         # return '/static/images/default_avatar.png
 
@@ -234,7 +243,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return UserFollowing.objects.filter(follower=request.user, following=obj).exists()
         return False
-    
+
     def get_weekly_xp(self, obj):
         return self.get_weekly_data(obj, 'xp_records', 'totalXpToday')
 
@@ -265,7 +274,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         # Get the user's records for the current week, filter by date range
         records = getattr(obj, related_field)
-        
+
         # Filter records by date or timestamp based on the field type
         if use_timestamp:
             # For `workout_activity`, filter by `start_datetime` range
@@ -286,13 +295,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
             weekly_data[weekday_name] = 0
 
         return weekly_data
-    
+
     def get_detailed_weekly_workouts(self, obj):
         user_timezone = obj.timezone
         current_utc_time = t.now()
         user_local_time = current_utc_time.astimezone(user_timezone)
         current_day = user_local_time.date()
-        
+
         start_of_week = current_day - timedelta(days=current_day.weekday())
         end_of_week = start_of_week + timedelta(days=6)
 
@@ -328,7 +337,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
     timezone = TimeZoneSerializerField(use_pytz=False)  # Change to False if you want `zoneinfo` objects
     class Meta:
         model = CustomUser
-        fields = ['username', 'bio', 'profile_picture', 'timezone'] 
+        fields = ['username', 'bio', 'profile_picture', 'timezone']
 
 
 
@@ -347,13 +356,13 @@ class FeedSerializer(serializers.ModelSerializer):
         if user.is_authenticated:
             return Clap.objects.filter(user=user, feed=obj).exists()
         return False
-    
-    def get_profile_picture(self, obj): 
-        user = obj.user 
-        if user.profile_picture: 
-            return user.profile_picture.url 
-        elif user.profile_picture_url: 
-            return user.profile_picture_url 
+
+    def get_profile_picture(self, obj):
+        user = obj.user
+        if user.profile_picture:
+            return user.profile_picture.url
+        elif user.profile_picture_url:
+            return user.profile_picture_url
         return None
 
 
@@ -398,26 +407,26 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
         # Check if email already exists
         if CustomUser.objects.filter(email=data['email']).exists():
             raise serializers.ValidationError("Email already exists.")
-        
+
         # Check if username is unique
         if CustomUser.objects.filter(username=data['username']).exists():
             raise serializers.ValidationError("Username already exists.")
-        
+
 
         # Check login type to validate password
          # Validate login_type and corresponding fields
         login_type = data.get('login_type')
-        
+
         # If it's an email signup, password is required
         if login_type == 'email':
             if not data.get('password'):
                 raise serializers.ValidationError("Password is required for email signups.")
-        
+
         # For social logins, UID is required
         elif login_type in ['google', 'facebook', 'apple']:
             if not data.get('uid'):
                 raise serializers.ValidationError(f"UID is required for {login_type} signups.")
-            
+
         return data
 
     @transaction.atomic  # Wrap the method in an atomic transaction
@@ -446,7 +455,7 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
                 first_name=first_name,
                 last_name=last_name
             )
-            
+
             # Create the SocialAccount entry
             SocialAccount.objects.create(
                 user=user,
@@ -509,7 +518,7 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Invalid datetime format. Expected format: YYYY-MM-DDTHH:MM:SS")
         elif not isinstance(value, datetime):
             raise serializers.ValidationError("Invalid type for timestamp. Expected str or datetime.")
-        
+
         # New validation for join date
         if value.date() < user.date_joined.date():
             raise serializers.ValidationError("Timestamp cannot be before the user’s join date.")
@@ -574,10 +583,10 @@ class DailyStepsSerializer(serializers.ModelSerializer):
 
     def update_user_leagues(self, user, new_xp, xp_date):
         active_leagues = UserLeague.objects.filter(
-            user=user, 
+            user=user,
             league_instance__is_active=True
         ).select_related('league_instance__company')
-        
+
         for user_league in active_leagues:
             league_instance = user_league.league_instance
             league_start_date = league_instance.league_start
@@ -648,7 +657,7 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                     )
             except IntegrityError:
                 raise serializers.ValidationError(f"An error occurred while recording steps workout activity for {timestamp}.")
-            
+
     def check_dynamic_milestones(self, user, total_daily_step_count, milestone_increment=10000):
         """
         Check milestones dynamically and create a feed only if the milestone hasn't been reached before.
@@ -695,7 +704,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         start_datetime = data.get('start_datetime')
         end_datetime = data.get('end_datetime')
-        
+
         # Existing validation
         if start_datetime is None or end_datetime is None:
             raise serializers.ValidationError("Invalid date format for start_datetime or end_datetime.")
@@ -705,7 +714,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         # New validation for join date
         if start_datetime.date() < user.date_joined.date() or end_datetime.date() < user.date_joined.date():
             raise serializers.ValidationError("Activity dates cannot be before the user’s join date.")
-        
+
         return data
 
     def create(self, validated_data):
@@ -715,7 +724,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
 
         if (WorkoutActivity.objects.filter(
             user=user,
-            start_datetime=start_datetime,  
+            start_datetime=start_datetime,
             end_datetime=end_datetime
         ).exists()):
             raise serializers.ValidationError("A workout with the same start and end times already exists for this day.")
@@ -754,12 +763,12 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
                 elif duration >= 30:
                     movement_xp += 100
             elif data['activity_name'] == 'Mind and Body':
-                metadata = data.get('metadata', '') 
-                
-                # Default to empty string if metadata is not provided 
-                if metadata == 'Moment of Silence': 
-                    movement_xp += 20 * duration 
-                elif metadata == 'Meditation': 
+                metadata = data.get('metadata', '')
+
+                # Default to empty string if metadata is not provided
+                if metadata == 'Moment of Silence':
+                    movement_xp += 20 * duration
+                elif metadata == 'Meditation':
                     movement_xp += 100 * (duration // 10)
         return movement_xp
 
@@ -779,13 +788,13 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
             user_xp.totalXpToday += workout_activity.xp
             user_xp.totalXpAllTime += workout_activity.xp
             user_xp.save()
-    
+
     def update_user_leagues(self, user, new_xp, xp_date):
         active_leagues = UserLeague.objects.filter(
-            user=user, 
+            user=user,
             league_instance__is_active=True
         ).select_related('league_instance__company')
-        
+
         for user_league in active_leagues:
             league_instance = user_league.league_instance
             league_start_date = league_instance.league_start
@@ -824,7 +833,7 @@ class PurchaseSerializer(serializers.ModelSerializer):
         if value not in dict(Purchase.ITEM_CHOICES).keys():
             raise serializers.ValidationError("Invalid item choice.")
         return value
-    
+
 class PrizeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     class Meta:
@@ -832,12 +841,12 @@ class PrizeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'value', 'quantity']
 
 
-class DrawImageSerializer(serializers.ModelSerializer): 
-    
-    class Meta: 
-        model = DrawImage 
+class DrawImageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = DrawImage
         fields = ['image_link', 'title']
-    
+
 
 class DrawSerializer(serializers.ModelSerializer):
     prizes = PrizeSerializer(many=True)  # Add nested PrizeSerializer
@@ -852,7 +861,7 @@ class DrawSerializer(serializers.ModelSerializer):
 
     def get_entry_count(self, obj):
         return obj.entries.count()  # Count the related DrawEntry objects
-    
+
     # Number of entries for the authenticated user in this draw
     def get_user_entry_count(self, obj):
         request = self.context.get('request')
@@ -946,27 +955,27 @@ class NotifSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # Get the user from the view context (request)
         user = self.context['request'].user
-        
+
         # Ensure the user is included in validated_data
         validated_data['user'] = user
-        
+
         return super().create(validated_data)
 
     def to_representation(self, instance):
         # Get the current user from the view context
         user = self.context['request'].user
-        
+
         # Get the user's timezone
         user_timezone = user.timezone  # Assuming the 'timezone' field exists in the user model
         utc_time = instance.created_at  # Assuming `created_at` is a timezone-aware datetime
-        
+
         # Convert the `created_at` to the user's local time
         user_local_time = utc_time.astimezone(user_timezone)
-        
+
         # Create the serialized data
         representation = super().to_representation(instance)
-        
+
         # Replace `created_at` with the converted local time
         representation['created_at'] = user_local_time.isoformat()  # Use ISO 8601 format for the datetime string
-        
+
         return representation

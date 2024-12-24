@@ -9,6 +9,24 @@ from myapp.models import Company
 
 # Set up logging
 logger = logging.getLogger(__name__)
+class IsCompanyOwnerPK(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Check if user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        # Get company_id from URL parameters
+        company_id = view.kwargs.get('pk')
+        if not company_id:
+            logger.error("Company ID is missing in the URL path.")
+            raise ValueError("Company ID is required in the URL path.")
+
+        # Check if the company exists
+        get_object_or_404(Company, id=company_id)
+        if not request.user.owned_company.filter(id=company_id).exists():
+            return False
+
+        return True
 
 class IsCompanyOwner(permissions.BasePermission):
     """
