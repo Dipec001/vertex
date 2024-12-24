@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "myapp",
     'notifications',
     'missions',
+    'support',
     'rest_framework',
     'rest_framework_simplejwt',
     # 'rest_framework_simplejwt.token_blacklist',  # Add token_blacklist app
