@@ -1393,6 +1393,8 @@ class CompanyActiveLeagueView(APIView):
         # Get the highest and lowest leagues for the company
         lowest_league_order = approved_leagues.first().league.order
         highest_league_order = approved_leagues.last().league.order
+        print(lowest_league_order)
+        print(highest_league_order)
 
         rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company','-user__streak', 'id')
         total_users = rankings.count()
@@ -1402,10 +1404,14 @@ class CompanyActiveLeagueView(APIView):
         is_highest_league = league_instance.league.order == highest_league_order
         is_lowest_league = league_instance.league.order == lowest_league_order
 
+
         rankings_data = []
         for index, ul in enumerate(rankings, start=1):
-
-            if is_highest_league:
+            if is_highest_league and is_lowest_league: 
+                # When the highest and lowest leagues are the same, all users are retained 
+                advancement = "Retained" 
+                gems_obtained = 10 if ul.xp_global > 0 else 0
+            elif is_highest_league:
                 # Highest league: users can only be retained or demoted
                 if index <= demotion_threshold:
                     advancement = "Retained"

@@ -506,20 +506,26 @@ def process_company_league_promotions(self):
             notif_type = ""
             content = ""
             gems_obtained = 0 # Default to 0
-
-            if is_highest_league:
+            if is_highest_league and is_lowest_league: 
+                # When the highest and lowest leagues are the same, all users are retained 
+                status = "Retained" 
+                gems_obtained = 10 if user_league.xp_company > 0 else 0
+                notif_type = "league_retained"
+                content = f"You have been retained in company League {11 - league.league.order} ({league.league.name})"
+                retain_company_user(user, gems_obtained, league)
+            elif is_highest_league:
                 # Highest league: users can only be retained or demoted
                 if rank <= demotion_threshold:
                     status = "Retained"
                     gems_obtained = 10
                     notif_type = "league_retained"
-                    content = f"You have been retained in Global League {11 - league.league.order} ({league.league.name})"
+                    content = f"You have been retained in company League {11 - league.league.order} ({league.league.name})"
                     retain_company_user(user, gems_obtained, league)
                 else:
                     status = "Demoted"
                     gems_obtained = 0  # No gems for demoted users
                     notif_type = "league_demotion"
-                    content = f"You have been demoted to Global League {11 - league.league.order} ({league.league.name})"
+                    content = f"You have been demoted to company League {11 - league.league.order} ({league.league.name})"
                     demote_company_user(user, gems_obtained, league)
             elif is_lowest_league:
                 if rank <= promotion_threshold:
