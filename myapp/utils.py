@@ -65,6 +65,23 @@ def get_last_30_days(today):
         dates.append(date)
     return dates
 
+
+def get_global_xp_for_stats_for_last_30_days(today):
+    daily_stats = []
+    for single_date in get_last_30_days(today):
+        # Get all XP or this date
+        daily_xp = Xp.objects.filter(
+            date=single_date
+        ).aggregate(
+            total_xp=Sum('totalXpToday')
+        )['total_xp'] or 0
+
+        daily_stats.append({
+            'date': single_date,
+            'total_xp': daily_xp
+        })
+
+    return daily_stats
 def get_daily_steps_and_xp(company, today):
     daily_stats = []
     for single_date in get_last_30_days(today):

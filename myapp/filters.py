@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from myapp.models import CustomUser
+from myapp.models import CustomUser, Company
 
 
 class EmployeeFilterSet(filters.FilterSet):
@@ -10,3 +10,8 @@ class EmployeeFilterSet(filters.FilterSet):
     class Meta:
         model = CustomUser
         fields = ['username', 'email', 'company']
+
+class CompanyFilterSet(filters.FilterSet):
+    class Meta:
+        model = Company
+        fields = ['name']

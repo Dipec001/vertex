@@ -57,7 +57,11 @@ urlpatterns = [
     path('league/company/status/', views.CompanyLeagueStatusView.as_view(), name='custom-user-company-league-status'),
     path('company/dashboard/', views.CompanyDashboardView.as_view(), name='company-dashboard'),
     path('notifications/', views.NotificationsView.as_view(), name='notifications-list'),
+    path("company/", views.CompanyListView.as_view(), name='company-list'),
+    path("company/<int:pk>/", views.CompanyDetailView.as_view(), name='company-detail'),
     path("company/<int:company_id>/employees/", views.EmployeeByCompanyModelView.as_view(), name='employee-by-company'),
     path("company/<int:company_id>/employees/<int:pk>/", views.EmployeeByCompanyModelDetailsView.as_view(), name='employee-details-by-company'),
+    path('global-stats/', views.GlobalStats.as_view(), name="global-stats"),
+    path("global-xp-graphs/", views.GlobalXpGraph.as_view(), name="global-xp-graphs"),
     path('user-feed/', views.UserFeedView.as_view(), name='user-feed'),
 ]
