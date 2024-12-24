@@ -370,7 +370,7 @@ CELERY_TASK_QUEUES = (
 CELERY_DEFAULT_QUEUE = 'default'
 CELERY_TASK_ROUTES = {
     'myapp.tasks.process_league_promotions': {'queue': 'priority_high'},
-    # 'myapp.tasks.process_company_league_promotions': {'queue': 'priority_high'},
+    'myapp.tasks.process_company_league_promotions': {'queue': 'priority_high'},
     'myapp.tasks.send_gem_update': {'queue': 'default'},
     'myapp.tasks.send_status_update': {'queue': 'default'},
     'myapp.tasks.send_next_league_update': {'queue': 'default'},
@@ -406,11 +406,11 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': timedelta(seconds=30), # Every 10s
         'options': {'queue': 'priority_high'}
     },
-    # 'process_company_league_promotions_every_10_seconds': {
-    #     'task': 'myapp.tasks.process_company_league_promotions',
-    #     'schedule': timedelta(seconds=30), # Every 10 seconds
-    #     'options': {'queue': 'priority_high'}
-    # },
+    'process_company_league_promotions_every_10_seconds': {
+        'task': 'myapp.tasks.process_company_league_promotions',
+        'schedule': timedelta(seconds=30), # Every 10 seconds
+        'options': {'queue': 'priority_high'}
+    },
     'notify-draw-one-day-before': {
         'task': 'notifications.tasks.notify_draw_one_day_before',
         'schedule': crontab(hour=3, minute=0),  # Runs daily at 3 AM UTC

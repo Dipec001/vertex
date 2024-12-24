@@ -206,6 +206,7 @@ def get_highest_company_league_level(company):
     member_count = company.members.count()
     # Determine highest level based on member count, e.g., 1 league per 5 members
     max_level = min(member_count // MIN_USERS_FOR_LEAGUE, League.objects.count())  # Adjust division as needed
+    print(max_level)
     return max_level
 
 
