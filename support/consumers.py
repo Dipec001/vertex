@@ -1,8 +1,6 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import Ticket, TicketMessage
-from .serializers import TicketMessageSerializer
 
 class TicketConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -56,6 +54,7 @@ class TicketConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def can_access_ticket(self):
+        from .models import Ticket, TicketMessage
         try:
             ticket = Ticket.objects.get(id=self.ticket_id)
             return ticket.company == self.scope['user'].company
@@ -64,6 +63,7 @@ class TicketConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, message):
+        from .models import Ticket, TicketMessage
         ticket = Ticket.objects.get(id=self.ticket_id)
         return TicketMessage.objects.create(
             ticket=ticket,
@@ -73,4 +73,5 @@ class TicketConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def serialize_message(self, ticket_message):
+        from .serializers import TicketMessageSerializer
         return TicketMessageSerializer(ticket_message).data

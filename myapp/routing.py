@@ -1,7 +1,6 @@
 # # chat/routing.py
 from django.urls import re_path, path
 from . import consumers
-from support import consumers as support_consumers
 
 websocket_urlpatterns = [
     re_path(r'ws/test/', consumers.TestConsumer.as_asgi()),
@@ -16,6 +15,5 @@ websocket_urlpatterns = [
     path('ws/league/company/status/', consumers.CustomCompanyLeagueConsumer.as_asgi()),
     # path('ws/transaction/<int:user_id>/', consumers.TransactionConsumer.as_asgi()),
     path('ws/notification/', consumers.NotificationConsumer.as_asgi()),
-    re_path(r'ws/ticket/(?P<ticket_id>\w+)/$', support_consumers.TicketConsumer.as_asgi()),
     path('ws/<path:path>', consumers.InvalidPathConsumer.as_asgi()),
 ]
