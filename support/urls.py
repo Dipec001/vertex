@@ -3,7 +3,7 @@ from . import views
 
 urlpatterns = [
     path('tickets/', views.TicketViewSet.as_view({'get': 'list', 'post': 'create'}), name="ticket-list"),
-    path('tickets/<int:pk>', views.TicketViewSet.as_view(
+    path('tickets/<int:pk>/', views.TicketViewSet.as_view(
         {'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy', 'put': 'update'}), name="ticket-detail"),
     path('tickets/<int:pk>/add_message/', views.TicketViewSet.as_view({'post': 'add_message'}), name="ticket-add-message"),
     path('tickets/<int:pk>/update_status/', views.TicketViewSet.as_view({'patch': 'update_status'}), name="ticket-update-status"),
