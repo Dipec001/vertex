@@ -1,12 +1,18 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
+
+from django_filters import rest_framework
+
+from .filters import TicketFilterSet
 from .models import Ticket
 from .serializers import TicketSerializer, TicketMessageSerializer
 
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [rest_framework.DjangoFilterBackend]
+    filterset_class = TicketFilterSet
 
     def get_queryset(self):
         return Ticket.objects.filter(
