@@ -57,7 +57,7 @@ class TicketConsumer(AsyncWebsocketConsumer):
         from .models import Ticket, TicketMessage
         try:
             ticket = Ticket.objects.get(id=self.ticket_id)
-            return ticket.company == self.scope['user'].company
+            return ticket.company == self.scope['user'].company or self.scope['user'].is_staff
         except Ticket.DoesNotExist:
             return False
 
