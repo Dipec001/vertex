@@ -1,6 +1,8 @@
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
+
 from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
+
 
 class TicketConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -54,7 +56,7 @@ class TicketConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def can_access_ticket(self):
-        from .models import Ticket, TicketMessage
+        from .models import Ticket
         try:
             ticket = Ticket.objects.get(id=self.ticket_id)
             return ticket.company == self.scope['user'].company or self.scope['user'].is_staff
