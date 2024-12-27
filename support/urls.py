@@ -1,10 +1,13 @@
-from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 from . import views
 
-router = DefaultRouter()
-router.register(r'tickets', views.TicketViewSet, basename='ticket')
-
 urlpatterns = [
-    path('', include(router.urls)),
+    path('tickets/', views.TicketViewSet.as_view({'get': 'list', 'post': 'create'}), name="ticket-list"),
+    path('tickets/<int:pk>', views.TicketViewSet.as_view(
+        {'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy', 'put': 'update'}), name="ticket-detail"),
+    path('tickets/<int:pk>/add_message/', views.TicketViewSet.as_view({'post': 'add_message'}), name="ticket-add-message"),
+    path('tickets/<int:pk>/update_status/', views.TicketViewSet.as_view({'patch': 'update_status'}), name="ticket-update-status"),
+    path('company/<int:company_id>/tickets/', views.CompanyTicketViewSet.as_view({'post': 'create', 'get': "list"}), name="company-ticket-list"),
+    path('company/<int:company_id>/tickets/<int:pk>/',
+         views.CompanyTicketViewSet.as_view({'patch': 'partial_update', 'delete': 'destroy', 'put': 'update', 'get': 'retrieve'}), name="company-ticket-detail"),
 ]
