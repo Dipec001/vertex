@@ -300,7 +300,7 @@ def reset_gems_for_local_timezones():
                 user_local_time = now_utc.astimezone(user_timezone)
 
                 # Check if it's midnight (0 hour) in the user's local timezone
-                if user_local_time.hour == 11:
+                if user_local_time.hour == 0:
                     # Calculate the date for the previous day
                     previous_day = user_local_time.date() - timedelta(days=1)
                     print('previous day',previous_day)
