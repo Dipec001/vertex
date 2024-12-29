@@ -2235,3 +2235,22 @@ class GlobalXpGraph(APIView):
         today = timezone.now().date()
         xps_stats = get_global_xp_for_stats_for_last_30_days(today)
         return Response(data=xps_stats)
+
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from rest_framework_simplejwt.tokens import RefreshToken
+
+class CustomTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        try:
+            refresh = RefreshToken(request.data["refresh"])
+            user_id = refresh["user_id"]
+            
+            # Check if user still exists
+            if not CustomUser.objects.filter(id=user_id).exists():
+                return Response({"detail": "Invalid token."}, status=401)
+            
+            # If user exists, continue to refresh the token
+            return super().post(request, *args, **kwargs)
+        except TokenError as e:
+            raise InvalidToken(e.args[0])

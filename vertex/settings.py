@@ -66,7 +66,7 @@ INSTALLED_APPS = [
     'supportticket',
     'rest_framework',
     'rest_framework_simplejwt',
-    # 'rest_framework_simplejwt.token_blacklist',  # Add token_blacklist app
+    'rest_framework_simplejwt.token_blacklist',  # Add token_blacklist app
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
