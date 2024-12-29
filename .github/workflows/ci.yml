@@ -39,19 +39,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v2
         with:
-          python-version: '3.12'
+          python-version: '3.x'
 
-      - name: Wait for PostgreSQL to be Ready
-        run: |
-          until pg_isready -h 127.0.0.1 -p 5432 -U postgres; do
-            echo "Waiting for PostgreSQL...";
-            sleep 2;
-          done
+      - name: Set DEBUG environment variable
+        run: echo "DEBUG=$(if [ ${{ github.ref }} != 'refs/heads/master' ]; then echo 'True'; else echo 'False'; fi)" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
@@ -60,13 +56,13 @@ jobs:
 
       - name: Setup Database
         env:
-          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/test_db
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
         run: |
           python manage.py migrate
 
       - name: Run Tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/test_db
-          REDIS_URL: redis://127.0.0.1:6379/0
+          DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
+          REDIS_URL: redis://localhost:6379/0
         run: |
           python manage.py test
