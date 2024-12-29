@@ -379,6 +379,7 @@ CELERY_TASK_ROUTES = {
     'myapp.tasks.send_next_league_update': {'queue': 'default'},
     'notifications.tasks.check_and_notify_users': {'queue': 'default'},
     'notifications.tasks.notify_gem_reset': {'queue': 'default'},
+    'myapp.tasks.send_invitation_email_task': {'queue': 'default'},
     # 'missions.tasks.assign_daily_tasks': {'queue': 'default'},
 }
 
