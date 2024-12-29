@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from myapp.models import Feed, CustomUser, Clap
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 class Command(BaseCommand):
     help = 'Add 60 mock feeds for a user he\'s following and clap by user 9'
@@ -11,10 +11,9 @@ class Command(BaseCommand):
         clap_user = CustomUser.objects.get(id=9)
         user = CustomUser.objects.get(id=user_id)
         
-        feed_types = [Feed.PROMOTION, Feed.MILESTONE, Feed.STREAK, Feed.PRIZE, Feed.ACTIVITY]
+        feed_types = [Feed.PROMOTION, Feed.MILESTONE, Feed.STREAK, Feed.PRIZE, Feed.ACTIVITY_MOVEMENT]
 
         for _ in range(60):
-            print('hello')
             feed = Feed.objects.create(
                 user=user,
                 feed_type=random.choice(feed_types),
