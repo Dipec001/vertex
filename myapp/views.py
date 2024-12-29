@@ -1,5 +1,7 @@
 from pprint import pprint
-
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status, permissions
 from rest_framework.generics import ListAPIView, RetrieveAPIView, DestroyAPIView, ListCreateAPIView, \
     RetrieveUpdateDestroyAPIView
@@ -2236,9 +2238,6 @@ class GlobalXpGraph(APIView):
         xps_stats = get_global_xp_for_stats_for_last_30_days(today)
         return Response(data=xps_stats)
 
-from rest_framework_simplejwt.views import TokenRefreshView
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
-from rest_framework_simplejwt.tokens import RefreshToken
 
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
