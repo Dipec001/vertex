@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "myapp",
     'notifications',
     'missions',
+    'supportticket',
     'rest_framework',
     'rest_framework_simplejwt',
     # 'rest_framework_simplejwt.token_blacklist',  # Add token_blacklist app
@@ -371,6 +372,7 @@ CELERY_DEFAULT_QUEUE = 'default'
 CELERY_TASK_ROUTES = {
     'myapp.tasks.process_league_promotions': {'queue': 'priority_high'},
     'myapp.tasks.process_company_league_promotions': {'queue': 'priority_high'},
+    'myapp.tasks.reset_gems_for_local_timezones': {'queue': 'default'},
     'myapp.tasks.send_gem_update': {'queue': 'default'},
     'myapp.tasks.send_status_update': {'queue': 'default'},
     'myapp.tasks.send_next_league_update': {'queue': 'default'},

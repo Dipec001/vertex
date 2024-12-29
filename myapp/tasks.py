@@ -300,18 +300,22 @@ def reset_gems_for_local_timezones():
                 user_local_time = now_utc.astimezone(user_timezone)
 
                 # Check if it's midnight (0 hour) in the user's local timezone
-                if user_local_time.hour == 0:
+                if user_local_time.hour == 11:
                     # Calculate the date for the previous day
                     previous_day = user_local_time.date() - timedelta(days=1)
+                    print('previous day',previous_day)
 
                     # Reset the user's total gems and gems spent
                     CustomUser.objects.filter(id=user['id']).update(gems_spent=0)
 
-                    # Update gem records for the previous day to keep copies and reset daily values
-                    Gem.objects.filter(user_id=user['id'], date=previous_day).update(
-                        xp_gem=0,
-                        manual_gem=0
-                    )
+                    # Fetch or create the Gem record for the previous day
+                    gem_record, created = Gem.objects.get_or_create(user_id=user['id'], date=previous_day)
+                    print('gem record yesterday',gem_record)
+
+                    # Update the gem values and save
+                    gem_record.xp_gem = 0
+                    gem_record.manual_gem = 0
+                    gem_record.save()
 
                     print(f"Reset gems and gems spent for user {user['email']}")
 

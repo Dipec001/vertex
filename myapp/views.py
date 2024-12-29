@@ -928,12 +928,15 @@ class ConvertGemView(APIView):
         gem_cost_per_item = self.GEM_COSTS[item_type]
         total_gem_cost = gem_cost_per_item * quantity
 
-        # Calculate the total available gems (sum of xp_gem and manual_gem for today)
-        total_xp_gem = Gem.objects.filter(user=user).aggregate(Sum('xp_gem'))['xp_gem__sum'] or 0
-        total_manual_gem = Gem.objects.filter(user=user).aggregate(Sum('manual_gem'))['manual_gem__sum'] or 0
+        total_available_gems = user.get_gem_count()
+        print(total_available_gems)
 
-        # Total available gems after subtracting the gems spent
-        total_available_gems = total_xp_gem + total_manual_gem - user.gems_spent
+        # # Calculate the total available gems (sum of xp_gem and manual_gem for today)
+        # total_xp_gem = Gem.objects.filter(user=user).aggregate(Sum('xp_gem'))['xp_gem__sum'] or 0
+        # total_manual_gem = Gem.objects.filter(user=user).aggregate(Sum('manual_gem'))['manual_gem__sum'] or 0
+
+        # # Total available gems after subtracting the gems spent
+        # total_available_gems = total_xp_gem + total_manual_gem - user.gems_spent
 
         # Check if the user has enough available gems
         if total_available_gems < total_gem_cost:
@@ -945,6 +948,7 @@ class ConvertGemView(APIView):
         with transaction.atomic():
             # Deduct the total gem cost
             user.gems_spent += total_gem_cost
+            print('user_spent gems', user.gems_spent)
 
             # Update the user's tickets or streak savers
             if item_type == 'streak_saver':
@@ -1747,28 +1751,72 @@ class CompanyFeedListView(APIView):
         )
 
 
+# class UserFeedView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     pagination_class = FeedPagination
+
+#     def get(self, request):
+#         user = request.user
+
+#         user_timezone = user.timezone
+#         local_today = now().astimezone(user_timezone)
+#         last_week = local_today - timedelta(days=7)
+
+#         # Fetch user's own feeds from the last 7 days
+#         feeds = Feed.objects.filter(user=user, created_at__gte=last_week).order_by('-created_at')
+
+#         # Paginate the results
+#         paginator = self.pagination_class()
+#         result_page = paginator.paginate_queryset(feeds, request)
+
+#         # Serialize the feeds with the request context for `has_clapped`
+#         serializer = FeedSerializer(result_page, many=True, context={'request': request})
+
+#         return paginator.get_paginated_response(serializer.data)
+
 class UserFeedView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = FeedPagination
 
     def get(self, request):
         user = request.user
-
         user_timezone = user.timezone
         local_today = now().astimezone(user_timezone)
-        last_week = local_today - timedelta(days=7)
+        start_of_week = local_today - timedelta(days=local_today.weekday())  # Start of the current week (Monday)
 
-        # Fetch user's own feeds from the last 7 days
-        feeds = Feed.objects.filter(user=user, created_at__gte=last_week).order_by('-created_at')
+        # Fetch user's feeds
+        feeds = Feed.objects.filter(user=user).order_by('-created_at')
 
         # Paginate the results
         paginator = self.pagination_class()
         result_page = paginator.paginate_queryset(feeds, request)
 
-        # Serialize the feeds with the request context for `has_clapped`
+        # Serialize the feeds
         serializer = FeedSerializer(result_page, many=True, context={'request': request})
 
-        return paginator.get_paginated_response(serializer.data)
+        # Calculate weekly totals
+        celebrations_this_week = Clap.objects.filter(feed__user=user, created_at__gte=start_of_week).count()
+        gems_earned_this_week = Gem.objects.filter(
+            user=user,
+            date__gte=start_of_week.date()
+        ).aggregate(
+            total_gems=Sum(F('xp_gem') + F('manual_gem') + F('copy_xp_gem') + F('copy_manual_gem'))
+        )['total_gems'] or 0
+        tickets_exchanged_this_week = Purchase.objects.filter(
+            user=user,
+            item_name__in=['ticket_global', 'ticket_company'],
+            timestamp__gte=start_of_week
+        ).aggregate(total_tickets=Sum('quantity'))['total_tickets'] or 0
+
+        # Add weekly_totals to the response
+        response = paginator.get_paginated_response(serializer.data)
+        response.data['weekly_totals'] = {
+            "celebrations_this_week": celebrations_this_week,
+            "gems_earned_this_week": gems_earned_this_week,
+            "tickets_exchanged_this_week": tickets_exchanged_this_week
+        }
+        return response
+
 
 
 

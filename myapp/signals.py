@@ -109,7 +109,9 @@ def update_streak_on_xp_change(sender, instance, **kwargs):
 
         # Ensure proper conversion to user's local timezone
         user_timezone = pytz.timezone(user.timezone.key)
+        print('user timezone',user_timezone)
         local_now = datetime.now(user_timezone)
+        print('user local time now',local_now)
 
         current_date = xp_date + timedelta(days=1)  # Start checking from the next day
 

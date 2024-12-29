@@ -11,9 +11,9 @@ from django.db import transaction, IntegrityError
 from .tasks import send_invitation_email_task
 from timezone_field.rest_framework import TimeZoneSerializerField
 from datetime import datetime, timedelta, timezone
-from django.db.models import Sum
+from django.db.models import Sum, F
 from zoneinfo import ZoneInfo
-from django.utils import timezone as t
+from django.utils.timezone import now
 
 
 logger = logging.getLogger(__name__)
@@ -261,7 +261,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_weekly_data(self, obj, related_field, value_field, use_timestamp=False):
         """Helper to get weekly data from Monday to Sunday, supports timestamp fields."""
         user_timezone = obj.timezone
-        current_utc_time = t.now()
+        current_utc_time = now()
         user_local_time = current_utc_time.astimezone(user_timezone)
         current_day = user_local_time.date()
 
@@ -298,7 +298,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_detailed_weekly_workouts(self, obj):
         user_timezone = obj.timezone
-        current_utc_time = t.now()
+        current_utc_time = now()
         user_local_time = current_utc_time.astimezone(user_timezone)
         current_day = user_local_time.date()
 

@@ -400,14 +400,17 @@ class Feed(models.Model):
     MILESTONE = 'Milestone'
     STREAK = 'Streak'
     PRIZE = 'Prize'
-    ACTIVITY = 'activity'
+    ACTIVITY_MOVEMENT = 'activity_movement'
+    ACTIVITY_MINDFUL = 'activity_mindful'
+
 
     FEED_TYPES = [
         (PROMOTION, 'Promotion'),
         (MILESTONE, 'Milestone'),
         (STREAK, 'Streak'),
         (PRIZE, 'Prize'),
-        (ACTIVITY, 'Activity'),
+        (ACTIVITY_MOVEMENT, 'Activity_Movement'),
+        (ACTIVITY_MINDFUL, 'Activity_Mindful'),
     ]
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     feed_type = models.CharField(max_length=30, choices=FEED_TYPES)  # Add the feed type
