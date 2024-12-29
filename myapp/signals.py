@@ -31,11 +31,11 @@ load_dotenv()
 # r = redis.Redis(connection_pool=pool)
 
 
-@receiver(request_finished)
-def close_db_connection(sender, **kwargs):
-    # Only close connection in production
-    if not settings.DEBUG:  
-        connection.close()
+# @receiver(request_finished)
+# def close_db_connection(sender, **kwargs):
+#     # Only close connection in production
+#     if not settings.DEBUG:  
+#         connection.close()
 
 
 

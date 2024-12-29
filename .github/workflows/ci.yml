@@ -56,13 +56,13 @@ jobs:
 
       - name: Setup Database
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
         run: |
           python manage.py migrate
 
       - name: Run Tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379/0
         run: |
           python manage.py test
