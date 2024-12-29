@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "myapp",
     'notifications',
     'missions',
+    'support',
     'supportticket',
     'rest_framework',
     'rest_framework_simplejwt',

@@ -29,9 +29,10 @@ urlpatterns = [
     path("api/", include("myapp.urls")),
     path("api/", include("notifications.urls")),
     path("api/", include("missions.urls")),
+    path('api/', include("support.urls")),
     path("api/", include("supportticket.urls")),
     path('auth/', include('rest_framework.urls')),  # DRF browsable API login/logout
-    path('social-auth/', include('allauth.urls')), # For social login (Google, Facebook, etc.) 
+    path('social-auth/', include('allauth.urls')), # For social login (Google, Facebook, etc.)
     path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     # Only allow creation of devices by authenticated users
