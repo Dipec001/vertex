@@ -287,7 +287,7 @@ def reset_gems_for_local_timezones():
     while True:
         # Fetch users with timezones in batches
         users = CustomUser.objects.exclude(timezone=None).exclude(is_superuser=True).exclude(is_staff=True).values('id', 'email', 'gems_spent', 'timezone').order_by('id')[offset:offset + batch_size]
-        print(users, 'users')
+        # print(users, 'users')
 
         if not users:
             print("Processed all users successfully.")
