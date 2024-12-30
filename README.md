@@ -7,7 +7,6 @@
 - [Usage](#usage)
 - [Running Tests](#running-tests)
 - [Environment Variables](#environment-variables)
-- [Contributing](#contributing)
 - [License](#license)
 
 ## Introduction
