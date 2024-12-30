@@ -1218,15 +1218,14 @@ class CompanyListView(ListCreateAPIView):
     filter_class = CompanyFilterSet
 
     def get_queryset(self):
-        return Company.objects.all().order_by("id").annotate(total_employees=Count('membership'))
+        return Company.objects.all().prefetch_related("ticket_set").order_by("id").annotate(total_employees=Count('membership'))
 
 class CompanyDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsCompanyOwnerPK | permissions.IsAdminUser]
-    queryset = Company.objects.all()
     serializer_class = CompanySerializer
 
     def get_queryset(self):
-        return Company.objects.all().annotate(total_employees=Count('membership'))
+        return Company.objects.all().prefetch_related("ticket_set").annotate(total_employees=Count('membership'))
 
 class CompanyDrawListView(APIView):
     permission_classes = [IsAuthenticated]

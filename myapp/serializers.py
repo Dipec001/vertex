@@ -32,11 +32,18 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
 class CompanySerializer(serializers.ModelSerializer):
     total_employees = serializers.IntegerField(read_only=True, default=0)
+    open_company_support_tickets = serializers.SerializerMethodField()
+    open_user_support_tickets = serializers.SerializerMethodField()
+
     class Meta:
         model = Company
-        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at']
+        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets']
 
+    def get_open_company_support_tickets(self, obj: Company):
+        return obj.ticket_set.filter(status="open", is_individual=False).count()
 
+    def get_open_user_support_tickets(self, obj: Company):
+        return obj.ticket_set.filter(status="open", is_individual=True).count()
 
 class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
