@@ -59,6 +59,14 @@ To run the tests, use the following command:
 ```bash
 python manage.py test
 ```
+## Environment Variables
+Ensure the following environment variables are set and more:
+
+DATABASE_URL: PostgreSQL database URL
+
+REDIS_URL: Redis server URL
+
+SECRET_KEY: Django secret key
 ## License
 This project is licensed under the MIT License.
 
