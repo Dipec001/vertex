@@ -1,3 +1,4 @@
+import random
 from unittest import skipIf
 
 from django.test import client
@@ -744,3 +745,277 @@ class CompanyViewTests(APITestCase):
         self.client.force_authenticate(user=None)
         response = self.client.get(reverse('company-detail', kwargs={'pk': self.company.id}))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+@skipIf(not settings.DEBUG, "Skip tests in production environment")
+class TestGlobalStats(APITestCase):
+    def setUp(self):
+        self.owner = CustomUser.objects.create_user(
+            username='owner@test.com',
+            email='owner@test.com',
+            password='testpass123',
+            is_company_owner=True
+        )
+
+        self.company = Company.objects.create(
+            name='Test Company',
+            owner=self.owner,
+            domain='test.com'
+        )
+
+        self.owner2 = CustomUser.objects.create_user(
+            username='owner2@test.com',
+            email='owner2@test.com',
+            password='testpass123',
+            is_company_owner=True
+        )
+
+        self.company2 = Company.objects.create(
+            name='Test Company 2',
+            owner=self.owner2,
+            domain='test2.com'
+        )
+
+        self.employee5 = CustomUser.objects.create_user(
+            username='emp5@test2.com',
+            email='emp5@test2.com',
+            password='testpass123'
+        )
+        self.employee6 = CustomUser.objects.create_user(
+            username='emp6@test2.com',
+            email='emp6@test2.com',
+            password='testpass123'
+        )
+
+        # Create memberships for second company
+        Membership.objects.create(user=self.employee5, company=self.company2)
+        Membership.objects.create(user=self.employee6, company=self.company2)
+
+
+        self.employee3 = CustomUser.objects.create_user(
+            username='emp3@test.com',
+            email='emp3@test.com',
+            password='testpass123'
+        )
+        self.employee4 = CustomUser.objects.create_user(
+            username='emp4@test.com',
+            email='emp4@test.com',
+            password='testpass123'
+        )
+
+        # Create memberships for employees not logged in
+        Membership.objects.create(user=self.employee3, company=self.company)
+        Membership.objects.create(user=self.employee4, company=self.company)
+
+
+
+        # Create employees
+        self.employee1 = CustomUser.objects.create_user(
+            username='emp1@test.com',
+            email='emp1@test.com',
+            password='testpass123'
+        )
+        self.employee2 = CustomUser.objects.create_user(
+            username='emp2@test.com',
+            email='emp2@test.com',
+            password='testpass123'
+        )
+
+        # Create memberships
+        Membership.objects.create(user=self.employee1, company=self.company)
+        Membership.objects.create(user=self.employee2, company=self.company)
+
+        # Login these employees once
+        self.employee5.last_login = timezone.now()
+        self.employee5.save()
+
+        self.employee6.last_login = timezone.now()
+        self.employee6.save()
+
+        self.employee1.last_login = timezone.now()
+        self.employee1.save()
+
+        self.employee2.last_login = timezone.now()
+        self.employee2.save()
+    # test global stats
+    def test_global_stats(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(reverse('global-stats'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()['data']
+        self.assertEqual(data['total_companies'], 2)
+        self.assertEqual(data['total_users'], 8)
+        self.assertEqual(data['percentage_of_install'], 50.0)
+
+@skipIf(not settings.DEBUG, "Skip tests in production environment")
+class TestGlobalXpGraph(APITestCase):
+    def setUp(self):
+        # Create multiple test users
+        self.users = []
+        for i in range(5):
+            user = CustomUser.objects.create_user(
+                username=f'testuser{i}',
+                email=f'test{i}@test.com',
+                password='testpass123'
+            )
+            self.users.append(user)
+
+        # Set up dates
+        self.today = timezone.now().date()
+        self.dates = {
+            'today': self.today,
+            'yesterday': self.today - timedelta(days=1),
+            'week_ago': self.today - timedelta(days=7),
+            'two_weeks_ago': self.today - timedelta(days=14),
+            'month_ago': self.today - timedelta(days=29)  # Within 30-day window
+        }
+
+    def test_unauthenticated_access(self):
+        """Test that unauthenticated users cannot access the XP graph data"""
+        response = self.client.get(reverse('global-xp-graphs'))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_authenticated_access(self):
+        """Test that authenticated users can access the XP graph data"""
+        self.client.force_authenticate(user=self.users[0])
+        response = self.client.get(reverse('global-xp-graphs'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_multiple_users_same_day(self):
+        """Test XP aggregation when multiple users have records on the same day"""
+        # Create one XP record per user for today
+        xp_values = [100, 150, 200, 250, 300]
+        expected_total = sum(xp_values)
+
+        for user, xp_value in zip(self.users, xp_values):
+            Xp.objects.create(
+                user=user,
+                timeStamp=timezone.now(),
+                date=self.dates['today'],
+                totalXpToday=xp_value
+            )
+
+        self.client.force_authenticate(user=self.users[0])
+        response = self.client.get(reverse('global-xp-graphs'))
+        data = response.json()['data']
+
+        today_data = next((d for d in data if d['date'] == self.dates['today'].isoformat()), None)
+        self.assertEqual(today_data['total_xp'], expected_total)
+
+    def test_scattered_data_across_days(self):
+        """Test XP aggregation when users have records scattered across different days"""
+        # Create scattered XP records - ensuring one record per user per day
+        test_data = [
+            (self.users[0], self.dates['today'], 100),
+            (self.users[1], self.dates['today'], 150),
+            (self.users[2], self.dates['yesterday'], 200),
+            (self.users[3], self.dates['yesterday'], 250),
+            (self.users[4], self.dates['week_ago'], 300),
+            (self.users[0], self.dates['week_ago'], 350),  # Different day for same user is OK
+        ]
+
+        for user, date, xp in test_data:
+            Xp.objects.create(
+                user=user,
+                timeStamp=timezone.now(),
+                date=date,
+                totalXpToday=xp
+            )
+
+        self.client.force_authenticate(user=self.users[0])
+        response = self.client.get(reverse('global-xp-graphs'))
+        data = response.json()['data']
+
+        # Verify aggregated XP for each day
+        expected_totals = {
+            self.dates['today'].isoformat(): 250,  # 100 + 150
+            self.dates['yesterday'].isoformat(): 450,  # 200 + 250
+            self.dates['week_ago'].isoformat(): 650,  # 300 + 350
+        }
+
+        for day_data in data:
+            if day_data['date'] in expected_totals:
+                self.assertEqual(day_data['total_xp'], expected_totals[day_data['date']])
+
+    def test_data_distribution_over_30_days(self):
+        """Test XP distribution over the full 30-day period"""
+        # Create XP records distributed over 30 days
+        all_dates = [self.today - timedelta(days=x) for x in range(30)]
+        expected_totals = {}
+
+        # For each date, assign XP to different users
+        for date in all_dates:
+            daily_xp = 0
+            # Rotate through users for each date to avoid duplicate (user, date) combinations
+            users_for_this_date = self.users[:3]  # Use first 3 users
+            for user in users_for_this_date:
+                xp_value = random.randint(50, 200)
+                daily_xp += xp_value
+                Xp.objects.create(
+                    user=user,
+                    timeStamp=timezone.now(),
+                    date=date,
+                    totalXpToday=xp_value
+                )
+            expected_totals[date.isoformat()] = daily_xp
+
+        self.client.force_authenticate(user=self.users[0])
+        response = self.client.get(reverse('global-xp-graphs'))
+        data = response.json()['data']
+
+        # Verify we have data for all 30 days
+        self.assertEqual(len(data), 30)
+
+        # Verify XP totals for each day
+        for day_data in data:
+            self.assertEqual(day_data['total_xp'], expected_totals[day_data['date']])
+
+    def test_edge_case_data(self):
+        """Test edge cases in XP data"""
+        # Create one record per user with edge case values
+        test_data = [
+            (self.users[0], 0),          # Zero XP
+            (self.users[1], 999999),     # Very large XP
+            (self.users[2], 0.1),        # Minimal XP
+        ]
+
+        expected_total = sum(xp for _, xp in test_data)
+
+        for user, xp_value in test_data:
+            Xp.objects.create(
+                user=user,
+                timeStamp=timezone.now(),
+                date=self.dates['today'],
+                totalXpToday=xp_value
+            )
+
+        self.client.force_authenticate(user=self.users[0])
+        response = self.client.get(reverse('global-xp-graphs'))
+        data = response.json()['data']
+
+        today_data = next((d for d in data if d['date'] == self.dates['today'].isoformat()), None)
+        self.assertEqual(today_data['total_xp'], expected_total)
+
+    def test_data_consistency_over_multiple_requests(self):
+        """Test that data remains consistent over multiple requests"""
+        # Create one XP record per user
+        for i, user in enumerate(self.users):
+            Xp.objects.create(
+                user=user,
+                timeStamp=timezone.now(),
+                date=self.dates['today'],
+                totalXpToday=100 * (i + 1)  # Different values for each user
+            )
+
+        self.client.force_authenticate(user=self.users[0])
+
+        # Make multiple requests and verify consistency
+        responses = []
+        for _ in range(5):
+            response = self.client.get(reverse('global-xp-graphs'))
+            responses.append(response.json()['data'])
+
+        # Verify all responses are identical
+        first_response = responses[0]
+        for response in responses[1:]:
+            self.assertEqual(response, first_response)
