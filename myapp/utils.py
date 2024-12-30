@@ -1,6 +1,7 @@
 from datetime import timedelta
 from myapp.models import DailySteps, Gem, Xp
 from django.db.models import Sum
+from django.utils import timezone
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -65,6 +66,22 @@ def get_last_30_days(today):
         dates.append(date)
     return dates
 
+def get_global_xp_for_stats_for_last_30_days_by_user(user_id):
+    daily_stats = []
+    today = timezone.now()
+    for single_date in get_last_30_days(today):
+        # Get all XP or this date
+        daily_xp = Xp.objects.filter(
+            date=single_date,
+            user_id=user_id,
+        ).aggregate(
+            total_xp=Sum('totalXpToday')
+        )['total_xp'] or 0
+
+        daily_stats.append({
+            'date': single_date,
+            'total_xp': daily_xp
+        })
 
 def get_global_xp_for_stats_for_last_30_days(today):
     daily_stats = []

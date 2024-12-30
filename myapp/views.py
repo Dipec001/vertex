@@ -12,7 +12,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters import rest_framework
 from myapp.utils import get_last_30_days, get_daily_steps_and_xp, send_user_notification, \
-    get_global_xp_for_stats_for_last_30_days
+    get_global_xp_for_stats_for_last_30_days, get_global_xp_for_stats_for_last_30_days_by_user
 from .filters import EmployeeFilterSet, CompanyFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
@@ -2237,7 +2237,11 @@ class GlobalXpGraph(APIView):
         xps_stats = get_global_xp_for_stats_for_last_30_days(today)
         return Response(data=xps_stats)
 
-
+class XpStatsByUser(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, user_id):
+        xps_stats = get_global_xp_for_stats_for_last_30_days_by_user(user_id)
+        return Response(data=xps_stats)
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         try:
