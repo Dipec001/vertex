@@ -11,16 +11,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js";
         import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/9.17.1/firebase-messaging.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCLWZYFBfve1zqalCvFpHpFwsOVZkf5PpY",
-            authDomain: "activityrewardsanalytics.firebaseapp.com",
-            projectId: "activityrewardsanalytics",
-            storageBucket: "activityrewardsanalytics.firebasestorage.app",
-            messagingSenderId: "340911017439",
-            appId: "1:340911017439:web:53df6db4a5a98575d7086a",
-            measurementId: "G-TWDE14X9TC"
-        };
-
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
 
@@ -41,7 +31,7 @@
                     if (permission === 'granted') {
                         console.log('Notification permission granted.');
                         try {
-                            const token = await getToken(messaging, { vapidKey: 'BGf8DJLl0IyRu55Zl-l0-2cMYwWVYU-mzUMjtJoysN8p2MCwjf1pmQmGk6kCP2BK_OrydDEfZzwddk8TMO98Gps', serviceWorkerRegistration: registration });
+                            const token = await getToken(messaging, { vapidKey: '', serviceWorkerRegistration: registration });
                             if (token) {
                                 console.log('FCM Token:', token);
                             } else {
