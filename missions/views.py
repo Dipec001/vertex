@@ -101,3 +101,44 @@ class ClaimTaskView(APIView):
                 return Response({'error': 'Task is not eligible for claiming gems'}, status=status.HTTP_400_BAD_REQUEST)
         except UserTask.DoesNotExist:
             return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class MissionsDataView(APIView):
+    def get(self, request):
+        user = request.user
+        user_timezone = user.timezone
+        user_local_date = now().astimezone(user_timezone).date()
+
+        # Fetch user tasks for today
+        user_tasks_today = UserTask.objects.filter(user=user, created_at__date=user_local_date)
+
+        # Calculate dynamic progress for daily tasks
+        total_tasks = user_tasks_today.count()
+        completed_tasks = user_tasks_today.filter(is_completed=True).count()
+        daily_progress = f"{completed_tasks}/{total_tasks}" if total_tasks > 0 else "0/0"
+
+        # Construct response data
+        dashboard_data = [
+            {
+                "title": "Company Challenges",
+                "subtitle": "Your company has reached 23000 of 50000 steps",
+                "progress": "52%",
+            },
+            {
+                "title": "Journeys",
+                "subtitle": "You are 32% of your way through level 1",
+                "progress": "32%",
+            },
+            {
+                "title": "Meditation",
+                "subtitle": "Meditations completed this week",
+                "progress": "5/7",
+            },
+            {
+                "title": "Daily Tasks",
+                "subtitle": "Your tasks available today",
+                "progress": daily_progress,
+            },
+        ]
+
+        return Response(dashboard_data, status=status.HTTP_200_OK)
