@@ -9,7 +9,6 @@ from myapp.models import Gem
 from myapp.utils import add_manual_gem
 import random
 
-## TODO: Use serialization here 👇
 
 class ActiveTasksView(APIView):
     def get(self, request):
