@@ -35,14 +35,20 @@ class CompanySerializer(serializers.ModelSerializer):
     total_employees = serializers.IntegerField(read_only=True, default=0)
     open_company_support_tickets = serializers.SerializerMethodField()
     open_user_support_tickets = serializers.SerializerMethodField()
-
+    # The number of users that installed the apps
+    active_users = serializers.SerializerMethodField()
     percentage_of_install = serializers.SerializerMethodField()
     class Meta:
         model = Company
-        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets', 'percentage_of_install']
+        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets', 'percentage_of_install', 'active_users']
 
     def get_open_company_support_tickets(self, obj: Company):
         return obj.ticket_set.filter(status="open", is_individual=False).count()
+
+    def get_active_users(self, obj):
+        all_company_users = CustomUser.objects.filter(company_id=obj.id)
+        all_user_that_installed_app = all_company_users.exclude(last_login__isnull=True)
+        return all_user_that_installed_app.count()
 
     def get_percentage_of_install(self, obj):
         all_company_users = CustomUser.objects.filter(company_id=obj.id)

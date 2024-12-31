@@ -45,7 +45,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', default='your secret key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', default='False').lower() == "true"
 
-ALLOWED_HOSTS = ['127.0.0.1','localhost','vertexx-85dc684c56f3.herokuapp.com']
+ALLOWED_HOSTS = ['127.0.0.1','localhost','vertexx-85dc684c56f3.herokuapp.com', 'activityrewards.co.uk']
 
 
 # Application definition
@@ -99,12 +99,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8080",
     "http://localhost:8080",  # In case you're using localhost without the
     "https://frabjous-beijinho-4b366a.netlify.app",
-    "https://vertexx-85dc684c56f3.herokuapp.com"
+    "https://vertexx-85dc684c56f3.herokuapp.com",
+    "https://activityrewards.co.uk",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://vertexx-85dc684c56f3.herokuapp.com",
     "https://frabjous-beijinho-4b366a.netlify.app",
+    "https://activityrewards.co.uk",
 ]
 
 
