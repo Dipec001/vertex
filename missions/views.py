@@ -33,6 +33,9 @@ class ActiveTasksView(APIView):
             ])
 
         active_tasks = UserTask.objects.filter(user=user, created_at__date=user_local_time, is_claimed=False)
+        completed_tasks = UserTask.objects.filter(user=user, created_at__date=user_local_time, is_completed=True, is_claimed=True)
+        
+        total_completed_tasks = completed_tasks.count()
         total_available_tasks = active_tasks.count()
 
         tasks_data = [{
@@ -47,6 +50,7 @@ class ActiveTasksView(APIView):
 
         response_data = { 
             'total_available_tasks': total_available_tasks, 
+            'total_completed_tasks': total_completed_tasks, 
             'tasks': tasks_data 
         }
 
