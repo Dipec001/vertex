@@ -89,7 +89,7 @@ class CompletedTasksView(APIView):
         for task in completed_tasks:
             tasks_data.append({
                 'task': task.task_type.get_name_display(),
-                'progress': task.progress,
+                'progress': task.progress_with_goal,
                 'completed_date': task.completed_date,
                 'gem_value': task.task_type.gem_value,
             })
