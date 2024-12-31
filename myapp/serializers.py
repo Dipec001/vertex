@@ -1,3 +1,4 @@
+from django.db.models.aggregates import Count
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw,
@@ -35,12 +36,21 @@ class CompanySerializer(serializers.ModelSerializer):
     open_company_support_tickets = serializers.SerializerMethodField()
     open_user_support_tickets = serializers.SerializerMethodField()
 
+    percentage_of_install = serializers.SerializerMethodField()
     class Meta:
         model = Company
-        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets']
+        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets', 'percentage_of_install']
 
     def get_open_company_support_tickets(self, obj: Company):
         return obj.ticket_set.filter(status="open", is_individual=False).count()
+
+    def get_percentage_of_install(self, obj):
+        all_company_users = CustomUser.objects.filter(company_id=obj.id)
+        users_count = all_company_users.count()
+        if users_count==0:
+            return 0.0
+        all_user_that_installed_app = all_company_users.exclude(last_login__isnull=True)
+        return all_user_that_installed_app.count() * 100 / users_count
 
     def get_open_user_support_tickets(self, obj: Company):
         return obj.ticket_set.filter(status="open", is_individual=True).count()
