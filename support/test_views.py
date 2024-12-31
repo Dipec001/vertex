@@ -1,3 +1,5 @@
+from django.utils.timezone import localtime, make_aware, is_aware
+
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -395,6 +397,8 @@ class CompanyTicketViewSetTests(APITestCase):
 
     def test_retrieve_ticket(self):
         """Test retrieving a specific ticket"""
+        prev_ticket_message = TicketMessage.objects.create(ticket_id=self.ticket.pk, message="Xp not working")
+        last_ticket_message = TicketMessage.objects.create(ticket_id=self.ticket.pk, message="Xp not working 2")
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.company_detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -406,6 +410,34 @@ class CompanyTicketViewSetTests(APITestCase):
         self.assertEqual(response.json()['data']['creator_email'], self.user.email)
         self.assertEqual(response.json()['data']['assigned_to'], self.user1.pk)
         self.assertEqual(response.json()['data']['assigned_to_name'], self.user1.username)
+
+        # Ensure created_at is timezone-aware
+        if not is_aware(last_ticket_message.created_at):
+            aware_datetime = make_aware(last_ticket_message.created_at)
+        else:
+            aware_datetime = last_ticket_message.created_at
+
+        # Convert to local time and truncate microseconds to milliseconds
+        expected_last_message_response = (
+                localtime(aware_datetime)
+                .replace(microsecond=(aware_datetime.microsecond // 1000) * 1000)  # Truncate to milliseconds
+                .strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        )
+
+        # Compare the values
+        self.assertEqual(response.json()['data']['last_response'], expected_last_message_response)
+        if not is_aware(prev_ticket_message.created_at):
+            aware_datetime = make_aware(prev_ticket_message.created_at)
+        else:
+            aware_datetime = prev_ticket_message.created_at
+
+            # Convert to local time and truncate microseconds to milliseconds
+        not_to_expected_tobe_last_message_response = (
+                localtime(aware_datetime)
+                .replace(microsecond=(aware_datetime.microsecond // 1000) * 1000)  # Truncate to milliseconds
+                .strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        )
+        self.assertNotEqual(response.json()['data']['last_response'], not_to_expected_tobe_last_message_response)
 
     def test_update_ticket(self):
         """Test updating a ticket"""
