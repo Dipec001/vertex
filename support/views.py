@@ -18,7 +18,7 @@ class CompanyTicketViewSet(viewsets.ModelViewSet):
     filterset_class = TicketFilterSet
 
     def get_queryset(self):
-        return Ticket.objects.filter(company=self.kwargs["company_id"]).prefetch_related(
+        return Ticket.objects.filter(company=self.kwargs["company_id"], is_individual=False).prefetch_related(
             'messages'
         ).select_related('created_by')
 
