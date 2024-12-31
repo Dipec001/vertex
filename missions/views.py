@@ -33,6 +33,8 @@ class ActiveTasksView(APIView):
             ])
 
         active_tasks = UserTask.objects.filter(user=user, created_at__date=user_local_time, is_claimed=False)
+        total_available_tasks = active_tasks.count()
+
         tasks_data = [{
             'task_id': task.id,
             'task_name': task.task_type.get_name_display(),
@@ -43,7 +45,12 @@ class ActiveTasksView(APIView):
             'gem_value': task.task_type.gem_value,
         } for task in active_tasks]
 
-        return Response(tasks_data, status=status.HTTP_200_OK)
+        response_data = { 
+            'total_available_tasks': total_available_tasks, 
+            'tasks': tasks_data 
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 
@@ -71,8 +78,10 @@ class CompletedTasksView(APIView):
         user = request.user
         user_timezone = user.timezone
         user_local_time = now().astimezone(user_timezone)
-        completed_tasks = UserTask.objects.filter(user=user, created_at=user_local_time, is_completed=True, is_claimed=True)
+        completed_tasks = UserTask.objects.filter(user=user, created_at__date=user_local_time.date(), is_completed=True, is_claimed=True)
         
+        total_completed_tasks = completed_tasks.count()
+
         tasks_data = []
         for task in completed_tasks:
             tasks_data.append({
@@ -82,7 +91,12 @@ class CompletedTasksView(APIView):
                 'gem_value': task.task_type.gem_value,
             })
 
-        return Response(tasks_data, status=status.HTTP_200_OK)
+        response_data = { 
+            'total_completed_tasks': total_completed_tasks, 
+            'tasks': tasks_data 
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 class ClaimTaskView(APIView):
     def post(self, request, task_id):
