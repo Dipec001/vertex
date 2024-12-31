@@ -208,7 +208,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'date_joined',
             'profile_picture_url',  # Custom field with logic
             'company',
-            'company_id'
+            'company_id',
             'global_league',
             'company_league',
             'follower_count',
