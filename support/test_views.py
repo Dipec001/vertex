@@ -71,12 +71,37 @@ class TicketViewSetTests(APITestCase):
                 created_by=self.user,
                 status="closed"
             )
+        for i in range(0, 2):
+            Ticket.objects.create(
+                title=f'Test Ticket {i}',
+                description='Test Description',
+                company=self.company,
+                created_by=self.user,
+                is_individual=True,
+            )
         # URLs
         self.tickets_url = reverse('ticket-list')
         self.ticket_detail_url = reverse('ticket-detail', kwargs={'pk': self.ticket.pk})
         self.ticket_message_url = reverse('ticket-add-message', kwargs={'pk': self.ticket.pk})
         self.ticket_status_url = reverse('ticket-update-status', kwargs={'pk': self.ticket.pk})
 
+    def test_create_individual_ticket(self):
+        """Test creating a new ticket"""
+        self.client.force_authenticate(user=self.user)
+        data = {
+            'title': 'New Ticket',
+            'description': 'New Description',
+            'is_individual': True,
+        }
+        response = self.client.post(self.tickets_url, data)
+        data = response.json()['data']
+        created_ticket = Ticket.objects.get(pk=data["id"])
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Ticket.objects.count(), 25)
+        self.assertEqual(data['company'], self.user.company.pk)
+        self.assertEqual(data['title'], 'New Ticket')
+        self.assertTrue(data['is_individual'])
+        self.assertTrue(created_ticket.is_individual)
     def test_create_ticket(self):
         """Test creating a new ticket"""
         self.client.force_authenticate(user=self.user)
@@ -87,9 +112,19 @@ class TicketViewSetTests(APITestCase):
         response = self.client.post(self.tickets_url, data)
         data = response.json()['data']
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Ticket.objects.count(), 23)
+        self.assertEqual(Ticket.objects.count(), 25)
         self.assertEqual(data['company'], self.user.company.pk)
         self.assertEqual(data['title'], 'New Ticket')
+
+    def test_get_individual_stats(self):
+        self.client.force_authenticate(user=self.user)
+        company_ticket_stats_url = reverse("ticket-stats")
+        response = self.client.get(company_ticket_stats_url, {'is_individual': True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()["data"]
+        self.assertEqual(data["total_tickets"], 2)
+        self.assertEqual(data["open_tickets"], 2)
+        self.assertEqual(data["closed_tickets"], 0)
 
     def test_get_stats(self):
         self.client.force_authenticate(user=self.user)
@@ -97,9 +132,19 @@ class TicketViewSetTests(APITestCase):
         response = self.client.get(company_ticket_stats_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()["data"]
-        self.assertEqual(data["total_tickets"], 22)
-        self.assertEqual(data["open_tickets"], 12)
+        self.assertEqual(data["total_tickets"], 24)
+        self.assertEqual(data["open_tickets"], 14)
         self.assertEqual(data["closed_tickets"], 10)
+
+    def test_list_individual_tickets(self):
+        """Test listing tickets"""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.tickets_url, {"is_individual": True})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.json()["data"]["results"]), 2)
+        # verify that all results are individual ticket
+        self.assertTrue(all(ticket["is_individual"] for ticket in response.json()["data"]["results"]))
+
     def test_list_tickets(self):
         """Test listing tickets"""
         self.client.force_authenticate(user=self.user)
