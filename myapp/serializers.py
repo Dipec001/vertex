@@ -173,6 +173,7 @@ class InvitationSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     profile_picture_url = serializers.SerializerMethodField()
     company = serializers.CharField(source='company.name', read_only=True)
+    company_id = serializers.CharField(source='company.id', read_only=True)
     first_name = serializers.CharField(read_only=True)
     last_name = serializers.CharField(read_only=True)
     streak = serializers.IntegerField(read_only=True)
@@ -207,6 +208,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'date_joined',
             'profile_picture_url',  # Custom field with logic
             'company',
+            'company_id'
             'global_league',
             'company_league',
             'follower_count',
