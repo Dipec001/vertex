@@ -18,12 +18,13 @@ class TicketSerializer(serializers.ModelSerializer):
     creator_email = serializers.SerializerMethodField()
     assigned_to_name = serializers.CharField(source='assigned_to.username', read_only=True)
     last_response = serializers.SerializerMethodField()
+    company_name = serializers.CharField(source='company.name', read_only=True)
 
     class Meta:
         model = Ticket
         fields = ['id', 'title', 'description', 'status',
                   'created_at', 'created_by', 'creator_fullname', 'creator_email', 'created_by_name', 'messages',
-                  'is_individual', 'company', "assigned_to", "assigned_to_name", "last_response"]
+                  'is_individual', 'company', 'company_name', "assigned_to", "assigned_to_name", "last_response"]
         read_only_fields = ['created_by', 'company']
 
     def get_creator_fullname(self, obj: Ticket):

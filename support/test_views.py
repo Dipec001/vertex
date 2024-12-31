@@ -410,6 +410,7 @@ class CompanyTicketViewSetTests(APITestCase):
         self.assertEqual(response.json()['data']['creator_email'], self.user.email)
         self.assertEqual(response.json()['data']['assigned_to'], self.user1.pk)
         self.assertEqual(response.json()['data']['assigned_to_name'], self.user1.username)
+        self.assertEqual(response.json()['data']['company_name'], self.ticket.company.name)
 
         # Ensure created_at is timezone-aware
         if not is_aware(last_ticket_message.created_at):
