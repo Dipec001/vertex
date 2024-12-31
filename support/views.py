@@ -18,7 +18,7 @@ class CompanyTicketViewSet(viewsets.ModelViewSet):
     filterset_class = TicketFilterSet
 
     def get_queryset(self):
-        return Ticket.objects.filter(company=self.kwargs["company_id"]).prefetch_related(
+        return Ticket.objects.filter(company=self.kwargs["company_id"], is_individual=False).prefetch_related(
             'messages'
         ).select_related('created_by')
 
@@ -47,7 +47,12 @@ class TicketViewSet(viewsets.ModelViewSet):
     filterset_class = TicketFilterSet
 
     def get_queryset(self):
-        return Ticket.objects.prefetch_related('messages').select_related('created_by')
+        queryset = Ticket.objects.prefetch_related('messages').select_related('created_by')
+        is_individual = self.request.GET.get('is_individual')
+        # check if query params contain is_individual key
+        if is_individual is not None:
+            return queryset.filter(is_individual=is_individual)
+        return queryset
 
     def perform_create(self, serializer):
         # Set the company to the current user company
