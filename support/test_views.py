@@ -285,12 +285,24 @@ class CompanyTicketViewSetTests(APITestCase):
             password='testpass123',
             company=self.company
         )
+        self.company1 = Company.objects.create(
+            name='Test Company 2',
+            owner=self.owner,
+            domain='test2.com'
+        )
+        self.user1 = CustomUser.objects.create_user(
+            username='user1@test.com',
+            email='user1@test.com',
+            password='testpass123',
+            company=self.company1
+        )
         # Create test ticket
         self.ticket = Ticket.objects.create(
             title='Test Ticket',
             description='Test Description',
             company=self.company,
-            created_by=self.user
+            created_by=self.user,
+            assigned_to=self.user1
         )
         # create open ticket
         for i in range(0, 10):
@@ -308,11 +320,7 @@ class CompanyTicketViewSetTests(APITestCase):
                 created_by=self.user,
                 status="closed"
             )
-        self.company1 = Company.objects.create(
-            name='Test Company 2',
-            owner=self.owner,
-            domain='test2.com'
-        )
+
         for i in range(0, 10):
             Ticket.objects.create(
                 title=f'Test Ticket {i}',
@@ -321,12 +329,7 @@ class CompanyTicketViewSetTests(APITestCase):
                 created_by=self.user,
                 status="closed"
             )
-        self.user1 = CustomUser.objects.create_user(
-            username='user1@test.com',
-            email='user1@test.com',
-            password='testpass123',
-            company=self.company1
-        )
+
         self.ticket1 = Ticket.objects.create(
             title='ticket1',
             description='ticket1 description',
@@ -338,6 +341,25 @@ class CompanyTicketViewSetTests(APITestCase):
         # URLs
         self.company_tickets_url = reverse('company-ticket-list', kwargs={'company_id': self.company.pk})
         self.company_detail_url = reverse('company-ticket-detail', kwargs={'company_id': self.company.pk ,'pk': self.ticket.pk})
+
+    def test_create_ticket_with_assigned_user(self):
+        """Test creating a new ticket"""
+        self.client.force_authenticate(user=self.user)
+        data = {
+            'title': 'New Ticket',
+            'description': 'New Description',
+            'assigned_to': self.user1.pk
+        }
+        response = self.client.post(self.company_tickets_url, data)
+        data = response.json()['data']
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Ticket.objects.count(), 33)
+        self.assertEqual(data['title'], 'New Ticket')
+        self.assertEqual(data['company'], self.company.pk)
+        created_ticket = Ticket.objects.get(pk=data['id'])
+        self.assertEqual(data['company'], created_ticket.company_id)
+        self.assertEqual(data['assigned_to'], self.user1.pk)
+        self.assertEqual(created_ticket.assigned_to, self.user1)
 
     def test_create_ticket(self):
         """Test creating a new ticket"""
@@ -377,6 +399,13 @@ class CompanyTicketViewSetTests(APITestCase):
         response = self.client.get(self.company_detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()['data']['title'], 'Test Ticket')
+        self.assertEqual(response.json()['data']['status'], 'open')
+        self.assertEqual(response.json()['data']['created_by'], self.user.pk)
+        self.assertEqual(response.json()['data']['company'], self.company.pk)
+        self.assertEqual(response.json()['data']['creator_fullname'], f"{self.user.first_name} {self.user.last_name}")
+        self.assertEqual(response.json()['data']['creator_email'], self.user.email)
+        self.assertEqual(response.json()['data']['assigned_to'], self.user1.pk)
+        self.assertEqual(response.json()['data']['assigned_to_name'], self.user1.username)
 
     def test_update_ticket(self):
         """Test updating a ticket"""
