@@ -1,3 +1,5 @@
+from django.db.models import Q
+from django.db.models.aggregates import Count
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -29,6 +31,15 @@ class CompanyTicketViewSet(viewsets.ModelViewSet):
             company=company
         )
 
+    @action(["GET"], detail=False)
+    def stats(self, request, company_id):
+        queryset = self.get_queryset()
+        total_tickets=queryset.count()
+        open_tickets=queryset.filter(status="open").count()
+        closed_tickets=queryset.filter(status="closed").count()
+        data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
+        return Response(data=data)
+
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -44,6 +55,15 @@ class TicketViewSet(viewsets.ModelViewSet):
             created_by=self.request.user,
             company=self.request.user.company
         )
+
+    @action(["GET"], detail=False)
+    def stats(self, request):
+        queryset = self.get_queryset()
+        total_tickets = queryset.count()
+        open_tickets = queryset.filter(status="open").count()
+        closed_tickets = queryset.filter(status="closed").count()
+        data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
+        return Response(data=data)
 
     @action(detail=True, methods=['post'])
     def add_message(self, request, pk=None):

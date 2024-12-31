@@ -55,7 +55,22 @@ class TicketViewSetTests(APITestCase):
             company=self.company1,
             created_by=self.user1,
         )
-
+        # create open ticket
+        for i in range(0, 10):
+            Ticket.objects.create(
+                title=f'Test Ticket {i}',
+                description='Test Description',
+                company=self.company,
+                created_by=self.user
+            )
+        for i in range(0, 10):
+            Ticket.objects.create(
+                title=f'Test Ticket {i}',
+                description='Test Description',
+                company=self.company,
+                created_by=self.user,
+                status="closed"
+            )
         # URLs
         self.tickets_url = reverse('ticket-list')
         self.ticket_detail_url = reverse('ticket-detail', kwargs={'pk': self.ticket.pk})
@@ -72,16 +87,25 @@ class TicketViewSetTests(APITestCase):
         response = self.client.post(self.tickets_url, data)
         data = response.json()['data']
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Ticket.objects.count(), 3)
+        self.assertEqual(Ticket.objects.count(), 23)
         self.assertEqual(data['company'], self.user.company.pk)
         self.assertEqual(data['title'], 'New Ticket')
 
+    def test_get_stats(self):
+        self.client.force_authenticate(user=self.user)
+        company_ticket_stats_url = reverse("ticket-stats")
+        response = self.client.get(company_ticket_stats_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()["data"]
+        self.assertEqual(data["total_tickets"], 22)
+        self.assertEqual(data["open_tickets"], 12)
+        self.assertEqual(data["closed_tickets"], 10)
     def test_list_tickets(self):
         """Test listing tickets"""
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.tickets_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()["data"]["results"]), 2)
+        self.assertEqual(len(response.json()["data"]["results"]), 20)
 
     def test_retrieve_ticket(self):
         """Test retrieving a specific ticket"""
@@ -223,13 +247,35 @@ class CompanyTicketViewSetTests(APITestCase):
             company=self.company,
             created_by=self.user
         )
-
-
+        # create open ticket
+        for i in range(0, 10):
+            Ticket.objects.create(
+                title=f'Test Ticket {i}',
+                description='Test Description',
+                company=self.company,
+                created_by=self.user
+            )
+        for i in range(0, 10):
+            Ticket.objects.create(
+                title=f'Test Ticket {i}',
+                description='Test Description',
+                company=self.company,
+                created_by=self.user,
+                status="closed"
+            )
         self.company1 = Company.objects.create(
             name='Test Company 2',
             owner=self.owner,
             domain='test2.com'
         )
+        for i in range(0, 10):
+            Ticket.objects.create(
+                title=f'Test Ticket {i}',
+                description='Test Description',
+                company=self.company1,
+                created_by=self.user,
+                status="closed"
+            )
         self.user1 = CustomUser.objects.create_user(
             username='user1@test.com',
             email='user1@test.com',
@@ -258,18 +304,27 @@ class CompanyTicketViewSetTests(APITestCase):
         response = self.client.post(self.company_tickets_url, data)
         data = response.json()['data']
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Ticket.objects.count(), 3)
+        self.assertEqual(Ticket.objects.count(), 33)
         self.assertEqual(data['title'], 'New Ticket')
         self.assertEqual(data['company'], self.company.pk)
         created_ticket = Ticket.objects.get(pk=data['id'])
         self.assertEqual(data['company'], created_ticket.company_id)
+    def test_get_stats(self):
+        self.client.force_authenticate(user=self.user)
+        company_ticket_stats_url = reverse("company-ticket-stats", kwargs = {"company_id": self.company.pk})
+        response = self.client.get(company_ticket_stats_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()["data"]
+        self.assertEqual(data["total_tickets"], 21)
+        self.assertEqual(data["open_tickets"], 11)
+        self.assertEqual(data["closed_tickets"], 10)
 
     def test_list_tickets(self):
         """Test listing tickets"""
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.company_tickets_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.json()["data"]["results"]), 1)
+        self.assertEqual(len(response.json()["data"]["results"]), 20)
 
     def test_retrieve_ticket(self):
         """Test retrieving a specific ticket"""
