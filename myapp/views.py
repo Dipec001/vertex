@@ -1215,7 +1215,7 @@ class CompanyListView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = CompanySerializer
     filter_backends = [rest_framework.DjangoFilterBackend]
-    filter_class = CompanyFilterSet
+    filterset_class = CompanyFilterSet
 
     def get_queryset(self):
         return Company.objects.all().prefetch_related("ticket_set").order_by("id").annotate(total_employees=Count('membership'))
