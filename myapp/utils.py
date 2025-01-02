@@ -1,9 +1,12 @@
-from datetime import timedelta
-from myapp.models import DailySteps, Gem, Xp
-from django.db.models import Sum
-from django.utils import timezone
+import calendar
+from datetime import datetime, timedelta
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.db.models import Sum
+from django.utils import timezone
+
+from myapp.models import DailySteps, Gem, Xp
 
 
 def send_user_notification(user, notif):
@@ -126,3 +129,29 @@ def get_daily_steps_and_xp(company, today):
         
     return daily_stats
 
+
+
+def get_date_range(interval):
+    today = datetime.now().date()
+
+    if interval == "this_week":
+        # Start of the current week (Monday)
+        start_of_week = today - timedelta(days=today.weekday())
+        dates = [start_of_week + timedelta(days=i) for i in range(7)]
+
+    elif interval == "this_month":
+        # Start and end of the current month
+        start_of_month = today.replace(day=1)
+        _, last_day = calendar.monthrange(today.year, today.month)
+        end_of_month = today.replace(day=last_day)
+        dates = [start_of_month + timedelta(days=i) for i in range((end_of_month - start_of_month).days + 1)]
+
+    elif interval == "last_week":
+        # Start of the last week (Monday)
+        start_of_last_week = today - timedelta(days=today.weekday() + 7)
+        dates = [start_of_last_week + timedelta(days=i) for i in range(7)]
+
+    else:
+        raise ValueError("Invalid interval. Choices are: 'this_week', 'this_month', 'last_week'.")
+
+    return dates
