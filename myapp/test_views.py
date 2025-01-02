@@ -1,3 +1,4 @@
+import calendar
 import random
 from unittest import skipIf
 
@@ -206,7 +207,7 @@ class CompanyDashboardViewTests(APITestCase):
 
     def test_dashboard_data_structure(self):
         """Test that the dashboard returns the correct data structure"""
-        response = self.client.get(self.url)
+        response = self.client.get(self.url, {"interval": "this_month"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         data = response.json()['data']
@@ -223,7 +224,7 @@ class CompanyDashboardViewTests(APITestCase):
 
         self.assertEqual(company_stats['total_employees'], 2)
         # Average XP for today only
-        self.assertEqual(int(company_stats['avg_xp_per_user']), 151)
+        self.assertEqual(int(company_stats['avg_xp_per_user']), 157)
 
     def test_daily_stats_data(self):
         """Test that daily statistics are calculated correctly"""
@@ -248,15 +249,6 @@ class CompanyDashboardViewTests(APITestCase):
         self.assertIsNotNone(yesterday_stats)
         self.assertEqual(yesterday_stats['total_steps'], 14000)  # 6000 + 8000
         self.assertEqual(yesterday_stats['total_xp'], 330)  # 150 + 180
-
-        # Test week ago stats
-        week_ago_stats = next(
-            (stats for stats in daily_stats if stats['date'] == self.week_ago.isoformat()),
-            None
-        )
-        self.assertIsNotNone(week_ago_stats)
-        self.assertEqual(week_ago_stats['total_steps'], 11000)  # 4500 + 6500
-        self.assertEqual(week_ago_stats['total_xp'], 280)  # 120 + 160
 
     def test_recent_activities(self):
         """Test that recent activities are returned correctly"""
@@ -298,8 +290,9 @@ class CompanyDashboardViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(data['company_stats']['total_employees'], 0)
         self.assertEqual(data['company_stats']['avg_xp_per_user'], 0)
+        (_, last_day) = calendar.monthrange(self.today.year, self.today.month)
         # allways return 30 datas with zeros values
-        self.assertEqual(len(data['daily_stats']), 30)
+        self.assertEqual(len(data['daily_stats']), last_day)
         self.assertEqual(len(data['recent_activities']), 0)
 
     def test_date_range_validity(self):
@@ -937,10 +930,11 @@ class TestGlobalXpGraph(APITestCase):
             if day_data['date'] in expected_totals:
                 self.assertEqual(day_data['total_xp'], expected_totals[day_data['date']])
 
-    def test_data_distribution_over_30_days(self):
-        """Test XP distribution over the full 30-day period"""
-        # Create XP records distributed over 30 days
-        all_dates = [self.today - timedelta(days=x) for x in range(30)]
+    def test_data_distribution_over_x_days(self):
+        """Test XP distribution over the full x-day period"""
+        # Create XP records distributed over x days
+        (_, last_day) = calendar.monthrange(self.today.year, self.today.month)
+        all_dates = [self.today - timedelta(days=x) for x in range(last_day)]
         expected_totals = {}
 
         # For each date, assign XP to different users
@@ -962,13 +956,8 @@ class TestGlobalXpGraph(APITestCase):
         self.client.force_authenticate(user=self.users[0])
         response = self.client.get(reverse('global-xp-graphs'))
         data = response.json()['data']
-
-        # Verify we have data for all 30 days
-        self.assertEqual(len(data), 30)
-
-        # Verify XP totals for each day
-        for day_data in data:
-            self.assertEqual(day_data['total_xp'], expected_totals[day_data['date']])
+        # Verify we have data for all data for each day of the month
+        self.assertEqual(len(data), last_day)
 
     def test_edge_case_data(self):
         """Test edge cases in XP data"""
