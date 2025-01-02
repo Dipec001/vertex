@@ -2049,7 +2049,7 @@ class CompanyDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        interval: Literal["this_week", "this_month", "last_week"] = self.kwargs.get("interval") or "this_month"
+        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
         # Get the company associated with the logged-in user
         try:
             company = request.user.owned_company.first()
@@ -2239,14 +2239,14 @@ class GlobalStats(APIView):
 class GlobalXpGraph(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        interval: Literal["this_week", "this_month", "last_week"] = self.kwargs.get("interval") or "this_month"
+        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
         xps_stats = get_global_xp_for_stats(interval)
         return Response(data=xps_stats)
 
 class XpStatsByUser(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, user_id):
-        interval: Literal["this_week", "this_month", "last_week"] = self.kwargs.get("interval") or "this_month"
+        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
         xps_stats = get_global_xp_for_stats_by_user(user_id, interval)
         return Response(data=xps_stats)
 class CustomTokenRefreshView(TokenRefreshView):

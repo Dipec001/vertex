@@ -207,7 +207,7 @@ class CompanyDashboardViewTests(APITestCase):
 
     def test_dashboard_data_structure(self):
         """Test that the dashboard returns the correct data structure"""
-        response = self.client.get(self.url)
+        response = self.client.get(self.url, {"interval": "this_month"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         data = response.json()['data']
