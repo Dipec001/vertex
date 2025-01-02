@@ -132,6 +132,26 @@ def get_daily_steps_and_xp(company, today):
 
 
 def get_date_range(interval):
+    """
+    Generate a list of dates for a specified time interval.
+
+    This function returns a list of dates based on the given interval,
+    which can be 'this_week', 'this_month', or 'last_week'.
+
+    Parameters:
+    interval (str): The time interval for which to generate dates.
+                    Valid options are:
+                    - 'this_week': Current week (Monday to Sunday)
+                    - 'this_month': All days in the current month
+                    - 'last_week': Previous week (Monday to Sunday)
+
+    Returns:
+    list: A list of datetime.date objects representing the dates in the specified interval.
+
+    Raises:
+    ValueError: If an invalid interval is provided.
+
+    """
     today = datetime.now().date()
 
     if interval == "this_week":
