@@ -109,7 +109,7 @@ def get_last_day_and_first_day_of_this_month():
 
 def get_daily_steps_and_xp(company, interval: Literal["this_week", "this_month", "last_week"]):
     daily_stats = []
-    for single_date in get_date_range("this_month"):
+    for single_date in get_date_range(interval):
         # Get steps for this date
         daily_steps = DailySteps.objects.filter(
             user__membership__company=company,
