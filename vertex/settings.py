@@ -382,7 +382,7 @@ CELERY_TASK_ROUTES = {
     'notifications.tasks.check_and_notify_users': {'queue': 'default'},
     'notifications.tasks.notify_gem_reset': {'queue': 'default'},
     'myapp.tasks.send_invitation_email_task': {'queue': 'default'},
-    # 'missions.tasks.assign_daily_tasks': {'queue': 'default'},
+    'missions.tasks.assign_daily_tasks': {'queue': 'default'},
 }
 
 
@@ -437,10 +437,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'notifications.tasks.notify_gem_reset',
         'schedule': crontab(minute=0),  # Every hour
     },
-    # 'assign_daily_tasks': {
-    #     'task': 'missions.tasks.assign_daily_tasks',
-    #     'schedule': crontab(minute='*/10'),  # Every 10 minute
-    # }
+    'assign_daily_tasks': {
+        'task': 'missions.tasks.assign_daily_tasks',
+        'schedule': crontab(minute='*/10'),  # Every 5 minute
+    }
 
 }
 

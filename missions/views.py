@@ -2,12 +2,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import UserTask, TaskType
+from .models import UserTask
 from django.utils.timezone import now
 from django.db import transaction
-from myapp.models import Gem
 from myapp.utils import add_manual_gem
-import random
 
 
 class ActiveTasksView(APIView):
@@ -15,21 +13,6 @@ class ActiveTasksView(APIView):
         user = request.user
         user_timezone = user.timezone
         user_local_time = now().astimezone(user_timezone).date()
-
-        # Assign tasks if none exist for today in user's local time
-        user_tasks_today = UserTask.objects.filter(user=user, created_at__date=user_local_time)
-        if not user_tasks_today.exists():
-            task_types = TaskType.objects.all()
-            num_tasks = random.randint(3, 5)  # Randomly select between 3 and 5 tasks
-            assigned_tasks = set()
-            while len(assigned_tasks) < num_tasks:
-                task_type = random.choice(task_types)
-                if task_type not in assigned_tasks:
-                    assigned_tasks.add(task_type)
-            UserTask.objects.bulk_create([
-                UserTask(user=user, task_type=task_type, created_at=now())
-                for task_type in assigned_tasks
-            ])
 
         active_tasks = UserTask.objects.filter(user=user, created_at__date=user_local_time, is_claimed=False)
         completed_tasks = UserTask.objects.filter(user=user, created_at__date=user_local_time, is_completed=True, is_claimed=True)
@@ -40,8 +23,7 @@ class ActiveTasksView(APIView):
         tasks_data = [{
             'task_id': task.id,
             'task_name': task.task_type.get_name_display(),
-            'progress': task.progress_with_goal,  # Include progress with goal
-            'progress_percentage': task.progress_percentage_display,  # Include progress percentage
+            'progress': task.progress_with_goal,
             'is_completed': task.is_completed,
             'is_claimed': task.is_claimed,
             'gem_value': task.task_type.gem_value,
@@ -55,25 +37,6 @@ class ActiveTasksView(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
 
-
-
-# class ActiveTasksView(APIView):
-#     def get(self, request):
-#         user = request.user
-#         user_timezone = user.timezone
-#         user_local_time = now().astimezone(user_timezone).date()
-
-#         active_tasks = UserTask.objects.filter(user=user, created_at__date=user_local_time, is_claimed=False)
-#         tasks_data = [{
-#             'task_id': task.id,
-#             'task_name': task.task_type.get_name_display(),
-#             'progress': task.progress,
-#             'is_completed': task.is_completed,
-#             'is_claimed': task.is_claimed,
-#             'gem_value': task.task_type.gem_value,
-#         } for task in active_tasks]
-
-#         return Response(tasks_data, status=status.HTTP_200_OK)
 
 
 class CompletedTasksView(APIView):

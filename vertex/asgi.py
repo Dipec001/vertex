@@ -26,9 +26,10 @@ from .middleware import TokenAuthMiddleware
 # Set the default settings module for Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'vertex.settings')
 
-from myapp.routing import websocket_urlpatterns
+from myapp.routing import websocket_urlpatterns as myapp_websocket_urlpatterns
 from support.routing import websocket_urlpatterns as support_websocket_urlpatterns
 
+combined_websocket_urlpatterns = support_websocket_urlpatterns + myapp_websocket_urlpatterns
 # Initialize the Django ASGI application
 # This ensures the AppRegistry is populated and models are available.
 django_asgi_app = get_asgi_application()
@@ -43,7 +44,7 @@ application = ProtocolTypeRouter({
     #     ),
     "websocket": TokenAuthMiddleware(  # Use the custom JWT middleware here
         AuthMiddlewareStack(  # Stack the Django authentication middleware
-            URLRouter(websocket_urlpatterns+support_websocket_urlpatterns)
+            URLRouter(combined_websocket_urlpatterns)
 
         )
     ),

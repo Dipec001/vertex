@@ -18,12 +18,15 @@ def assign_daily_tasks():
     current_utc_time = now()
 
     for user in users:
+        print(user, 'user is this')
         user_timezone = user.timezone
         user_local_time = current_utc_time.astimezone(user_timezone)
         user_local_date = user_local_time.date()
+        print(user_local_time, 'user local time is this')
 
         # Assign tasks if none exist for today in user's local time
         user_tasks_today = UserTask.objects.filter(user=user, created_at__date=user_local_date)
+        print(user_tasks_today, 'these are the users tasks today already')
         if not user_tasks_today.exists():
             num_tasks = random.randint(3, 5)  # Randomly select between 3 and 5 tasks
             assigned_tasks = task_types.order_by('?')[:num_tasks]  # Randomly pick tasks

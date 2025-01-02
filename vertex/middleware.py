@@ -6,6 +6,8 @@ from channels.db import database_sync_to_async
 from django.utils.deprecation import MiddlewareMixin
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class CustomResponseMiddleware:
     """
@@ -56,7 +58,7 @@ class TokenAuthMiddleware:
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
                 user_id = payload.get('user_id')
                 if user_id:
-                    scope['user'] = await self.get_user(user_id)
+                    logger.info(f"User authenticated: {scope['user']}")
                 else:
                     raise ValueError("User ID not found in token.")
             except (jwt.ExpiredSignatureError, jwt.DecodeError, ValueError):
@@ -78,7 +80,7 @@ class TokenAuthMiddleware:
         try:
             return CustomUser.objects.get(id=user_id)
         except CustomUser.DoesNotExist:
-            print('No user found, returning AnonymousUser')
+            logger.info('No user found, returning AnonymousUser')
             return AnonymousUser()  # Return an AnonymousUser instead of None
     
 
