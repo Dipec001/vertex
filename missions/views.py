@@ -52,9 +52,12 @@ class CompletedTasksView(APIView):
         tasks_data = []
         for task in completed_tasks:
             tasks_data.append({
+                'task_id': task.id,
                 'task': task.task_type.get_name_display(),
                 'progress': task.progress_with_goal,
-                'completed_date': task.completed_date,
+                'progress_percentage': task.progress_percentage_display,
+                'is_completed': task.is_completed,
+                'is_claimed': task.is_claimed,
                 'gem_value': task.task_type.gem_value,
             })
 
