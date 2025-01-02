@@ -2059,8 +2059,6 @@ class CompanyDashboardView(APIView):
             return Response({"error": "Company not found"}, status=404)
 
         # Get current date and 30 days ago date
-        today = timezone.now().date()
-        thirty_days_ago = today - timedelta(days=30)
         # get last date of this month
         (first_date, last_date) = get_last_day_and_first_day_of_this_month()
 
@@ -2098,6 +2096,8 @@ class CompanyDashboardView(APIView):
         # )
         # Get recent feed items (high performers and milestones)
         # TODO: probably add websocket consumer version of this
+        today = timezone.now().date()
+        thirty_days_ago = today - timedelta(days=30)
         recent_feeds = Feed.objects.select_related("user").filter(
             user__membership__company=company,
             feed_type__in=['Milestone', 'Promotion'],
