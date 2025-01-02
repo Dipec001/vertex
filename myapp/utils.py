@@ -1,5 +1,6 @@
 import calendar
 from datetime import datetime, timedelta
+from typing import Literal
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -131,7 +132,7 @@ def get_daily_steps_and_xp(company, today):
 
 
 
-def get_date_range(interval):
+def get_date_range(interval: Literal["this_week", "this_month", "last_week"]):
     """
     Generate a list of dates for a specified time interval.
 
