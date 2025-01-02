@@ -51,9 +51,9 @@ def add_manual_gem(user, manual_gem_count, date):
     gem.copy_manual_gem += manual_gem_count
     gem.save()
     
-def get_global_xp_for_stats_for_last_30_days_by_user(user_id):
+def get_global_xp_for_stats_by_user(user_id, interval: Literal["this_week", "this_month", "last_week"]):
     daily_stats = []
-    for single_date in get_date_range("this_month"):
+    for single_date in get_date_range(interval):
         # Get all XP or this date
         daily_xp = Xp.objects.filter(
             date=single_date,
@@ -67,9 +67,9 @@ def get_global_xp_for_stats_for_last_30_days_by_user(user_id):
             'total_xp': daily_xp
         })
 
-def get_global_xp_for_stats_for_last_30_days(today):
+def get_global_xp_for_stats(interval: Literal["this_week", "this_month", "last_week"]):
     daily_stats = []
-    for single_date in get_date_range("this_month"):
+    for single_date in get_date_range(interval):
         # Get all XP or this date
         daily_xp = Xp.objects.filter(
             date=single_date
@@ -81,9 +81,33 @@ def get_global_xp_for_stats_for_last_30_days(today):
             'date': single_date,
             'total_xp': daily_xp
         })
-
     return daily_stats
-def get_daily_steps_and_xp(company, today):
+
+def get_last_day_and_first_day_of_this_month():
+    """
+    Calculate the first and last day of the current month.
+
+    This function determines the first and last day of the current month
+    based on the current date.
+
+    Returns:
+        tuple: A tuple containing two datetime objects:
+            - The first element is the first day of the current month.
+            - The second element is the last day of the current month.
+    """
+    # Get the current date
+    today = datetime.now()
+
+    # Get the first day and the number of days in the current month
+    first_day_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+
+    # Get the last day of the month
+    last_day_of_month = first_day_of_month.replace(day=last_day)
+
+    return first_day_of_month, last_day_of_month
+
+def get_daily_steps_and_xp(company, interval: Literal["this_week", "this_month", "last_week"]):
     daily_stats = []
     for single_date in get_date_range("this_month"):
         # Get steps for this date

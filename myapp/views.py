@@ -1,4 +1,6 @@
 from pprint import pprint
+from typing import Literal
+
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,7 +14,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters import rest_framework
 from myapp.utils import get_daily_steps_and_xp, send_user_notification, \
-    get_global_xp_for_stats_for_last_30_days, get_global_xp_for_stats_for_last_30_days_by_user
+    get_global_xp_for_stats, get_global_xp_for_stats_by_user, get_last_day_and_first_day_of_this_month
 from .filters import EmployeeFilterSet, CompanyFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
@@ -2046,6 +2048,7 @@ class CompanyDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        interval: Literal["this_week", "this_month", "last_week"] = self.kwargs.get("interval") or "this_month"
         # Get the company associated with the logged-in user
         try:
             company = request.user.owned_company.first()
@@ -2057,6 +2060,8 @@ class CompanyDashboardView(APIView):
         # Get current date and 30 days ago date
         today = timezone.now().date()
         thirty_days_ago = today - timedelta(days=30)
+        # get last date of this month
+        (first_date, last_date) = get_last_day_and_first_day_of_this_month()
 
         # Get all unique employees (members) of the company
         company_members = Membership.objects.filter(company=company)
@@ -2064,7 +2069,7 @@ class CompanyDashboardView(APIView):
 
         # Calculate global average XP for comparison
         global_avg_xp = Xp.objects.filter(
-            date__gte=thirty_days_ago
+            date__range=[first_date, last_date]
         ).aggregate(
             global_avg=Avg('totalXpToday')
         )['global_avg'] or 0
@@ -2072,14 +2077,14 @@ class CompanyDashboardView(APIView):
         # Calculate company XP stats for last 30 days
         company_xp = Xp.objects.filter(
             user__membership__company=company,
-            date__gte=thirty_days_ago
+            date__range = [first_date, last_date]
         ).aggregate(
             total_xp=Sum('totalXpToday'),
             avg_xp_per_user=Avg('totalXpToday')
         )
         # Get daily steps and XP for last 30 days
         # TODO: Compare if those to methods are equivalent by using the sames tests data
-        daily_stats = get_daily_steps_and_xp(company, today)
+        daily_stats = get_daily_steps_and_xp(company, interval)
         # daily_stats = (
         #     DailySteps.objects.filter(
         #         user__membership__company=company,
@@ -2233,14 +2238,15 @@ class GlobalStats(APIView):
 class GlobalXpGraph(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        today = timezone.now().date()
-        xps_stats = get_global_xp_for_stats_for_last_30_days(today)
+        interval: Literal["this_week", "this_month", "last_week"] = self.kwargs.get("interval") or "this_month"
+        xps_stats = get_global_xp_for_stats(interval)
         return Response(data=xps_stats)
 
 class XpStatsByUser(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request, user_id):
-        xps_stats = get_global_xp_for_stats_for_last_30_days_by_user(user_id)
+        interval: Literal["this_week", "this_month", "last_week"] = self.kwargs.get("interval") or "this_month"
+        xps_stats = get_global_xp_for_stats_by_user(user_id, interval)
         return Response(data=xps_stats)
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
