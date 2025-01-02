@@ -13,8 +13,9 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters import rest_framework
-from myapp.utils import get_daily_steps_and_xp, send_user_notification, \
-    get_global_xp_for_stats, get_global_xp_for_stats_by_user, get_last_day_and_first_day_of_this_month
+from myapp.utils import send_user_notification, \
+    get_last_day_and_first_day_of_this_month
+from .stats_service import get_global_xp_for_stats_by_user, get_global_xp_for_stats, get_daily_steps_and_xp
 from .filters import EmployeeFilterSet, CompanyFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
