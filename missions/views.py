@@ -24,6 +24,7 @@ class ActiveTasksView(APIView):
             'task_id': task.id,
             'task_name': task.task_type.get_name_display(),
             'progress': task.progress_with_goal,
+            'progress_percentage': task.progress_percentage_display,
             'is_completed': task.is_completed,
             'is_claimed': task.is_claimed,
             'gem_value': task.task_type.gem_value,
