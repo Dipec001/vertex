@@ -51,29 +51,9 @@ def add_manual_gem(user, manual_gem_count, date):
     gem.copy_manual_gem += manual_gem_count
     gem.save()
     
-def get_last_30_days(today):
-    """
-    Generate a list of dates for the last 30 days, including today.
-    
-    Args:
-        today: datetime.date - The reference date to count back from
-        
-    Returns:
-        list[datetime.date]: List of 30 dates, starting from today going backwards
-        
-    Example:
-        If today is 2024-03-20, returns dates from 2024-03-20 to 2024-02-20
-    """
-    dates = []
-    for days_ago in range(30):
-        date = today - timedelta(days=days_ago)
-        dates.append(date)
-    return dates
-
 def get_global_xp_for_stats_for_last_30_days_by_user(user_id):
     daily_stats = []
-    today = timezone.now()
-    for single_date in get_last_30_days(today):
+    for single_date in get_date_range("this_month"):
         # Get all XP or this date
         daily_xp = Xp.objects.filter(
             date=single_date,
@@ -89,7 +69,7 @@ def get_global_xp_for_stats_for_last_30_days_by_user(user_id):
 
 def get_global_xp_for_stats_for_last_30_days(today):
     daily_stats = []
-    for single_date in get_last_30_days(today):
+    for single_date in get_date_range("this_month"):
         # Get all XP or this date
         daily_xp = Xp.objects.filter(
             date=single_date
@@ -105,7 +85,7 @@ def get_global_xp_for_stats_for_last_30_days(today):
     return daily_stats
 def get_daily_steps_and_xp(company, today):
     daily_stats = []
-    for single_date in get_last_30_days(today):
+    for single_date in get_date_range("this_month"):
         # Get steps for this date
         daily_steps = DailySteps.objects.filter(
             user__membership__company=company,
