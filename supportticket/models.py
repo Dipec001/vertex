@@ -8,14 +8,14 @@ class SupportTicket(models.Model):
     )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tickets')
-    case_title = models.CharField(max_length=255)
-    case_description = models.TextField()
+    title = models.CharField(max_length=255)
+    description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
 
     def __str__(self):
-        return f"Ticket {self.id}: {self.case_title}"
+        return f"Ticket {self.id}: {self.title}"
 
 
 class SupportMessage(models.Model):

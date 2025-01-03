@@ -933,13 +933,6 @@ class ConvertGemView(APIView):
         total_available_gems = user.get_gem_count()
         print(total_available_gems)
 
-        # # Calculate the total available gems (sum of xp_gem and manual_gem for today)
-        # total_xp_gem = Gem.objects.filter(user=user).aggregate(Sum('xp_gem'))['xp_gem__sum'] or 0
-        # total_manual_gem = Gem.objects.filter(user=user).aggregate(Sum('manual_gem'))['manual_gem__sum'] or 0
-
-        # # Total available gems after subtracting the gems spent
-        # total_available_gems = total_xp_gem + total_manual_gem - user.gems_spent
-
         # Check if the user has enough available gems
         if total_available_gems < total_gem_cost:
             return Response({
@@ -966,10 +959,10 @@ class ConvertGemView(APIView):
 
             elif item_type == 'ticket_global':
 
-                # Ensure there is an active global draw
-                global_draw = Draw.objects.filter(is_active=True, draw_type='global').first()
+                # Ensure there is an active global draw whose end date has not passed
+                global_draw = Draw.objects.filter(is_active=True, draw_type='global', draw_date__gt=now()).first()
                 if not global_draw:
-                    return Response({"error": "No active global draw available."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "No active global draw available or unauthorised."}, status=status.HTTP_400_BAD_REQUEST)
 
                 # Add entries to the global draw
                 entries = [DrawEntry(user=user, draw=global_draw) for _ in range(quantity)]
@@ -985,7 +978,7 @@ class ConvertGemView(APIView):
 
                 # Validate the company draw ID and check if there's an active company draw for the user's company
                 try:
-                    company_draw = Draw.objects.get(pk=company_draw_id, company__membership__user=user, is_active=True)
+                    company_draw = Draw.objects.get(pk=company_draw_id, company__membership__user=user, is_active=True, draw_date__gt=now())
                 except Draw.DoesNotExist:
                     return Response({"error": "No active company draw available for the specified ID or not authorized."}, status=status.HTTP_404_NOT_FOUND)
 

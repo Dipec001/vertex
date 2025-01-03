@@ -379,6 +379,8 @@ CELERY_TASK_ROUTES = {
     'myapp.tasks.send_gem_update': {'queue': 'default'},
     'myapp.tasks.send_status_update': {'queue': 'default'},
     'myapp.tasks.send_next_league_update': {'queue': 'default'},
+    'myapp.tasks.run_global_draw': {'queue':'default'},
+    'myapp.tasks.run_company_draws': {'queue':'default'},
     'notifications.tasks.check_and_notify_users': {'queue': 'default'},
     'notifications.tasks.notify_gem_reset': {'queue': 'default'},
     'myapp.tasks.send_invitation_email_task': {'queue': 'default'},
