@@ -58,6 +58,7 @@ class TokenAuthMiddleware:
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
                 user_id = payload.get('user_id')
                 if user_id:
+                    scope['user'] = await self.get_user(user_id) 
                     logger.info(f"User authenticated: {scope['user']}")
                 else:
                     raise ValueError("User ID not found in token.")
