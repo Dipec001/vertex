@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('tickets/', views.TicketViewSet.as_view({'get': 'list', 'post': 'create'}), name="ticket-list"),
     path('tickets/stats/', views.TicketViewSet.as_view({'get': 'stats',}), name="ticket-stats"),
+    path("tickets-graph/", views.TicketStatsGraphView.as_view(), name="ticket-stats-graph"),
     path('tickets/<int:pk>/', views.TicketViewSet.as_view(
         {'get': 'retrieve', 'patch': 'partial_update', 'delete': 'destroy', 'put': 'update'}), name="ticket-detail"),
     path('tickets/<int:pk>/add_message/', views.TicketViewSet.as_view({'post': 'add_message'}), name="ticket-add-message"),
