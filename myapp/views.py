@@ -1,7 +1,7 @@
 from pprint import pprint
 from typing import Literal
 
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -2167,7 +2167,7 @@ class EmployeeListView(ListAPIView):
     # TODO: add company owner pk based matching permission
     permission_classes = [IsAdminUser]
     serializer_class = EmployeeSerializer
-    filter_backends = [rest_framework.DjangoFilterBackend, rest_framework.OrderingFilter, SearchFilter]
+    filter_backends = [rest_framework.DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_class = EmployeeFilterSet
     search_fields = ['first_name', 'last_name', 'email', 'username', ]
     ordering_fields = ['id', 'username', 'email', 'company__name', "date_joined"]
@@ -2186,7 +2186,7 @@ class EmployeeListView(ListAPIView):
 class EmployeeByCompanyModelView(ListAPIView):
     permission_classes = [ IsAdminUser | IsCompanyOwner]
     serializer_class = EmployeeSerializer
-    filter_backends = [rest_framework.DjangoFilterBackend, rest_framework.OrderingFilter, SearchFilter]
+    filter_backends = [rest_framework.DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_class = EmployeeFilterSet
     search_fields = ['first_name', 'last_name', 'email', 'username',]
     ordering_fields = ['id','username', 'email', 'company__name', "date_joined"]
