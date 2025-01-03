@@ -1,12 +1,15 @@
-from django.db.models import Q
-from django.db.models.aggregates import Count
+from typing import Literal
+
+from django.db.models import Sum, Count
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
 from django_filters import rest_framework
+from rest_framework.views import APIView
 
 from myapp.models import Company
+from myapp.utils import get_date_range
 from .filters import TicketFilterSet
 from .models import Ticket
 from .serializers import TicketSerializer, TicketMessageSerializer
@@ -39,7 +42,23 @@ class CompanyTicketViewSet(viewsets.ModelViewSet):
         closed_tickets=queryset.filter(status="closed").count()
         data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
         return Response(data=data)
+class TicketStatsGraphView(APIView):
+    def get(self, request):
+        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
+        daily_stats = []
+        for single_date in get_date_range(interval):
+            # Get all XP or this date
+            daily_created_ticket = Ticket.objects.filter(
+                created_at__date=single_date
+            ).aggregate(
+                total_tickets_created=Count('id')
+            )['total_tickets_created'] or 0
 
+            daily_stats.append({
+                'date': single_date,
+                'total_tickets_created': daily_created_ticket
+            })
+        return Response(daily_stats)
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
