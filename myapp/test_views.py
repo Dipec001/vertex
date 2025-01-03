@@ -415,7 +415,7 @@ class EmployeeByCompanyModelViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         paginated_data = response.json()["data"]
         # Check the response data
-        expected_data = EmployeeSerializer([self.employee1, self.employee2], many=True).data
+        expected_data = EmployeeSerializer([self.owner, self.employee1, self.employee2], many=True).data
         self.assertEqual(paginated_data["results"], expected_data)
 
     def test_filter_employees_by_username(self):
@@ -424,7 +424,7 @@ class EmployeeByCompanyModelViewTest(APITestCase):
 
         # Filter by username
         url = reverse('employee-by-company', kwargs={'company_id': self.company.id})
-        response = self.client.get(url, {'username': 'employee1'})
+        response = self.client.get(url, {'search': 'employee1'})
 
         # Check the response status
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -439,7 +439,7 @@ class EmployeeByCompanyModelViewTest(APITestCase):
 
         # Filter by email
         url = reverse('employee-by-company', kwargs={'company_id': self.company.id})
-        response = self.client.get(url, {'email': 'employee2@test.com'})
+        response = self.client.get(url, {'search': 'employee2@test.com'})
 
         # Check the response status
         self.assertEqual(response.status_code, status.HTTP_200_OK)

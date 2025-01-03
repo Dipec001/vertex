@@ -1,6 +1,7 @@
 from pprint import pprint
 from typing import Literal
 
+from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -2152,7 +2153,7 @@ class EmployeeByCompanyModelDetailsView(RetrieveAPIView, DestroyAPIView):
 
     def get_queryset(self):
         company_id = self.kwargs['company_id']
-        return CustomUser.objects.filter(company_id=company_id, membership__role="employee")
+        return CustomUser.objects.filter(company_id=company_id).select_related("company")
 
     def handle_exception(self, exc):
         if isinstance(exc, (ValueError, KeyError)):
@@ -2166,8 +2167,10 @@ class EmployeeListView(ListAPIView):
     # TODO: add company owner pk based matching permission
     permission_classes = [IsAdminUser]
     serializer_class = EmployeeSerializer
-    filter_backends = [rest_framework.DjangoFilterBackend]
+    filter_backends = [rest_framework.DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_class = EmployeeFilterSet
+    search_fields = ['first_name', 'last_name', 'email', 'username', ]
+    ordering_fields = ['id', 'username', 'email', 'company__name', "date_joined"]
 
     def get_queryset(self):
         # company_id = self.kwargs['company_id']
@@ -2183,12 +2186,14 @@ class EmployeeListView(ListAPIView):
 class EmployeeByCompanyModelView(ListAPIView):
     permission_classes = [ IsAdminUser | IsCompanyOwner]
     serializer_class = EmployeeSerializer
-    filter_backends = [rest_framework.DjangoFilterBackend]
+    filter_backends = [rest_framework.DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_class = EmployeeFilterSet
+    search_fields = ['first_name', 'last_name', 'email', 'username',]
+    ordering_fields = ['id','username', 'email', 'company__name', "date_joined"]
 
     def get_queryset(self):
         company_id = self.kwargs['company_id']
-        return CustomUser.objects.filter(company_id=company_id, membership__role="employee").order_by('id')
+        return CustomUser.objects.filter(company_id=company_id).order_by('id').select_related("company")
 
     def handle_exception(self, exc):
         if isinstance(exc, (ValueError, KeyError)):
