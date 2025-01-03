@@ -106,7 +106,9 @@ class CompanyLeagueConsumer(AsyncWebsocketConsumer):
         return UserLeague.objects.filter(user=user, league_instance__is_active=True, league_instance__company__isnull=False).select_related('league_instance').first()
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        # Ensure group_name is set and not empty before attempting to use it 
+        if hasattr(self, 'group_name') and self.group_name: 
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def send_league_update(self, event):
         await self.send(text_data=json.dumps(event['data']))
