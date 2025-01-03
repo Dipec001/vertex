@@ -1,9 +1,11 @@
-from datetime import timedelta
-from myapp.models import DailySteps, Gem, Xp
-from django.db.models import Sum
-from django.utils import timezone
+import calendar
+from datetime import datetime, timedelta
+from typing import Literal
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+
+from myapp.models import Gem
 
 
 def send_user_notification(user, notif):
@@ -46,83 +48,74 @@ def add_manual_gem(user, manual_gem_count, date):
     gem.manual_gem += manual_gem_count  # Increment the manual gems
     gem.copy_manual_gem += manual_gem_count
     gem.save()
-    
-def get_last_30_days(today):
+
+
+def get_last_day_and_first_day_of_this_month():
     """
-    Generate a list of dates for the last 30 days, including today.
-    
-    Args:
-        today: datetime.date - The reference date to count back from
-        
+    Calculate the first and last day of the current month.
+
+    This function determines the first and last day of the current month
+    based on the current date.
+
     Returns:
-        list[datetime.date]: List of 30 dates, starting from today going backwards
-        
-    Example:
-        If today is 2024-03-20, returns dates from 2024-03-20 to 2024-02-20
+        tuple: A tuple containing two datetime objects:
+            - The first element is the first day of the current month.
+            - The second element is the last day of the current month.
     """
-    dates = []
-    for days_ago in range(30):
-        date = today - timedelta(days=days_ago)
-        dates.append(date)
+    # Get the current date
+    today = datetime.now()
+
+    # Get the first day and the number of days in the current month
+    first_day_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+
+    # Get the last day of the month
+    last_day_of_month = first_day_of_month.replace(day=last_day)
+
+    return first_day_of_month, last_day_of_month
+
+
+def get_date_range(interval: Literal["this_week", "this_month", "last_week"]):
+    """
+    Generate a list of dates for a specified time interval.
+
+    This function returns a list of dates based on the given interval,
+    which can be 'this_week', 'this_month', or 'last_week'.
+
+    Parameters:
+    interval (str): The time interval for which to generate dates.
+                    Valid options are:
+                    - 'this_week': Current week (Monday to Sunday)
+                    - 'this_month': All days in the current month
+                    - 'last_week': Previous week (Monday to Sunday)
+
+    Returns:
+    list: A list of datetime.date objects representing the dates in the specified interval.
+
+    Raises:
+    ValueError: If an invalid interval is provided.
+
+    """
+    today = datetime.now().date()
+
+    if interval == "this_week":
+        # Start of the current week (Monday)
+        start_of_week = today - timedelta(days=today.weekday())
+        dates = [start_of_week + timedelta(days=i) for i in range(7)]
+
+    elif interval == "this_month":
+        # Start and end of the current month
+        start_of_month = today.replace(day=1)
+        _, last_day = calendar.monthrange(today.year, today.month)
+        end_of_month = today.replace(day=last_day)
+        dates = [start_of_month + timedelta(days=i) for i in range((end_of_month - start_of_month).days + 1)]
+
+    elif interval == "last_week":
+        # Start of the last week (Monday)
+        start_of_last_week = today - timedelta(days=today.weekday() + 7)
+        dates = [start_of_last_week + timedelta(days=i) for i in range(7)]
+
+    else:
+        raise ValueError("Invalid interval. Choices are: 'this_week', 'this_month', 'last_week'.")
+
     return dates
-
-def get_global_xp_for_stats_for_last_30_days_by_user(user_id):
-    daily_stats = []
-    today = timezone.now()
-    for single_date in get_last_30_days(today):
-        # Get all XP or this date
-        daily_xp = Xp.objects.filter(
-            date=single_date,
-            user_id=user_id,
-        ).aggregate(
-            total_xp=Sum('totalXpToday')
-        )['total_xp'] or 0
-
-        daily_stats.append({
-            'date': single_date,
-            'total_xp': daily_xp
-        })
-
-def get_global_xp_for_stats_for_last_30_days(today):
-    daily_stats = []
-    for single_date in get_last_30_days(today):
-        # Get all XP or this date
-        daily_xp = Xp.objects.filter(
-            date=single_date
-        ).aggregate(
-            total_xp=Sum('totalXpToday')
-        )['total_xp'] or 0
-
-        daily_stats.append({
-            'date': single_date,
-            'total_xp': daily_xp
-        })
-
-    return daily_stats
-def get_daily_steps_and_xp(company, today):
-    daily_stats = []
-    for single_date in get_last_30_days(today):
-        # Get steps for this date
-        daily_steps = DailySteps.objects.filter(
-            user__membership__company=company,
-            date=single_date
-        ).aggregate(
-            total_steps=Sum('step_count')
-        )['total_steps'] or 0
-
-        # Get XP for this date
-        daily_xp = Xp.objects.filter(
-            user__membership__company=company,
-            date=single_date
-        ).aggregate(
-            total_xp=Sum('totalXpToday')
-        )['total_xp'] or 0
-
-        daily_stats.append({
-            'date': single_date,
-            'total_steps': daily_steps,
-            'total_xp': daily_xp
-        })
-        
-    return daily_stats
-
