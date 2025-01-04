@@ -13,6 +13,13 @@ from .serializers import TicketSerializer, TicketMessageSerializer
 from typing import Literal
 from rest_framework.views import APIView
 from myapp.utils import get_date_range
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+
+class MessagePagination(PageNumberPagination):
+    page_size = 20  # Number of messages per page
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class CompanyTicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
@@ -136,3 +143,13 @@ class TicketViewSet(viewsets.ModelViewSet):
             {'error': 'Invalid status'},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+    @action(detail=True, methods=["get"], url_path="messages")
+    def get_messages(self, request, pk=None):
+        ticket = self.get_object()
+        messages = ticket.messages.all().order_by('-created_at')  # Order messages as needed
+        paginator = MessagePagination()
+        paginated_messages = paginator.paginate_queryset(messages, request)
+        
+        serializer = TicketMessageSerializer(paginated_messages, many=True)
+        return paginator.get_paginated_response(serializer.data)
