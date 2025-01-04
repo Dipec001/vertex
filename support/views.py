@@ -78,8 +78,8 @@ class TicketViewSet(viewsets.ModelViewSet):
         queryset = Ticket.objects.prefetch_related('messages').select_related('created_by', 'assigned_to', 'company')
         # Only include individual tickets for your implementation
         is_individual = self.request.GET.get('is_individual')
-        if is_individual:
-            return queryset.filter(is_individual=True)
+        if is_individual is not None:
+            return queryset.filter(is_individual=is_individual)
         return queryset
 
     def perform_create(self, serializer):
