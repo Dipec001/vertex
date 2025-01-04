@@ -31,7 +31,7 @@ urlpatterns = [
     path("api/", include("notifications.urls")),
     path("api/", include("missions.urls")),
     path('api/', include("support.urls")),
-    path("api/", include("supportticket.urls")),
+    # path("api/", include("supportticket.urls")),
     path('auth/', include('rest_framework.urls')),  # DRF browsable API login/logout
     path('social-auth/', include('allauth.urls')), # For social login (Google, Facebook, etc.)
     path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
