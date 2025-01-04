@@ -105,15 +105,11 @@ class TicketViewSet(viewsets.ModelViewSet):
         serializer = TicketMessageSerializer(data=request.data)
 
         # Check if the ticket is resolved
-        if ticket.status == 'resolved':  # Adjust 'resolved' to match your actual status value
+        if ticket.status == Ticket.RESOLVED:  # Adjust 'resolved' to match your actual status value
             return Response(
                 {'error': 'Cannot add a message to a resolved ticket.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Validate and save the message
-        serializer = TicketMessageSerializer(data=request.data)
-
         if serializer.is_valid():
             serializer.save(
                 ticket=ticket,
