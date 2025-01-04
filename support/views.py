@@ -48,18 +48,19 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Ticket.objects.prefetch_related('messages').select_related('created_by', 'assigned_to', 'company')
+        # Only include individual tickets for your implementation
         is_individual = self.request.GET.get('is_individual')
-        # check if query params contain is_individual key
-        if is_individual is not None:
-            return queryset.filter(is_individual=is_individual)
+        if is_individual:
+            return queryset.filter(is_individual=True)
         return queryset
 
     def perform_create(self, serializer):
-        # Set the company to the current user company
+        # Customize company assignment for your use case
         serializer.save(
             created_by=self.request.user,
-            company=self.request.user.company
+            company=None  # Assuming individual tickets don't belong to companies
         )
+
 
     @action(["GET"], detail=False)
     def stats(self, request):
@@ -75,6 +76,16 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket = self.get_object()
         serializer = TicketMessageSerializer(data=request.data)
 
+        # Check if the ticket is resolved
+        if ticket.status == 'resolved':  # Adjust 'resolved' to match your actual status value
+            return Response(
+                {'error': 'Cannot add a message to a resolved ticket.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate and save the message
+        serializer = TicketMessageSerializer(data=request.data)
+
         if serializer.is_valid():
             serializer.save(
                 ticket=ticket,
@@ -86,6 +97,14 @@ class TicketViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
         ticket = self.get_object()
+        # Check if the user is an admin or staff
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Permission denied. Only admin/staff can update the status.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Proceed to update the status if valid
         new_status = request.data.get('status')
 
         if new_status in dict(Ticket.STATUS_CHOICES):
