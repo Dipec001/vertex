@@ -1,18 +1,18 @@
-from typing import Literal
-
-from django.db.models import Sum, Count
+from django.db.models import Q
+from django.db.models.aggregates import Count
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
 from django_filters import rest_framework
-from rest_framework.views import APIView
 
 from myapp.models import Company
-from myapp.utils import get_date_range
 from .filters import TicketFilterSet
 from .models import Ticket
 from .serializers import TicketSerializer, TicketMessageSerializer
+from typing import Literal
+from rest_framework.views import APIView
+from myapp.utils import get_date_range
 
 class CompanyTicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
@@ -42,6 +42,7 @@ class CompanyTicketViewSet(viewsets.ModelViewSet):
         closed_tickets=queryset.filter(status="closed").count()
         data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
         return Response(data=data)
+    
 class TicketStatsGraphView(APIView):
     def get(self, request):
         interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
@@ -59,6 +60,7 @@ class TicketStatsGraphView(APIView):
                 'total_tickets_created': daily_created_ticket
             })
         return Response(daily_stats)
+
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -85,8 +87,8 @@ class TicketViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         queryset = self.get_queryset()
         total_tickets = queryset.count()
-        open_tickets = queryset.filter(status="open").count()
-        closed_tickets = queryset.filter(status="closed").count()
+        open_tickets = queryset.filter(status="active").count()
+        closed_tickets = queryset.filter(status="resolved").count()
         data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
         return Response(data=data)
 
