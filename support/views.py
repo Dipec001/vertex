@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 
 from django_filters import rest_framework
 
-from myapp.models import Company
+from myapp.models import Company, CustomUser
 from .filters import TicketFilterSet
 from .models import Ticket
 from .serializers import TicketSerializer, TicketMessageSerializer
@@ -84,11 +84,17 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # Customize company assignment for your use case
-        serializer.save(
-            created_by=self.request.user,
-            company=None  # Assuming individual tickets don't belong to companies
-        )
-
+        serializer.is_valid(raise_exception=True)
+        if serializer.validated_data.get('is_individual'):
+            serializer.save(
+                created_by=self.request.user,
+                company=None  # Assuming individual tickets don't belong to companies
+            )
+        else:
+            serializer.save(
+                created_by=self.request.user,
+                company=self.request.user.company,
+            )
 
     @action(["GET"], detail=False)
     def stats(self, request):
