@@ -94,8 +94,8 @@ class TicketViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         queryset = self.get_queryset()
         total_tickets = queryset.count()
-        open_tickets = queryset.filter(status="active").count()
-        closed_tickets = queryset.filter(status="resolved").count()
+        open_tickets = queryset.filter(status=Ticket.OPEN).count()
+        closed_tickets = queryset.filter(status=Ticket.CLOSED).count()
         data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
         return Response(data=data)
 
