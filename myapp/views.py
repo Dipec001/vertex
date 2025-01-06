@@ -22,9 +22,10 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
-                          NotifSerializer, EmployeeSerializer, CompanySerializer)
+                          NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployee)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
-                     Streak, Purchase, DrawWinner, DrawEntry,Draw, UserLeague, LeagueInstance, UserFollowing, Feed, Clap,
+                     Streak, Purchase, DrawWinner, DrawEntry, Draw, UserLeague, LeagueInstance, UserFollowing, Feed,
+                     Clap,
                      League, Gem, DrawImage, Notif)
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.shortcuts import render, get_object_or_404
@@ -98,20 +99,25 @@ def test_streak_view(request):
 def test_gem_view(request):
     return render(request, 'test_gem.html', {'user_id': request.user.id})
 
+
 @login_required
 def test_feed_view(request):
     return render(request, 'test_feed.html', {'user_id': request.user.id})
+
 
 @login_required
 def test_draw_view(request):
     return render(request, 'test_draw.html', {'user_id': request.user.id})
 
+
 @login_required
 def test_noti_view(request):
     return render(request, 'test_noti.html')
 
+
 def test_error(request):
     raise Exception("This is a test error for email notification")
+
 
 class ValidateEmailPasswordView(APIView):
     permission_classes = [AllowAny]
@@ -123,7 +129,8 @@ class ValidateEmailPasswordView(APIView):
 
         # Ensure email and password are provided
         if not email or not password or not confirm_password:
-            return Response({"error": "Email, password, and confirm password are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Email, password, and confirm password are required."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         # Check if passwords match
         if password != confirm_password:
@@ -136,8 +143,8 @@ class ValidateEmailPasswordView(APIView):
         # If everything is valid, return success
         return Response({
             "success": "Email and password are valid.",
-            "login_type" : "Email and password"
-            }, status=status.HTTP_200_OK)
+            "login_type": "Email and password"
+        }, status=status.HTTP_200_OK)
 
 
 class ValidateCompanyAssociationView(APIView):
@@ -221,6 +228,7 @@ class CompanyOwnerSignupView(APIView):
         # Return errors if any
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
 
@@ -289,6 +297,7 @@ class SendInvitationView(APIView):
     "This endpoint is used to send an invitation by the company owner or HR and also get list of invitations sent"
 
     permission_classes = [IsAuthenticated]
+
     def post(self, request, company_id):
         # Fetch the company based on the ID
         try:
@@ -304,7 +313,8 @@ class SendInvitationView(APIView):
 
         # Check if the user is either the company owner or an HR manager
         if membership.role not in ['owner', 'HR']:
-            return Response({"error": "You do not have permission to send invitations."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "You do not have permission to send invitations."},
+                            status=status.HTTP_403_FORBIDDEN)
 
         serializer = InvitationSerializer(data=request.data, context={'request': request, 'company': company})
 
@@ -313,7 +323,6 @@ class SendInvitationView(APIView):
             return Response({"success": "Invitation sent successfully."}, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
     def get(self, request, company_id):
         company = Company.objects.get(id=company_id)
@@ -332,7 +341,8 @@ class SendInvitationView(APIView):
 
         # Only allow the company owner to view all invitations
         if membership.role not in ['owner', 'HR']:
-            return Response({"error": "You do not have permission to view these invitations."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "You do not have permission to view these invitations."},
+                            status=status.HTTP_403_FORBIDDEN)
 
         # Fetch all invitations for the company
         invitations = Invitation.objects.filter(company=company)
@@ -370,7 +380,6 @@ class GoogleSignInView(APIView):
         first_name = decoded_token.get('given_name')
         last_name = decoded_token.get('family_name')
 
-
         # Check if the user already exists based on Google UID
         try:
             social_account = SocialAccount.objects.get(uid=google_uid, provider__iexact='google')
@@ -392,7 +401,7 @@ class GoogleSignInView(APIView):
                 return Response({
                     'error': 'User with this email already exists',
                     'suggestion': 'Please log in with this email or use a different method to sign up.',
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             # No SocialAccount exists, temporarily store Google UID and email for future use
             # request.session['uid'] = google_uid
@@ -426,8 +435,8 @@ class AppleSignInView(APIView):
 
         # Step 2: Extract relevant information from token
         apple_id = decoded_token.get('sub')
-        email = decoded_token.get('email') # ONly returned on first login
-         # Extract the name from the decoded token if it's the first sign-in
+        email = decoded_token.get('email')  # ONly returned on first login
+        # Extract the name from the decoded token if it's the first sign-in
         name_info = decoded_token.get('name', {})
         first_name = name_info.get('firstName')
         last_name = name_info.get('lastName')
@@ -495,7 +504,8 @@ class FacebookSignInView(APIView):
         response = requests.get(user_info_url)
 
         if response.status_code != 200:
-            return Response({'error': 'Failed to retrieve user information from Facebook'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Failed to retrieve user information from Facebook'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         user_info = response.json()
         facebook_uid = user_info.get('id')
@@ -590,7 +600,8 @@ class UserProfileView(APIView):
                 if s3_object_key:
                     serializer.save(profile_picture=s3_object_key)
                 else:
-                    return Response({"error": "Failed to upload profile picture"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    return Response({"error": "Failed to upload profile picture"},
+                                    status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             else:
                 serializer.save()  # Save without updating the profile picture
 
@@ -606,7 +617,9 @@ class UserProfileView(APIView):
 
         # Prevent company owners from deleting their account without transferring ownership
         if user.is_company_owner:  # Check if the user owns a company
-            return Response({"error": "You cannot delete your account while owning a company. Please transfer ownership first."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "You cannot delete your account while owning a company. Please transfer ownership first."},
+                status=status.HTTP_400_BAD_REQUEST)
 
         # Step 1: Revert invitation status to "pending" if it was accepted
         try:
@@ -678,7 +691,6 @@ class TransferOwnershipView(APIView):
         return Response({"success": "Company ownership transferred successfully."}, status=status.HTTP_200_OK)
 
 
-
 class DailyStepsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -709,13 +721,13 @@ class DailyStepsView(APIView):
             })
 
         # Query total steps for the user across all time
-        total_steps_count = DailySteps.objects.filter(user=request.user).aggregate(total_steps=Sum('step_count'))['total_steps'] or 0
+        total_steps_count = DailySteps.objects.filter(user=request.user).aggregate(total_steps=Sum('step_count'))[
+                                'total_steps'] or 0
 
         return Response({
             'steps_per_day': steps_data,
             'total_steps': total_steps_count
         })
-
 
     def post(self, request, *args, **kwargs):
         # Instantiate the serializer with the request data and user context
@@ -730,7 +742,8 @@ class DailyStepsView(APIView):
             user_xp = Xp.objects.filter(user=request.user, date=date).first()
 
             # Calculate total XP across all records for the user
-            total_xp_all_time = Xp.objects.filter(user=request.user).aggregate(Sum('totalXpToday'))['totalXpToday__sum'] or 0
+            total_xp_all_time = Xp.objects.filter(user=request.user).aggregate(Sum('totalXpToday'))[
+                                    'totalXpToday__sum'] or 0
 
             # Prepare the response, handle the case where no XP record exists yet
             xp_data = {
@@ -760,7 +773,6 @@ class WorkoutActivityView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 # class StreakRecordsView(APIView):
@@ -826,7 +838,8 @@ class StreakRecordsView(APIView):
         ).values('date').annotate(current_streak=Sum('currentStreak')).order_by('date')
 
         # Prepare streak data for each day
-        streak_data = [{'date': streak['date'], 'current_streak': streak['current_streak']} for streak in streak_in_range]
+        streak_data = [{'date': streak['date'], 'current_streak': streak['current_streak']} for streak in
+                       streak_in_range]
 
         # Check if today's streak exists
         today_streak = next((entry['current_streak'] for entry in streak_data if entry['date'] == today_date), None)
@@ -952,7 +965,8 @@ class ConvertGemView(APIView):
             # Update the user's tickets or streak savers
             if item_type == 'streak_saver':
                 if user.streak_savers + quantity > 3:  # Check the total after adding the quantity
-                    return Response({"error": "You can own 3 streak savers at most."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "You can own 3 streak savers at most."},
+                                    status=status.HTTP_400_BAD_REQUEST)
 
                 user.streak_savers += quantity  # Properly increment the streak savers count
 
@@ -966,7 +980,8 @@ class ConvertGemView(APIView):
                 # Ensure there is an active global draw whose end date has not passed
                 global_draw = Draw.objects.filter(is_active=True, draw_type='global', draw_date__gt=now()).first()
                 if not global_draw:
-                    return Response({"error": "No active global draw available or unauthorised."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "No active global draw available or unauthorised."},
+                                    status=status.HTTP_400_BAD_REQUEST)
 
                 # Add entries to the global draw
                 entries = [DrawEntry(user=user, draw=global_draw) for _ in range(quantity)]
@@ -982,9 +997,12 @@ class ConvertGemView(APIView):
 
                 # Validate the company draw ID and check if there's an active company draw for the user's company
                 try:
-                    company_draw = Draw.objects.get(pk=company_draw_id, company__membership__user=user, is_active=True, draw_date__gt=now())
+                    company_draw = Draw.objects.get(pk=company_draw_id, company__membership__user=user, is_active=True,
+                                                    draw_date__gt=now())
                 except Draw.DoesNotExist:
-                    return Response({"error": "No active company draw available for the specified ID or not authorized."}, status=status.HTTP_404_NOT_FOUND)
+                    return Response(
+                        {"error": "No active company draw available for the specified ID or not authorized."},
+                        status=status.HTTP_404_NOT_FOUND)
 
                 # Add entries to the specified company draw
                 entries = [DrawEntry(user=user, draw=company_draw) for _ in range(quantity)]
@@ -993,7 +1011,6 @@ class ConvertGemView(APIView):
                 # Create notification for purchasing company draw tickets
                 notif_type = "purchase_companydraw"
                 content = f"You converted {total_gem_cost} gems into {quantity} company draw tickets."
-
 
             user.save(update_fields=['gems_spent', 'streak_savers'])
 
@@ -1033,7 +1050,7 @@ class ConvertGemView(APIView):
         }, status=status.HTTP_200_OK)
 
     def broadcast_gem_update(self, user):
-        new_gem_count = user.get_gem_count() # Use the `get_gem_count` method to get the total gems
+        new_gem_count = user.get_gem_count()  # Use the `get_gem_count` method to get the total gems
         print('new gem count', new_gem_count)
 
         # Calculate the remaining XP gems the user can earn today
@@ -1043,19 +1060,18 @@ class ConvertGemView(APIView):
 
         gem_record = Gem.objects.filter(user=user, date=today).first()
         gems_earned_today = gem_record.xp_gem if gem_record else 0
-        xp_gems_remaining_today = max(0, 5 - gems_earned_today) # Assuming the daily limit is 5
+        xp_gems_remaining_today = max(0, 5 - gems_earned_today)  # Assuming the daily limit is 5
 
         # Get the channel layer and send the updated gem count and XP gems remaining to the WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
-            f'gem_{user.id}', # Group name based on user_id
+            f'gem_{user.id}',  # Group name based on user_id
             {
                 'type': 'send_gem_update',
-                'gem_count': new_gem_count, # Send the new gem count
-                'xp_gems_remaining_today': xp_gems_remaining_today, # Send the remaining XP gems for today
+                'gem_count': new_gem_count,  # Send the new gem count
+                'xp_gems_remaining_today': xp_gems_remaining_today,  # Send the remaining XP gems for today
             }
         )
-
 
 
 class PurchaseHistoryView(APIView):
@@ -1116,7 +1132,6 @@ class GetAllGlobalView(APIView):
         return Response(serialized_draws, status=status.HTTP_200_OK)
 
 
-
 class GlobalDrawEditView(APIView):
     """
     View for editing global draws.
@@ -1141,7 +1156,8 @@ class GlobalDrawEditView(APIView):
     def put(self, request, pk):
         # Only allow admin users to edit the draw details
         if not request.user.is_staff:
-            return Response({"detail": "You do not have permission to perform this action."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "You do not have permission to perform this action."},
+                            status=status.HTTP_403_FORBIDDEN)
 
         draw = self.get_object(pk)
         if draw is None:
@@ -1198,7 +1214,7 @@ class CompanyDrawEditView(APIView):
                 company__membership__role__in=['owner', 'HR']
             )
             if request.data == {}:
-                return Response({'detail':'No data passed'},status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'No data passed'}, status=status.HTTP_400_BAD_REQUEST)
             serializer = DrawSerializer(draw, data=request.data, partial=True, context={'request': request})
             if serializer.is_valid():
                 # Use the custom update method here
@@ -1208,6 +1224,7 @@ class CompanyDrawEditView(APIView):
         except Draw.DoesNotExist:
             raise PermissionDenied("You do not have permission to access or manage this draw.")
 
+
 class CompanyListView(ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = CompanySerializer
@@ -1215,7 +1232,9 @@ class CompanyListView(ListCreateAPIView):
     filterset_class = CompanyFilterSet
 
     def get_queryset(self):
-        return Company.objects.all().prefetch_related("ticket_set").order_by("id").annotate(total_employees=Count('membership'))
+        return Company.objects.all().prefetch_related("ticket_set").order_by("id").annotate(
+            total_employees=Count('membership'))
+
 
 class CompanyDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsCompanyOwnerPK | permissions.IsAdminUser]
@@ -1223,6 +1242,7 @@ class CompanyDetailView(RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return Company.objects.all().prefetch_related("ticket_set").annotate(total_employees=Count('membership'))
+
 
 class CompanyDrawListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1260,7 +1280,6 @@ class CompanyDrawListView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class GlobalActiveLeagueView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1280,7 +1299,8 @@ class GlobalActiveLeagueView(APIView):
             return Response({"error": "No active global league found for the user"}, status=404)
 
         league_instance = user_league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global','-user__streak', 'id')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by(
+            '-xp_global', '-user__streak', 'id')
 
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)  # Top 10%
@@ -1353,7 +1373,7 @@ class GlobalActiveLeagueView(APIView):
         data = {
             "league_id": league_instance.id,
             "league_name": league_instance.league.name,
-            "league_level": 11-league_instance.league.order,
+            "league_level": 11 - league_instance.league.order,
             "league_start": league_start,
             "league_end": league_end,
             "user_rank": user_rank,
@@ -1361,7 +1381,6 @@ class GlobalActiveLeagueView(APIView):
         }
 
         return Response(data, status=status.HTTP_200_OK)
-
 
 
 class CompanyActiveLeagueView(APIView):
@@ -1398,7 +1417,8 @@ class CompanyActiveLeagueView(APIView):
         print(lowest_league_order)
         print(highest_league_order)
 
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company','-user__streak', 'id')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by(
+            '-xp_company', '-user__streak', 'id')
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)
         demotion_threshold = int(total_users * 0.80)
@@ -1406,12 +1426,11 @@ class CompanyActiveLeagueView(APIView):
         is_highest_league = league_instance.league.order == highest_league_order
         is_lowest_league = league_instance.league.order == lowest_league_order
 
-
         rankings_data = []
         for index, ul in enumerate(rankings, start=1):
-            if is_highest_league and is_lowest_league: 
+            if is_highest_league and is_lowest_league:
                 # When the highest and lowest leagues are the same, all users are retained 
-                advancement = "Retained" 
+                advancement = "Retained"
                 gems_obtained = 10 if ul.xp_global > 0 else 0
             elif is_highest_league:
                 # Highest league: users can only be retained or demoted
@@ -1488,6 +1507,7 @@ class CompanyPastDrawsAPIView(APIView):
     """
     API view to retrieve all previous company draws (is_active=False) and their winners.
     """
+
     def get(self, request):
         # Get all previous company draws (is_active=False)
         company_draws = Draw.objects.filter(draw_type='company', is_active=False)
@@ -1514,6 +1534,7 @@ class GlobalPastDrawsAPIView(APIView):
     """
     API view to retrieve all previous global draws (is_active=False) and their winners.
     """
+
     def get(self, request):
         # Get all previous global draws (is_active=False)
         global_draws = Draw.objects.filter(draw_type='global', is_active=False)
@@ -1585,7 +1606,6 @@ class ApprovedLeaguesView(APIView):
         })
 
 
-
 class LogoutView(APIView):
     permission_classes = (IsAuthenticated,)
 
@@ -1636,8 +1656,8 @@ class ClapToggleAPIView(APIView):
         is_following = UserFollowing.objects.filter(follower=current_user, following=feed_creator).exists()
 
         is_in_same_company = (
-            current_user.company is not None and
-            current_user.company == feed_creator.company
+                current_user.company is not None and
+                current_user.company == feed_creator.company
         )
 
         if not (is_following or is_in_same_company):
@@ -1656,6 +1676,7 @@ class ClapToggleAPIView(APIView):
         send_followclap_notification(feed_creator, "New Clap", f"{current_user.username} clapped your feed.")
 
         return Response({"message": "Clapped"}, status=status.HTTP_201_CREATED)
+
 
 class FeedPagination(PageNumberPagination):
     page_size = 10
@@ -1686,7 +1707,8 @@ class FeedListView(APIView):
 
         # Calculate the number of feeds the user has clapped for today
         today = local_today.date()
-        user_claps_today = Clap.objects.filter(user=user, feed__user__in=following_users, created_at__date=today).count()
+        user_claps_today = Clap.objects.filter(user=user, feed__user__in=following_users,
+                                               created_at__date=today).count()
 
         # Paginate the results
         paginator = self.pagination_class()
@@ -1818,8 +1840,6 @@ class UserFeedView(APIView):
         return response
 
 
-
-
 class UserGemStatusView(APIView):
     """
     This view returns the gem status for the authenticated user.
@@ -1866,7 +1886,8 @@ class UserGemStatusView(APIView):
         remaining_gems_today = max(0, 5 - xp_gems_earned_today)
 
         # Fetch all-time gems
-        all_time_gems = Gem.objects.filter(user=user).aggregate(total_gems=Sum('copy_xp_gem') + Sum('copy_manual_gem'))['total_gems'] or 0
+        all_time_gems = Gem.objects.filter(user=user).aggregate(total_gems=Sum('copy_xp_gem') + Sum('copy_manual_gem'))[
+                            'total_gems'] or 0
 
         # Query gem records in the user's local date range, using the copy fields for historical data
         gem_records = Gem.objects.filter(
@@ -1910,7 +1931,6 @@ class UserGemStatusView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-
 class GlobalLeagueStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1925,14 +1945,15 @@ class GlobalLeagueStatusView(APIView):
         if global_leagues.count() < 2:
             return Response({"error": "No previous global league found for the user"}, status=404)
 
-        global_league = global_leagues[1] # Get the second-to-last league instance
+        global_league = global_leagues[1]  # Get the second-to-last league instance
 
         data = self.get_league_status(global_league, user)
         return Response(data, status=status.HTTP_200_OK)
 
     def get_league_status(self, league, user):
         league_instance = league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_global', 'id')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by(
+            '-xp_global', 'id')
 
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)
@@ -1987,7 +2008,7 @@ class CompanyLeagueStatusView(APIView):
         if company_leagues.count() < 2:
             return Response({"error": "No previous company league found for the user"}, status=404)
 
-        company_league = company_leagues[1] # Get the second-to-last league instance
+        company_league = company_leagues[1]  # Get the second-to-last league instance
 
         data = self.get_league_status(company_league, user)
         return Response(data, status=status.HTTP_200_OK)
@@ -1995,7 +2016,8 @@ class CompanyLeagueStatusView(APIView):
     def get_league_status(self, league, user):
 
         league_instance = league.league_instance
-        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by('-xp_company', 'id')
+        rankings = UserLeague.objects.filter(league_instance=league_instance).select_related('user').order_by(
+            '-xp_company', 'id')
 
         total_users = rankings.count()
         promotion_threshold = int(total_users * 0.30)
@@ -2041,11 +2063,13 @@ class CompanyLeagueStatusView(APIView):
                 }
         return {"error": "User not found in the league"}
 
+
 class CompanyDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
+        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get(
+            'interval') or "this_month"
         # Get the company associated with the logged-in user
         try:
             company = request.user.owned_company.first()
@@ -2072,7 +2096,7 @@ class CompanyDashboardView(APIView):
         # Calculate company XP stats for last 30 days
         company_xp = Xp.objects.filter(
             user__membership__company=company,
-            date__range = [first_date, last_date]
+            date__range=[first_date, last_date]
         ).aggregate(
             total_xp=Sum('totalXpToday'),
             avg_xp_per_user=Avg('totalXpToday')
@@ -2165,6 +2189,8 @@ class EmployeeByCompanyModelDetailsView(RetrieveAPIView, DestroyAPIView):
             return Response({"error": "An internal server error occurred."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return super().handle_exception(exc)
+
+
 class EmployeeListView(ListAPIView):
     # TODO: add company owner pk based matching permission
     permission_classes = [IsAdminUser]
@@ -2185,13 +2211,15 @@ class EmployeeListView(ListAPIView):
         # if not the user is considered admin. The permission class allready einsure that other users do not have access to this
         queryset = CustomUser.objects.all().order_by("id").select_related("company")
         return queryset
+
+
 class EmployeeByCompanyModelView(ListAPIView):
-    permission_classes = [ IsAdminUser | IsCompanyOwner]
+    permission_classes = [IsAdminUser | IsCompanyOwner]
     serializer_class = EmployeeSerializer
     filter_backends = [rest_framework.DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_class = EmployeeFilterSet
-    search_fields = ['first_name', 'last_name', 'email', 'username',]
-    ordering_fields = ['id','username', 'email', 'company__name', "date_joined"]
+    search_fields = ['first_name', 'last_name', 'email', 'username', ]
+    ordering_fields = ['id', 'username', 'email', 'company__name', "date_joined"]
 
     def get_queryset(self):
         company_id = self.kwargs['company_id']
@@ -2202,8 +2230,10 @@ class EmployeeByCompanyModelView(ListAPIView):
             # Log the error
             logger.error(f"Exception occurred: {exc}")
             # Return a 500 Internal Server Error response
-            return Response({"error": "An internal server error occurred."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": "An internal server error occurred."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return super().handle_exception(exc)
+
 
 class EmployeeAdminModelView(ListAPIView):
     permission_classes = [IsAuthenticated]
@@ -2221,6 +2251,7 @@ class EmployeeAdminModelView(ListAPIView):
 class GlobalStats(APIView):
     # TODO: refine permissions
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
         all_users = CustomUser.objects.all()
         total_users = all_users.count()
@@ -2235,31 +2266,48 @@ class GlobalStats(APIView):
         }
         return Response(data=data)
 
+
 # Xp graphs for 30 days
 class GlobalXpGraph(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
+        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get(
+            'interval') or "this_month"
         xps_stats = get_global_xp_for_stats(interval)
         return Response(data=xps_stats)
 
+
 class XpStatsByUser(APIView):
     permission_classes = [IsAuthenticated]
+
     def get(self, request, user_id):
-        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get('interval') or "this_month"
+        interval: Literal["this_week", "this_month", "last_week"] = self.request.query_params.get(
+            'interval') or "this_month"
         xps_stats = get_global_xp_for_stats_by_user(user_id, interval)
         return Response(data=xps_stats)
+
+
 class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         try:
             refresh = RefreshToken(request.data["refresh"])
             user_id = refresh["user_id"]
-            
+
             # Check if user still exists
             if not CustomUser.objects.filter(id=user_id).exists():
                 return Response({"detail": "Invalid token."}, status=401)
-            
+
             # If user exists, continue to refresh the token
             return super().post(request, *args, **kwargs)
         except TokenError as e:
             raise InvalidToken(e.args[0])
+
+
+class CompanyEmployeeInvitationsListView(ListAPIView):
+    serializer_class = InvitationAsEmployee
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        company_id = self.kwargs["pk"]
+        return Invitation.objects.select_related("company").filter(company_id=company_id)

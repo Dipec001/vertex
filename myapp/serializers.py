@@ -116,6 +116,11 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
 
         return user, company
 
+class InvitationAsEmployeeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invitation
+        fields = ['email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by']
+
 class InvitationSerializer(serializers.ModelSerializer):
     invited_by = serializers.StringRelatedField(read_only=True)  # Make this field read-only
 
