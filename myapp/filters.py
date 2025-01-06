@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from myapp.models import CustomUser, Company
+from myapp.models import CustomUser, Company, Invitation
 
 
 class EmployeeFilterSet(filters.FilterSet):
@@ -17,3 +17,8 @@ class CompanyFilterSet(filters.FilterSet):
     class Meta:
         model = Company
         fields = ['name']
+
+class InvitationFilterSet(filters.FilterSet):
+    class Meta:
+        model = Invitation
+        fields = ['status']
