@@ -4,11 +4,19 @@ from .models import Ticket, TicketMessage
 
 class TicketMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.username', read_only=True)
+    is_current_user = serializers.SerializerMethodField()
 
     class Meta:
         model = TicketMessage
-        fields = ['id', 'message', 'attachment', 'created_at', 'sender', 'sender_name']
-        read_only_fields = ['sender']
+        fields = ['id', 'message', 'attachment', 'created_at', 'sender', 'sender_name', 'is_current_user']
+        read_only_fields = ['sender', 'is_current_user']
+
+    def get_is_current_user(self, obj):
+        # We don't need to pass the request here anymore
+        if obj.sender.is_staff or obj.sender.is_superuser:
+            return False  # If the sender is a staff or superuser, it's false
+        return True  # Otherwise, it's true
+        
 
 
 class TicketSerializer(serializers.ModelSerializer):

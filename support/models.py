@@ -5,8 +5,10 @@ from myapp.models import Company
 
 class Ticket(models.Model):
     STATUS_CHOICES = (
-        ('active', 'Active'),
-        ('resolved', 'Resolved'),
+        ('open', 'Open'),
+        ('closed', 'Closed'),
+        ('in_progress', 'In_progress'),
+        ('reopened', 'Reopened')
     )
 
 
@@ -15,7 +17,7 @@ class Ticket(models.Model):
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='assigned_tickets', null=True, blank=True, on_delete=models.SET_NULL)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # The opposite is a _company_ ticket

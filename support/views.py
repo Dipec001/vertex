@@ -94,8 +94,8 @@ class TicketViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         queryset = self.get_queryset()
         total_tickets = queryset.count()
-        open_tickets = queryset.filter(status="active").count()
-        closed_tickets = queryset.filter(status="resolved").count()
+        open_tickets = queryset.filter(status="open").count()
+        closed_tickets = queryset.filter(status="closed").count()
         data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
         return Response(data=data)
 
@@ -105,14 +105,14 @@ class TicketViewSet(viewsets.ModelViewSet):
         serializer = TicketMessageSerializer(data=request.data)
 
         # Check if the ticket is resolved
-        if ticket.status == 'resolved':  # Adjust 'resolved' to match your actual status value
+        if ticket.status == 'closed':
             return Response(
-                {'error': 'Cannot add a message to a resolved ticket.'},
+                {'error': 'Closed ticket.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         # Validate and save the message
-        serializer = TicketMessageSerializer(data=request.data)
+        serializer = TicketMessageSerializer(data=request.data, context={'request': request})
 
         if serializer.is_valid():
             serializer.save(
@@ -126,11 +126,11 @@ class TicketViewSet(viewsets.ModelViewSet):
     def update_status(self, request, pk=None):
         ticket = self.get_object()
         # Check if the user is an admin or staff
-        if not request.user.is_staff:
-            return Response(
-                {'error': 'Permission denied. Only admin/staff can update the status.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        # if not request.user.is_staff:
+        #     return Response(
+        #         {'error': 'Permission denied. Only admin/staff can update the status.'},
+        #         status=status.HTTP_403_FORBIDDEN
+        #     )
         
         # Proceed to update the status if valid
         new_status = request.data.get('status')
@@ -151,5 +151,5 @@ class TicketViewSet(viewsets.ModelViewSet):
         paginator = MessagePagination()
         paginated_messages = paginator.paginate_queryset(messages, request)
         
-        serializer = TicketMessageSerializer(paginated_messages, many=True)
+        serializer = TicketMessageSerializer(paginated_messages, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)

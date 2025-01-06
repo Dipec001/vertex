@@ -8,12 +8,14 @@ class TicketConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.ticket_id = self.scope['url_route']['kwargs']['ticket_id']
         self.room_group_name = f'ticket_{self.ticket_id}'
+        print(self.room_group_name)
 
         # Join room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
+        print('hello')
 
         # Check if user has access to this ticket
         if not await self.can_access_ticket():
