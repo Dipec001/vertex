@@ -2310,4 +2310,4 @@ class CompanyEmployeeInvitationsListView(ListAPIView):
 
     def get_queryset(self):
         company_id = self.kwargs["pk"]
-        return Invitation.objects.select_related("company").filter(company_id=company_id)
+        return Invitation.objects.select_related("company", "invited_user", "invited_by").filter(company_id=company_id)
