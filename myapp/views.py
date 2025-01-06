@@ -22,7 +22,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
-                          NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployee)
+                          NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployeeSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry, Draw, UserLeague, LeagueInstance, UserFollowing, Feed,
                      Clap,
@@ -2305,7 +2305,7 @@ class CustomTokenRefreshView(TokenRefreshView):
 
 
 class CompanyEmployeeInvitationsListView(ListAPIView):
-    serializer_class = InvitationAsEmployee
+    serializer_class = InvitationAsEmployeeSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
