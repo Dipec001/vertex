@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 
 from django_filters import rest_framework
 
-from myapp.models import Company
+from myapp.models import Company, CustomUser
 from .filters import TicketFilterSet
 from .models import Ticket
 from .serializers import TicketSerializer, TicketMessageSerializer
@@ -78,24 +78,30 @@ class TicketViewSet(viewsets.ModelViewSet):
         queryset = Ticket.objects.prefetch_related('messages').select_related('created_by', 'assigned_to', 'company')
         # Only include individual tickets for your implementation
         is_individual = self.request.GET.get('is_individual')
-        if is_individual:
-            return queryset.filter(is_individual=True)
+        if is_individual is not None:
+            return queryset.filter(is_individual=is_individual)
         return queryset
 
     def perform_create(self, serializer):
         # Customize company assignment for your use case
-        serializer.save(
-            created_by=self.request.user,
-            company=None  # Assuming individual tickets don't belong to companies
-        )
-
+        serializer.is_valid(raise_exception=True)
+        if serializer.validated_data.get('is_individual'):
+            serializer.save(
+                created_by=self.request.user,
+                company=None  # Assuming individual tickets don't belong to companies
+            )
+        else:
+            serializer.save(
+                created_by=self.request.user,
+                company=self.request.user.company,
+            )
 
     @action(["GET"], detail=False)
     def stats(self, request):
         queryset = self.get_queryset()
         total_tickets = queryset.count()
-        open_tickets = queryset.filter(status="active").count()
-        closed_tickets = queryset.filter(status="resolved").count()
+        open_tickets = queryset.filter(status=Ticket.OPEN).count()
+        closed_tickets = queryset.filter(status=Ticket.CLOSED).count()
         data = dict(total_tickets=total_tickets, open_tickets=open_tickets, closed_tickets=closed_tickets)
         return Response(data=data)
 
@@ -105,15 +111,11 @@ class TicketViewSet(viewsets.ModelViewSet):
         serializer = TicketMessageSerializer(data=request.data)
 
         # Check if the ticket is resolved
-        if ticket.status == 'resolved':  # Adjust 'resolved' to match your actual status value
+        if ticket.status == Ticket.RESOLVED:  # Adjust 'resolved' to match your actual status value
             return Response(
                 {'error': 'Cannot add a message to a resolved ticket.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Validate and save the message
-        serializer = TicketMessageSerializer(data=request.data)
-
         if serializer.is_valid():
             serializer.save(
                 ticket=ticket,
