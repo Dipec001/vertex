@@ -111,7 +111,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         serializer = TicketMessageSerializer(data=request.data)
 
         # Check if the ticket is resolved
-        if ticket.status == Ticket.RESOLVED:  # Adjust 'resolved' to match your actual status value
+        if ticket.status == Ticket.CLOSED:  # Adjust 'resolved' to match your actual status value
             return Response(
                 {'error': 'Closed ticket.'},
                 status=status.HTTP_400_BAD_REQUEST
