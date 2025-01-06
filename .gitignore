@@ -25,3 +25,5 @@ __pycache__/
 # Ignore static files
 staticfiles/
 activityrewardsanalytics-firebase-adminsdk-2jcxu-5f8fc00b19.json
+# test files
+ticket_attachments/
