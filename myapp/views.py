@@ -1781,6 +1781,8 @@ class UserFeedView(APIView):
         user_timezone = user.timezone
         local_today = now().astimezone(user_timezone)
         start_of_week = local_today - timedelta(days=local_today.weekday())  # Start of the current week (Monday)
+        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+        print('start_of_week', start_of_week)
 
         # Fetch user's feeds
         feeds = Feed.objects.filter(user=user).order_by('-created_at')
