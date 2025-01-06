@@ -116,6 +116,11 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
 
         return user, company
 
+class InvitationAsEmployeeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invitation
+        fields = ['email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by', "invited_user"]
+
 class InvitationSerializer(serializers.ModelSerializer):
     invited_by = serializers.StringRelatedField(read_only=True)  # Make this field read-only
 
@@ -504,6 +509,7 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
             invitation = Invitation.objects.get(id=invitation_id, status='pending')  # Fetch the invitation
             # Mark the invitation as accepted
             invitation.status = 'accepted'
+            invitation.invited_user = user
             invitation.save()
 
             # Set the user's company to the invited company
