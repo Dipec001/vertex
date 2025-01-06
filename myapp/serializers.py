@@ -117,10 +117,14 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
         return user, company
 
 class InvitationAsEmployeeSerializer(serializers.ModelSerializer):
-    last_login = serializers.DateTimeField(read_only=True, source="invited_user.last_login")
+    last_login = serializers.SerializerMethodField()
     class Meta:
         model = Invitation
         fields = ['id','email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by', "invited_user", "last_login"]
+    def get_last_login(self, obj):
+        if obj.invited_user:
+            return obj.invited_user.last_login
+        return None
 
 class InvitationSerializer(serializers.ModelSerializer):
     invited_by = serializers.StringRelatedField(read_only=True)  # Make this field read-only
