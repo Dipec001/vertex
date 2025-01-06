@@ -1800,7 +1800,7 @@ class UserFeedView(APIView):
             user=user,
             date__gte=start_of_week.date()
         ).aggregate(
-            total_gems=Sum(F('xp_gem') + F('manual_gem') + F('copy_xp_gem') + F('copy_manual_gem'))
+            total_gems=Sum(F('copy_xp_gem') + F('copy_manual_gem'))
         )['total_gems'] or 0
         tickets_exchanged_this_week = Purchase.objects.filter(
             user=user,
