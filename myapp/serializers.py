@@ -117,16 +117,17 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
         return user, company
 
 class InvitationAsEmployeeSerializer(serializers.ModelSerializer):
+    last_login = serializers.DateTimeField(read_only=True, source="invited_user.last_login")
     class Meta:
         model = Invitation
-        fields = ['email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by', "invited_user"]
+        fields = ['id','email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by', "invited_user", "last_login"]
 
 class InvitationSerializer(serializers.ModelSerializer):
     invited_by = serializers.StringRelatedField(read_only=True)  # Make this field read-only
 
     class Meta:
         model = Invitation
-        fields = ['id','email','first_name','last_name', 'invite_code', 'status', 'date_sent','invited_by']
+        fields = ['email','first_name','last_name', 'invite_code', 'status', 'date_sent','invited_by']
         read_only_fields = ['invite_code', 'status', 'date_sent', 'invited_by']  # Mark these as read-only for creatio
 
     def create(self, validated_data):
