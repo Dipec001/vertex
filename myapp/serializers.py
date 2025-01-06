@@ -509,6 +509,7 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
             invitation = Invitation.objects.get(id=invitation_id, status='pending')  # Fetch the invitation
             # Mark the invitation as accepted
             invitation.status = 'accepted'
+            invitation.invited_user = user
             invitation.save()
 
             # Set the user's company to the invited company
