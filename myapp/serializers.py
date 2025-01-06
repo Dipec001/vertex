@@ -126,7 +126,7 @@ class InvitationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Invitation
-        fields = ['email','first_name','last_name', 'invite_code', 'status', 'date_sent','invited_by']
+        fields = ['id','email','first_name','last_name', 'invite_code', 'status', 'date_sent','invited_by']
         read_only_fields = ['invite_code', 'status', 'date_sent', 'invited_by']  # Mark these as read-only for creatio
 
     def create(self, validated_data):
