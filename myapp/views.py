@@ -17,7 +17,7 @@ from django_filters import rest_framework
 from myapp.utils import send_user_notification, \
     get_last_day_and_first_day_of_this_month
 from .stats_service import get_global_xp_for_stats_by_user, get_global_xp_for_stats, get_daily_steps_and_xp
-from .filters import EmployeeFilterSet, CompanyFilterSet
+from .filters import EmployeeFilterSet, CompanyFilterSet, InvitationFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
@@ -2307,7 +2307,11 @@ class CustomTokenRefreshView(TokenRefreshView):
 class CompanyEmployeeInvitationsListView(ListAPIView):
     serializer_class = InvitationAsEmployeeSerializer
     permission_classes = [IsAuthenticated]
+    filterset_class = InvitationFilterSet
+    filter_backends = [SearchFilter, rest_framework.DjangoFilterBackend, OrderingFilter]
+    search_fields = ["email", "first_name", "last_name"]
+    ordering_fields = ['id', 'first_name', 'email', 'last_name', 'status', 'data_sent']
 
     def get_queryset(self):
         company_id = self.kwargs["pk"]
-        return Invitation.objects.select_related("company", "invited_user", "invited_by").filter(company_id=company_id)
+        return Invitation.objects.order_by("id").select_related("company", "invited_user", "invited_by").filter(company_id=company_id)
