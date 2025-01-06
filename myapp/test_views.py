@@ -5,11 +5,12 @@ from unittest import skipIf
 from django.test import client
 from django.urls import reverse
 from rest_framework import status
+from rest_framework.status import HTTP_200_OK
 from rest_framework.test import APITestCase
 from django.utils import timezone
 from datetime import timedelta
 from myapp.models import (
-    CustomUser, Company, Membership, Xp, DailySteps, Feed
+    CustomUser, Company, Membership, Xp, DailySteps, Feed, Invitation
 )
 from myapp.serializers import EmployeeSerializer
 from vertex import settings
@@ -1008,3 +1009,54 @@ class TestGlobalXpGraph(APITestCase):
         first_response = responses[0]
         for response in responses[1:]:
             self.assertEqual(response, first_response)
+
+class ListInvitationListApiView(APITestCase):
+    def setUp(self):
+        self.owner = CustomUser.objects.create_user(
+            username="owner",
+            email="owner@test.com",
+            password="password",
+            is_company_owner=True,
+        )
+        self.company = Company.objects.create(name="Test Company", domain="http://testcompany.com", owner=self.owner)
+        self.owner.company = self.company
+        self.owner.save()
+
+        # Create a company owner
+        Membership.objects.create(user=self.owner, company=self.company, role="owner")
+
+        # Create employees
+        self.employee1 = CustomUser.objects.create_user(
+            username="employee1",
+            email="employee1@test.com",
+            password="password",
+            company=self.company
+        )
+        Membership.objects.create(user=self.employee1, company=self.company, role="employee")
+
+        self.employee2 = CustomUser.objects.create_user(
+            username="employee2",
+            email="employee2@test.com",
+            password="password",
+            company=self.company
+        )
+        Membership.objects.create(user=self.employee2, company=self.company, role="employee")
+
+        # Create a user not in the company
+        self.other_user = CustomUser.objects.create_user(
+            username="other",
+            email="other@test.com",
+            password="password"
+        )
+        self.invitation1 = Invitation.objects.create(
+            email="john@gmail.com", first_name="john", last_name="doe", company=self.company, invited_by=self.owner)
+
+
+    def test_invitation_list_ok(self):
+        url = reverse("employee-invitation-list-by-company", kwargs={"pk": self.company.pk})
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(url)
+        data = response.json()["data"]["results"]
+        self.assertEqual(response.status_code, HTTP_200_OK)
+        self.assertTrue(len(data)==1)
+
