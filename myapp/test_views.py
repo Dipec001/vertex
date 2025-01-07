@@ -1,14 +1,17 @@
 import calendar
 import random
+from datetime import timedelta
+from io import BytesIO
 from unittest import skipIf
 
-from django.test import client
+import pandas as pd
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.status import HTTP_200_OK
 from rest_framework.test import APITestCase
-from django.utils import timezone
-from datetime import timedelta
+
 from myapp.models import (
     CustomUser, Company, Membership, Xp, DailySteps, Feed, Invitation
 )
@@ -270,7 +273,6 @@ class CompanyDashboardViewTests(APITestCase):
         self.assertIn('First workout completed!', milestone_contents)
 
     def test_empty_company_data(self):
-
         """Test dashboard behavior with a company that has no data"""
         new_owner = CustomUser.objects.create_user(
             username='newowner@test.com',
@@ -334,7 +336,7 @@ class CompanyDashboardViewTests(APITestCase):
         recent_reactivities = data["data"]["recent_activities"]
         # get the employee 1 from the list of employees in recent activities
         employees = [activity['user'] for activity in recent_reactivities]
-        employee1 = [employee for employee in employees if employee["id"]==self.employee1.id][0]
+        employee1 = [employee for employee in employees if employee["id"] == self.employee1.id][0]
 
         # Check the response status
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -362,6 +364,7 @@ class CompanyDashboardViewTests(APITestCase):
         # Check if the response contains the expected data indicating the app has not been downloaded
         self.assertIn('downloaded_the_app', employee1)
         self.assertFalse(employee1['downloaded_the_app'])  # Ensure it returns False
+
 
 @skipIf(not settings.DEBUG, "Skip tests in production environment")
 class EmployeeByCompanyModelViewTest(APITestCase):
@@ -529,7 +532,8 @@ class EmployeeDetailsByCompanyModelViewSet(APITestCase):
     def test_retrieve_return_not_found(self):
         NON_EXISTENT_COMPANY_ID = 2
         self.client.force_authenticate(user=self.owner)
-        url = reverse('employee-details-by-company', kwargs={'company_id': NON_EXISTENT_COMPANY_ID, 'pk': self.employee1.pk})
+        url = reverse('employee-details-by-company',
+                      kwargs={'company_id': NON_EXISTENT_COMPANY_ID, 'pk': self.employee1.pk})
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -587,10 +591,12 @@ class EmployeeDetailsByCompanyModelViewSet(APITestCase):
     def test_delete_non_existent_employee(self):
         NON_EXISTENT_EMPLOYEE_ID = 9999999
         self.client.force_authenticate(user=self.owner)
-        url = reverse('employee-details-by-company', kwargs={'company_id': self.company.id, 'pk': NON_EXISTENT_EMPLOYEE_ID})
+        url = reverse('employee-details-by-company',
+                      kwargs={'company_id': self.company.id, 'pk': NON_EXISTENT_EMPLOYEE_ID})
         response = self.client.delete(url)
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
 
 @skipIf(not settings.DEBUG, "Skip tests in production environment")
 class CompanyViewTests(APITestCase):
@@ -609,10 +615,10 @@ class CompanyViewTests(APITestCase):
             domain='test.com'
         )
         self.employee1 = CustomUser.objects.create_user(
-                    username='emp1@test.com',
-                    email='emp1@test.com',
-                    password='testpass123'
-                )
+            username='emp1@test.com',
+            email='emp1@test.com',
+            password='testpass123'
+        )
         self.employee2 = CustomUser.objects.create_user(
             username='emp2@test.com',
             email='emp2@test.com',
@@ -785,7 +791,6 @@ class TestGlobalStats(APITestCase):
         Membership.objects.create(user=self.employee5, company=self.company2)
         Membership.objects.create(user=self.employee6, company=self.company2)
 
-
         self.employee3 = CustomUser.objects.create_user(
             username='emp3@test.com',
             email='emp3@test.com',
@@ -800,8 +805,6 @@ class TestGlobalStats(APITestCase):
         # Create memberships for employees not logged in
         Membership.objects.create(user=self.employee3, company=self.company)
         Membership.objects.create(user=self.employee4, company=self.company)
-
-
 
         # Create employees
         self.employee1 = CustomUser.objects.create_user(
@@ -831,6 +834,7 @@ class TestGlobalStats(APITestCase):
 
         self.employee2.last_login = timezone.now()
         self.employee2.save()
+
     # test global stats
     def test_global_stats(self):
         self.client.force_authenticate(user=self.owner)
@@ -840,6 +844,7 @@ class TestGlobalStats(APITestCase):
         self.assertEqual(data['total_companies'], 2)
         self.assertEqual(data['total_users'], 8)
         self.assertEqual(data['percentage_of_install'], 50.0)
+
 
 @skipIf(not settings.DEBUG, "Skip tests in production environment")
 class TestGlobalXpGraph(APITestCase):
@@ -964,9 +969,9 @@ class TestGlobalXpGraph(APITestCase):
         """Test edge cases in XP data"""
         # Create one record per user with edge case values
         test_data = [
-            (self.users[0], 0),          # Zero XP
-            (self.users[1], 999999),     # Very large XP
-            (self.users[2], 0.1),        # Minimal XP
+            (self.users[0], 0),  # Zero XP
+            (self.users[1], 999999),  # Very large XP
+            (self.users[2], 0.1),  # Minimal XP
         ]
 
         expected_total = sum(xp for _, xp in test_data)
@@ -1060,3 +1065,212 @@ class ListInvitationListApiView(APITestCase):
         self.assertEqual(response.status_code, HTTP_200_OK)
         self.assertTrue(len(data)==1)
 
+
+
+class BulkInvitationUploadTests(APITestCase):
+    def setUp(self):
+        # Create test user and company
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        # Create test user
+        self.user = User.objects.create_user(
+            username="testuser",
+            email="test@example.com",
+            password="testpass123"
+        )
+
+        # Create test company
+        self.company = Company.objects.create(
+            name="Test Company",
+            owner=self.user,
+        )
+        self.user.company = self.company
+        self.user.save()
+        Membership.objects.create(company=self.company, user=self.user, joined_at=timezone.now(), role="owner")
+        # URL for the endpoint
+        self.url = reverse('send-bulk-invite', kwargs={"company_id": self.company.id})
+
+        # Authenticate the test client
+    def create_test_file(self, data, file_type='csv'):
+        """Helper method to create test files"""
+        df = pd.DataFrame(data)
+        buffer = BytesIO()
+
+        if file_type == 'csv':
+            df.to_csv(buffer, index=False)
+            content_type = 'text/csv'
+            filename = 'test.csv'
+        else:  # Excel
+            df.to_excel(buffer, index=False)
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            filename = 'test.xlsx'
+
+        buffer.seek(0)
+        return SimpleUploadedFile(
+            filename,
+            buffer.read(),
+            content_type=content_type
+        )
+
+    def test_successful_csv_upload(self):
+        """Test successful CSV file upload with valid data"""
+        test_data = [
+            {
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'email': 'john@example.com'
+            },
+            {
+                'first_name': 'Jane',
+                'last_name': 'Smith',
+                'email': 'jane@example.com'
+            }
+        ]
+
+        test_file = self.create_test_file(test_data, 'csv')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {'file': test_file}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        data = response.json()['data']
+        self.assertEqual(data['success_count'], 2)
+        self.assertEqual(len(data['failed_invitations']), 0)
+
+        # Verify invitations were created in the database
+        self.assertEqual(Invitation.objects.count(), 2)
+
+        # Verify invitation details
+        invitation = Invitation.objects.first()
+        self.assertEqual(invitation.email, 'john@example.com')
+        self.assertEqual(invitation.invited_by, self.user)
+        self.assertEqual(invitation.company, self.company)
+
+    def test_successful_excel_upload(self):
+        """Test successful Excel file upload with valid data"""
+        test_data = [
+            {
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'email': 'john@example.com'
+            }
+        ]
+
+        test_file = self.create_test_file(test_data, 'excel')
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {'file': test_file}, format='multipart')
+        data = response.json()["data"]
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(data['success_count'], 1)
+
+        # Verify invitation was created
+        invitation = Invitation.objects.first()
+        self.assertIsNotNone(invitation)
+        self.assertEqual(invitation.email, 'john@example.com')
+
+    def test_missing_required_fields(self):
+        """Test file upload with missing required fields"""
+        test_data = [
+            {
+                'first_name': 'John',
+                'email': 'john@example.com'
+                # missing last_name
+            }
+        ]
+
+        test_file = self.create_test_file(test_data)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {'file': test_file}, format='multipart')
+        data = response.json()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('errors', data)
+
+        # Verify no invitations were created
+        self.assertEqual(Invitation.objects.count(), 0)
+
+    def test_empty_values(self):
+        """Test file upload with empty values"""
+        test_data = [
+            {
+                'first_name': " ",
+                'last_name': 'Doe',
+                'email': 'john@example.com'
+            }
+        ]
+
+        test_file = self.create_test_file(test_data)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {'file': test_file}, format='multipart')
+        data = response.json()["data"]
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(data['failed_invitations']), 1)
+
+        # Verify no invitations were created for invalid data
+        self.assertEqual(Invitation.objects.count(), 0)
+
+    def test_invalid_file_format(self):
+        """Test upload with invalid file format"""
+        invalid_file = SimpleUploadedFile(
+            "test.txt",
+            b"invalid content",
+            content_type="text/plain"
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {'file': invalid_file}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Invitation.objects.count(), 0)
+
+    def test_no_file_uploaded(self):
+        """Test request without file"""
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Invitation.objects.count(), 0)
+
+    def test_unauthenticated_access(self):
+        """Test access without authentication"""
+        self.client.force_authenticate(user=None)
+        test_data = [{'first_name': 'John', 'last_name': 'Doe', 'email': 'john@example.com'}]
+        test_file = self.create_test_file(test_data)
+
+        response = self.client.post(self.url, {'file': test_file}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(Invitation.objects.count(), 0)
+
+    def test_duplicate_emails(self):
+        """Test handling of duplicate emails in the upload file"""
+        test_data = [
+            {
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'email': 'john@example.com'
+            },
+            {
+                'first_name': 'Johnny',
+                'last_name': 'Doe',
+                'email': 'john@example.com'
+            }
+        ]
+
+        test_file = self.create_test_file(test_data)
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {'file': test_file}, format='multipart')
+        data = response.json()["data"]
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # Verify only one invitation was created
+        self.assertEqual(Invitation.objects.count(), 1)
+        self.assertEqual(len(data['failed_invitations']), 0)
+
+    def tearDown(self):
+        """Clean up after tests"""
+        # Clean up created invitations
+        Invitation.objects.all().delete()
+        # Clean up users and companies
+        self.user.delete()
+        self.company.delete()
