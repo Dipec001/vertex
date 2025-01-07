@@ -1,6 +1,7 @@
 from pprint import pprint
 from typing import Literal
 
+import pandas as pd
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -16,13 +17,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django_filters import rest_framework
 from myapp.utils import send_user_notification, \
     get_last_day_and_first_day_of_this_month
+from .invitation_service import send_invitation_in_bulk
 from .stats_service import get_global_xp_for_stats_by_user, get_global_xp_for_stats, get_daily_steps_and_xp
 from .filters import EmployeeFilterSet, CompanyFilterSet, InvitationFilterSet
 from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializer,
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
-                          NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployeeSerializer)
+                          NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployeeSerializer, FileUploadSerializer, BulkInvitationResultSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry, Draw, UserLeague, LeagueInstance, UserFollowing, Feed,
                      Clap,
@@ -292,6 +294,97 @@ def password_reset_confirm(request, uidb64, token):
         messages.error(request, 'The reset link is invalid or has expired.')
         return render(request, 'password_reset_confirm.html', {'validlink': False})
 
+class SendInvitationViewInBulk(APIView):
+    "This endpoint is used to send an invitation by the company owner or HR and also get list of invitations sent in bulk"
+    permission_classes = [IsAuthenticated]
+    serializer_class = FileUploadSerializer
+
+    def post(self, request, company_id):
+        # Fetch the company based on the ID
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response({"error": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Fetch the user's membership in the company
+        try:
+            membership = Membership.objects.get(user=request.user, company=company)
+        except Membership.DoesNotExist:
+            return Response({"error": "You are not a member of this company."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Check if the user is either the company owner or an HR manager
+        if membership.role not in ['owner', 'HR']:
+            return Response({"error": "You do not have permission to send invitations."}, status=status.HTTP_403_FORBIDDEN)
+
+        file_serializer = self.serializer_class(data=request.data)
+        if not file_serializer.is_valid():
+            return Response(file_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        uploaded_file = request.FILES['file']
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+
+        try:
+            # Read file using pandas for both CSV and Excel
+            if file_extension == 'csv':
+                df = pd.read_csv(uploaded_file)
+            elif file_extension in ['xls', 'xlsx']:
+                df = pd.read_excel(uploaded_file)
+            else:
+                return Response(
+                    {'error': 'Unsupported file format. Please upload CSV or Excel file.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Convert DataFrame to list of dictionaries
+            invited_persons = df.to_dict('records')
+
+            # Validate required fields
+            required_fields = ['first_name', 'last_name', 'email']
+            if not all(field in df.columns for field in required_fields):
+                return Response(
+                    {'error': f'File must contain the following columns: {", ".join(required_fields)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Clean and validate data
+            validated_persons = []
+            failed_invitations = []
+
+            for person in invited_persons:
+                # Check for missing or empty values
+                if pd.notna(person.get('email')) and pd.notna(person.get('first_name')) and pd.notna(
+                        person.get('last_name')):
+                    validated_persons.append({
+                        'email': str(person['email']).strip(),
+                        'first_name': str(person['first_name']).strip(),
+                        'last_name': str(person['last_name']).strip()
+                    })
+                else:
+                    failed_invitations.append({
+                        'data': person,
+                        'error': 'Missing or invalid required fields'
+                    })
+
+            created_invitations = send_invitation_in_bulk(
+                invited_persons=validated_persons,
+                inviter_user=request.user,
+                inviter_company=company
+            )
+
+            result = {
+                'success_count': len(created_invitations),
+                'failed_invitations': failed_invitations
+            }
+
+            result_serializer = BulkInvitationResultSerializer(data=result)
+            result_serializer.is_valid()
+            return Response(result_serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error processing file: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class SendInvitationView(APIView):
     "This endpoint is used to send an invitation by the company owner or HR and also get list of invitations sent"

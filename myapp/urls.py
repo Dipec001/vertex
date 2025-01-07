@@ -25,6 +25,7 @@ urlpatterns = [
     path('password-reset/', views.PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset/confirm/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
     path('companies/<int:company_id>/invitations/', views.SendInvitationView.as_view(), name='send_invitation'),
+    path('companies/<int:company_id>/bulk-invite/', views.SendInvitationViewInBulk.as_view(), name='send-bulk-invite'),
     path('google-signin/', views.GoogleSignInView.as_view(), name='google_sign_in'),
     path('apple-signin/', views.AppleSignInView.as_view(), name='apple_sign_in'),
     path('facebook-signin/', views.FacebookSignInView.as_view(), name='facebook_sign_in'),
