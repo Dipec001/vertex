@@ -352,12 +352,13 @@ class SendInvitationViewInBulk(APIView):
 
             for person in invited_persons:
                 # Check for missing or empty values
-                if pd.notna(person.get('email')) and pd.notna(person.get('first_name')) and pd.notna(
-                        person.get('last_name')):
+                if (all(field in person for field in required_fields) and
+                        all(isinstance(person.get(field), str) and person.get(field).strip() for field in
+                            required_fields)):
                     validated_persons.append({
-                        'email': str(person['email']).strip(),
-                        'first_name': str(person['first_name']).strip(),
-                        'last_name': str(person['last_name']).strip()
+                        'email': person['email'].strip(),
+                        'first_name': person['first_name'].strip(),
+                        'last_name': person['last_name'].strip()
                     })
                 else:
                     failed_invitations.append({
