@@ -2404,7 +2404,7 @@ class CompanyEmployeeInvitationsListView(ListAPIView):
     filterset_class = InvitationFilterSet
     filter_backends = [SearchFilter, rest_framework.DjangoFilterBackend, OrderingFilter]
     search_fields = ["email", "first_name", "last_name"]
-    ordering_fields = ['id', 'first_name', 'email', 'last_name', 'status', 'data_sent']
+    ordering_fields = ['id', 'first_name', 'email', 'last_name', 'status', 'date_sent']
 
     def get_queryset(self):
         company_id = self.kwargs["pk"]
