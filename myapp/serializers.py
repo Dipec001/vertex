@@ -116,6 +116,16 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
 
         return user, company
 
+class InvitationAsEmployeeSerializer(serializers.ModelSerializer):
+    last_login = serializers.SerializerMethodField()
+    class Meta:
+        model = Invitation
+        fields = ['id','email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by', "invited_user", "last_login"]
+    def get_last_login(self, obj):
+        if obj.invited_user:
+            return obj.invited_user.last_login
+        return None
+
 class InvitationSerializer(serializers.ModelSerializer):
     invited_by = serializers.StringRelatedField(read_only=True)  # Make this field read-only
 
@@ -175,6 +185,14 @@ class InvitationSerializer(serializers.ModelSerializer):
 
             return invitation
 
+class BulkInvitationResultSerializer(serializers.Serializer):
+    success_count = serializers.IntegerField()
+    failed_invitations = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+class FileUploadSerializer(serializers.Serializer):
+    file = serializers.FileField()
 
 class UserProfileSerializer(serializers.ModelSerializer):
     profile_picture_url = serializers.SerializerMethodField()
@@ -504,6 +522,7 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
             invitation = Invitation.objects.get(id=invitation_id, status='pending')  # Fetch the invitation
             # Mark the invitation as accepted
             invitation.status = 'accepted'
+            invitation.invited_user = user
             invitation.save()
 
             # Set the user's company to the invited company
