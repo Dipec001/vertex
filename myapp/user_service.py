@@ -74,6 +74,44 @@ def send_invitation(email, first_name, last_name, inviter_user, inviter_company)
 
     return invitation
 
+def send_invitation_in_bulk(invited_persons, inviter_user, inviter_company):
+    """
+    Send invitations to multiple users in bulk.
+
+    Args:
+        invited_persons (list): A list of dictionaries containing email, first_name, and last_name of the invitees.
+        inviter_user (CustomUser): The user sending the invitations.
+        inviter_company (Company): The company the invitees are being invited to.
+
+    Returns:
+        list: A list of Invitation objects created.
+    """
+    invitations = []
+
+    for person in invited_persons:
+        email = person.get('email')
+        first_name = person.get('first_name')
+        last_name = person.get('last_name')
+        invitation = send_invitation(email, first_name, last_name, inviter_user, inviter_company)
+        invitations.append(invitation)
+    return invitations
+
+def validate_persons(invited_persons):
+    """
+    Validate the list of invited persons.
+
+    Args:
+        invited_persons (list): A list of dictionaries containing email, first_name, and last_name of the invitees.
+
+    Raises:
+        ValueError: If any of the invited persons have missing or invalid data.
+    """
+    for person in invited_persons:
+        email = person.get('email')
+        first_name = person.get('first_name')
+        last_name = person.get('last_name')
+        if not email or not first_name or not last_name:
+            raise ValueError({"error": "All fields (email, first_name, last_name) are required."})
 
 def generate_digit_code():
     # Generate a 6-digit numeric code
