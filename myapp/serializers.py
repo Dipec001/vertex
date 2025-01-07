@@ -185,6 +185,14 @@ class InvitationSerializer(serializers.ModelSerializer):
 
             return invitation
 
+class BulkInvitationResultSerializer(serializers.Serializer):
+    success_count = serializers.IntegerField()
+    failed_invitations = serializers.ListField(
+        child=serializers.DictField()
+    )
+
+class FileUploadSerializer(serializers.Serializer):
+    file = serializers.FileField()
 
 class UserProfileSerializer(serializers.ModelSerializer):
     profile_picture_url = serializers.SerializerMethodField()
