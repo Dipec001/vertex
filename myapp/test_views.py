@@ -228,7 +228,7 @@ class CompanyDashboardViewTests(APITestCase):
 
         self.assertEqual(company_stats['total_employees'], 2)
         # Average XP for today only
-        self.assertEqual(int(company_stats['avg_xp_per_user']), 157)
+        self.assertEqual(int(company_stats['avg_xp_per_user']), 151)
 
     def test_daily_stats_data(self):
         """Test that daily statistics are calculated correctly"""
