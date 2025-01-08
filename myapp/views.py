@@ -2428,7 +2428,7 @@ class DrawFilter(filters.FilterSet):
 class ManualDrawViewSet(viewsets.ModelViewSet):
     queryset = Draw.objects.all().select_related('company')
     serializer_class = ManualDrawCreateSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser, JSONParser)
     filter_backends = (filters.DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_class = DrawFilter
@@ -2446,7 +2446,7 @@ class PrizeFilter(filters.FilterSet):
 class ManualPrizeViewSet(viewsets.ModelViewSet):
     queryset = Prize.objects.all().select_related('draw')
     serializer_class = ManualPrizeCreateSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
     filter_backends = (filters.DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_class = PrizeFilter
     search_fields = ['name', 'description']
