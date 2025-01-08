@@ -1,6 +1,10 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
+from rest_framework.routers import DefaultRouter
 
+router = DefaultRouter()
+router.register(r'draws', views.ManualDrawViewSet, basename='manual-draw')
+router.register(r'prizes', views.ManualPrizeViewSet, basename='manual-prize')
 
 def trigger_error(request):
     division_by_zero = 1 / 0
@@ -68,4 +72,5 @@ urlpatterns = [
     path("global-xp-graphs/", views.GlobalXpGraph.as_view(), name="global-xp-graphs"),
     path("user/<int:user_id>/xp-stats/", views.XpStatsByUser.as_view(), name="user-xp-stats"),
     path('user-feed/', views.UserFeedView.as_view(), name='user-feed'),
+    path('', include(router.urls)),
 ]

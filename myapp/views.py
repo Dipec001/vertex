@@ -24,11 +24,12 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           InvitationSerializer, UserProfileSerializer, UpdateProfileSerializer,
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
-                          NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployeeSerializer, FileUploadSerializer, BulkInvitationResultSerializer)
+                          NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployeeSerializer, FileUploadSerializer, BulkInvitationResultSerializer,
+                          ManualDrawCreateSerializer, ManualPrizeCreateSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry, Draw, UserLeague, LeagueInstance, UserFollowing, Feed,
                      Clap,
-                     League, Gem, DrawImage, Notif)
+                     League, Gem, DrawImage, Notif, Prize)
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.tokens import default_token_generator
@@ -64,6 +65,11 @@ from rest_framework.pagination import PageNumberPagination
 import logging
 from .permissions import IsCompanyOwner, IsCompanyOwnerPK
 from notifications.utils import send_followclap_notification
+from rest_framework import viewsets
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.db import transaction
+from rest_framework.response import Response
+from django_filters import rest_framework as filters
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -2409,3 +2415,39 @@ class CompanyEmployeeInvitationsListView(ListAPIView):
     def get_queryset(self):
         company_id = self.kwargs["pk"]
         return Invitation.objects.order_by("id").select_related("company", "invited_user", "invited_by").filter(company_id=company_id)
+
+# TODO: move to filter module
+class DrawFilter(filters.FilterSet):
+    draw_date_after = filters.DateTimeFilter(field_name='draw_date', lookup_expr='gte')
+    draw_date_before = filters.DateTimeFilter(field_name='draw_date', lookup_expr='lte')
+    
+    class Meta:
+        model = Draw
+        fields = ['draw_type', 'company', 'is_active']
+
+class ManualDrawViewSet(viewsets.ModelViewSet):
+    queryset = Draw.objects.all().select_related('company')
+    serializer_class = ManualDrawCreateSerializer
+    permission_classes = [IsAdminUser]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+    filter_backends = (filters.DjangoFilterBackend, SearchFilter, OrderingFilter)
+    filterset_class = DrawFilter
+    search_fields = ['draw_name']
+    ordering_fields = ['draw_date', 'created_at']
+
+class PrizeFilter(filters.FilterSet):
+    value_min = filters.NumberFilter(field_name='value', lookup_expr='gte')
+    value_max = filters.NumberFilter(field_name='value', lookup_expr='lte')
+    
+    class Meta:
+        model = Prize
+        fields = ['draw', 'quantity', 'value_min', 'value_max']
+
+class ManualPrizeViewSet(viewsets.ModelViewSet):
+    queryset = Prize.objects.all().select_related('draw')
+    serializer_class = ManualPrizeCreateSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = (filters.DjangoFilterBackend, SearchFilter, OrderingFilter)
+    filterset_class = PrizeFilter
+    search_fields = ['name', 'description']
+    ordering_fields = ['value', 'quantity', 'created_at']
