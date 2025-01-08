@@ -270,7 +270,7 @@ def add_to_first_league(sender, instance, **kwargs):
     # print(f"Total xp for the user is {total_xp}")
     
     # Check if user's total XP qualifies them for the Pathfinder league
-    if total_xp >= 65:
+    if total_xp >= 1:
         pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
 
         if not pathfinder_league:
@@ -332,7 +332,7 @@ def add_to_first_company_league(sender, instance, **kwargs):
     company = user.company
     
     # Check if user's total XP qualifies them for the Pathfinder league
-    if total_xp >= 80:
+    if total_xp >= 1:
         pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
 
         if not pathfinder_league:

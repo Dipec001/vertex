@@ -985,13 +985,23 @@ class XpRecordsView(APIView):
         for xp in xp_in_range:
             current_date = xp['date']
 
-            # Fetch movement and mindfulness XP for the current date
-            movement_xp = WorkoutActivity.objects.filter(
+            # Fetch movement XP from WorkoutActivity
+            movement_xp_workout = WorkoutActivity.objects.filter(
                 user=request.user,
-                start_datetime__date=current_date,  # Filter based on start_datetime date
+                start_datetime__date=current_date, # Filter based on start_datetime date
                 activity_type="movement"
             ).aggregate(movement_xp=Sum('xp'))['movement_xp'] or 0
 
+            # Fetch movement XP from DailySteps
+            movement_xp_steps = DailySteps.objects.filter(
+                user=request.user,
+                date=current_date
+            ).aggregate(steps_xp=Sum('xp'))['steps_xp'] or 0
+
+            # Total movement XP for the day
+            total_movement_xp = movement_xp_workout + movement_xp_steps
+
+            # Fetch mindfulness XP for the current date
             mindfulness_xp = WorkoutActivity.objects.filter(
                 user=request.user,
                 start_datetime__date=current_date,  # Filter based on start_datetime date
@@ -1002,7 +1012,7 @@ class XpRecordsView(APIView):
             xp_data.append({
                 'date': current_date,
                 'total_xp': xp['total_xp'],
-                'movement_xp': movement_xp,
+                'movement_xp': total_movement_xp,
                 'mindfulness_xp': mindfulness_xp
             })
 
