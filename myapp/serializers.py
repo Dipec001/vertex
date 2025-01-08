@@ -1,6 +1,8 @@
 from django.db.models.aggregates import Count
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from .models import Draw, Prize
+from django.utils import timezone
 from .models import (Company, Invitation, Membership, WorkoutActivity, Xp, Streak, DailySteps, Purchase, Draw,
                      DrawEntry, DrawWinner, Prize, UserLeague, Feed, Clap, UserFollowing, Gem, DrawImage, Notif)
 import random
@@ -1033,3 +1035,73 @@ class NotifSerializer(serializers.ModelSerializer):
         representation['created_at'] = user_local_time.isoformat()  # Use ISO 8601 format for the datetime string
 
         return representation
+
+
+class ManualDrawCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Draw
+        fields = [
+            'id',
+            'draw_name', 
+            'draw_type', 
+            'company', 
+            'draw_date', 
+            'number_of_winners',
+            'video',
+            'is_active'
+        ]
+        extra_kwargs = {
+            'company': {'required': False},
+            'video': {'required': False},
+            'is_active': {'default': True, 'required': False}
+        }
+        read_only_fields = ['id']
+    
+    def validate(self, data):
+        """
+        Custom validation for the draw creation
+        """
+        # Validate draw type and company relationship
+        if data.get('draw_type') == 'company' and not data.get('company'):
+            raise serializers.ValidationError({
+                "company": "Company ID is required for company draws"
+            })
+            
+        # Validate draw date is in the future
+        draw_date = data.get('draw_date')
+        if  draw_date and draw_date <= now():
+            raise serializers.ValidationError({
+                "draw_date": "Draw date must be in the future"
+            })
+            
+        # Validate number of winners
+        if data.get('number_of_winners') < 1:
+            raise serializers.ValidationError({
+                "number_of_winners": "Number of winners must be at least 1"
+            })
+            
+        return data
+
+class ManualPrizeCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prize
+        fields = ['id', 'draw', 'name', 'description', 'value', 'quantity']
+        read_only_fields = ['id']
+        
+    def validate_quantity(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Quantity must be at least 1")
+        return value
+        
+    def validate_value(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Value cannot be negative")
+        return value
+
+    def validate_draw(self, value):
+        """
+        Validate that the draw exists and is active
+        """
+        if not value.is_active:
+            raise serializers.ValidationError("Cannot add prizes to inactive draws")
+        return value
