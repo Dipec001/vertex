@@ -1068,7 +1068,8 @@ class ManualDrawCreateSerializer(serializers.ModelSerializer):
             })
             
         # Validate draw date is in the future
-        if data.get('draw_date') <= timezone.now():
+        draw_date = data.get('draw_date')
+        if  draw_date and draw_date <= now():
             raise serializers.ValidationError({
                 "draw_date": "Draw date must be in the future"
             })
