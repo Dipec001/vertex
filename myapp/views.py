@@ -69,7 +69,6 @@ from rest_framework import viewsets
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
 from rest_framework.response import Response
-from .exceptions import DrawCreationError
 from django_filters import rest_framework as filters
 
 # Set up logging
@@ -2442,7 +2441,7 @@ class PrizeFilter(filters.FilterSet):
     
     class Meta:
         model = Prize
-        fields = ['draw', 'quantity']
+        fields = ['draw', 'quantity', 'value_min', 'value_max']
 
 class ManualPrizeViewSet(viewsets.ModelViewSet):
     queryset = Prize.objects.all().select_related('draw')
