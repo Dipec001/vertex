@@ -450,11 +450,11 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Check if email already exists
-        if CustomUser.objects.filter(email=data['email']).exists():
+        if CustomUser.objects.filter(email=data['email'].lower()).exists():
             raise serializers.ValidationError("Email already exists.")
 
         # Check if username is unique
-        if CustomUser.objects.filter(username=data['username']).exists():
+        if CustomUser.objects.filter(username=data['username'].lower()).exists():
             raise serializers.ValidationError("Username already exists.")
 
 
@@ -482,6 +482,8 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
         uid = validated_data.pop('uid', None)  # UID might be None for email signup
         first_name = validated_data.pop('first_name', '')
         last_name = validated_data.pop('last_name', '')
+        email=validated_data['email'].lower()
+        username=validated_data['username'].lower()
 
         # Create user based on login type
         if login_type in ['google', 'facebook', 'apple']:
@@ -493,9 +495,9 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
         # if login_type in ['google', 'facebook', 'apple']:
         #     # social sign up
             user = CustomUser.objects.create_user(
-                email=validated_data['email'],
+                email=email,
                 password=None,  # Social users don't need a password
-                username=validated_data['username'],
+                username=username,
                 login_type=login_type,
                 first_name=first_name,
                 last_name=last_name
@@ -506,13 +508,13 @@ class NormalUserSignupSerializer(serializers.ModelSerializer):
                 user=user,
                 uid=uid,
                 provider=login_type,  # Use the correct provider
-                extra_data={'email': validated_data['email'], 'picture': profile_picture or ''}
+                extra_data={'email': email, 'picture': profile_picture or ''}
             )
         else:
             user = CustomUser.objects.create_user(
-                email=validated_data['email'],
+                email=email,
                 password=validated_data['password'],
-                username=validated_data['username']
+                username=username
             )
 
         if profile_picture:
@@ -579,7 +581,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context['request']
         user = request.user
-        print(user.email)
         step_count = validated_data.get('step_count')
         timestamp = validated_data.get('timestamp')
         print(timestamp, 'here is the timestamp passed')
