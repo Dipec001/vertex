@@ -847,8 +847,8 @@ class DailyStepsView(APIView):
 
             # Prepare the response, handle the case where no XP record exists yet
             xp_data = {
-                'totalXpToday': user_xp.totalXpToday if user_xp else 0,
-                'totalXpAllTime': total_xp_all_time,
+                'totalXpToday': round(user_xp.totalXpToday, 1) if user_xp else 0,
+                'totalXpAllTime': round(total_xp_all_time, 1),
             }
 
             return Response({
@@ -1017,7 +1017,7 @@ class XpRecordsView(APIView):
             # Append data for the current date
             xp_data.append({
                 'date': current_date,
-                'total_xp': xp['total_xp'],
+                'total_xp': round(xp['total_xp'], 1),
                 'movement_xp': total_movement_xp,
                 'mindfulness_xp': mindfulness_xp
             })

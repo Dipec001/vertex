@@ -92,7 +92,7 @@ class CompanyOwnerSignupSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        email = validated_data['email']
+        email = validated_data['email'].lower()
         password = validated_data['password']
         company_name = validated_data['company_name']
         domain = validated_data.get('domain', '')  # Get domain or set it to an empty string if not provided
@@ -204,7 +204,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(read_only=True)
     streak = serializers.IntegerField(read_only=True)
     streak_savers = serializers.IntegerField(read_only=True)  # Include streak savers
-    # gem = serializers.IntegerField(read_only=True)
     gem = serializers.SerializerMethodField()  # Custom field to calculate the total gems
     global_league = serializers.SerializerMethodField()
     company_league = serializers.SerializerMethodField()
@@ -591,19 +590,19 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 daily_steps, created = DailySteps.objects.get_or_create(
                     user=user,
                     date=local_date,
-                    defaults={'xp': step_count / 10, 'timestamp': timestamp, **validated_data}
+                    defaults={'xp': round(step_count / 10, 1), 'timestamp': timestamp, **validated_data}
                 )
 
                 new_xp = 0
                 if created:
-                    new_xp = step_count / 10
+                    new_xp = round(step_count / 10, 1)
                     daily_steps.xp = new_xp
                 else:
                     if step_count > daily_steps.step_count:
                         step_diff = step_count - daily_steps.step_count
-                        new_xp = step_diff / 10
+                        new_xp = round(step_diff / 10, 1)
                         daily_steps.step_count = step_count
-                        daily_steps.xp += new_xp
+                        daily_steps.xp = round(daily_steps.xp + new_xp, 1)
                         daily_steps.timestamp = max(daily_steps.timestamp, timestamp)
                     else:
                         raise serializers.ValidationError(
@@ -657,14 +656,14 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 'timeStamp': timestamp
             }
         )
+        print(user_xp)
         if not created_xp and new_xp > 0:
             user_xp.totalXpToday += new_xp
             user_xp.totalXpAllTime += new_xp
-            user_xp.save()
         elif created_xp:
             user_xp.totalXpToday = new_xp
             user_xp.totalXpAllTime += new_xp
-            user_xp.save()
+        user_xp.save()
 
     def check_dynamic_milestones(self, user, total_daily_step_count, milestone_increment=10000):
         """
