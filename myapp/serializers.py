@@ -612,7 +612,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 daily_steps.save()
                 self.update_user_leagues(user, new_xp, xp_date=timestamp)
                 self.update_user_xp(user, local_date, new_xp, timestamp)
-                # self.create_workout_activity(user, new_xp, timestamp)
 
                 # Query the total daily steps after updating/creating the entry
                 total_daily_step_count = DailySteps.objects.filter(user=user).aggregate(
@@ -666,44 +665,6 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             user_xp.totalXpAllTime += new_xp
             user_xp.save()
 
-    # def create_workout_activity(self, user, new_xp, timestamp):
-    #     if new_xp > 0:
-    #         # Determine the date from the provided timestamp
-    #         local_date = timestamp.date()
-
-    #         try:
-    #             # Try to retrieve an existing workout for steps on the same day
-    #             workout_activity = WorkoutActivity.objects.filter(
-    #                 user=user,
-    #                 activity_type="movement",
-    #                 activity_name="steps",
-    #                 start_datetime__date=local_date
-    #             ).first()
-
-    #             if workout_activity:
-    #                 # Update the existing workout activity
-    #                 workout_activity.xp += new_xp
-    #                 # workout_activity.step_count += step_count  # Assuming `step_count` is recorded
-    #                 workout_activity.end_datetime = max(workout_activity.end_datetime, timestamp)
-    #                 workout_activity.save()
-    #             else:
-    #                 # Create a new workout activity if none exists for the day
-    #                 WorkoutActivity.objects.create(
-    #                     user=user,
-    #                     activity_type="movement",
-    #                     activity_name="steps",
-    #                     xp=new_xp,
-    #                     duration=0,
-    #                     distance=0,
-    #                     average_heart_rate=0,
-    #                     start_datetime=timestamp,
-    #                     end_datetime=timestamp,
-    #                     metadata='{}',
-    #                     deviceType=None
-    #                 )
-    #         except IntegrityError:
-    #             raise serializers.ValidationError(f"An error occurred while recording steps workout activity for {timestamp}.")
-
     def check_dynamic_milestones(self, user, total_daily_step_count, milestone_increment=10000):
         """
         Check milestones dynamically and create a feed only if the milestone hasn't been reached before.
@@ -719,8 +680,8 @@ class DailyStepsSerializer(serializers.ModelSerializer):
             except (ValueError, IndexError):
                 print("Failed to parse last milestone from feed content.")
 
-        print(last_feed.content if last_feed else "No last feed found", 'last milestone content')
-        print("last milestone", last_milestone)
+        # print(last_feed.content if last_feed else "No last feed found", 'last milestone content')
+        # print("last milestone", last_milestone)
 
         # Check and create new feeds for milestones
         while milestone <= total_daily_step_count:
