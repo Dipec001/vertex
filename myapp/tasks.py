@@ -1,5 +1,5 @@
 from celery import shared_task
-from .email_utils import send_invitation_email
+from .email_utils import send_invitation_email, send_successful_login_email
 from django.utils import timezone
 from .models import Streak, CustomUser, Xp, Draw, Company,LeagueInstance, UserLeague, Gem, Notif
 import logging
@@ -43,6 +43,10 @@ def init_sentry(**kwargs):
 @shared_task
 def send_invitation_email_task(invite_code, company_name, inviter_name, to_email):
     return send_invitation_email(invite_code, company_name, inviter_name, to_email)
+
+@shared_task
+def send_login_successful_email_task(user, to_email):
+    return send_successful_login_email(user, to_email)
 
 
 @shared_task

@@ -486,3 +486,16 @@ class Notif(models.Model):
 
     def __str__(self):
         return f"{self.notif_type}: {self.content}"
+
+
+
+class ActiveSession(models.Model): 
+    TOKEN_TYPES = [
+        ('access', 'Access'),
+        ('refresh', 'Refresh'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE) 
+    token = models.CharField(max_length=255) 
+    token_type = models.CharField(choices=TOKEN_TYPES)
+    created_at = models.DateTimeField(auto_now_add=True)

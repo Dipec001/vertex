@@ -93,6 +93,7 @@ MIDDLEWARE = [
     "vertex.middleware.ErrorLoggerMiddleware",
     "vertex.middleware.InfoLoggerMiddleware",
     "vertex.middleware.CustomResponseMiddleware",
+    "vertex.middleware.AccessTokenMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
 
@@ -275,7 +276,7 @@ AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
 MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,  # Enables blacklisting
@@ -388,6 +389,7 @@ CELERY_TASK_ROUTES = {
     'myapp.tasks.run_company_draws': {'queue':'default'},
     'notifications.tasks.check_and_notify_users': {'queue': 'default'},
     'notifications.tasks.notify_gem_reset': {'queue': 'default'},
+    'myapp.tasks.send_login_successful_email_task': {'queue': 'default'},
     'myapp.tasks.send_invitation_email_task': {'queue': 'default'},
     'missions.tasks.assign_daily_tasks': {'queue': 'default'},
 }

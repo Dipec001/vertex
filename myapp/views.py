@@ -1,6 +1,6 @@
 from pprint import pprint
 from typing import Literal
-
+from rest_framework_simplejwt.views import TokenObtainPairView
 import pandas as pd
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -28,7 +28,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           ManualDrawCreateSerializer, ManualPrizeCreateSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry, Draw, UserLeague, LeagueInstance, UserFollowing, Feed,
-                     Clap,
+                     Clap, ActiveSession,
                      League, Gem, DrawImage, Notif, Prize)
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from django.shortcuts import render, get_object_or_404
@@ -50,14 +50,14 @@ from .s3_utils import save_image_to_s3
 from django.utils import timezone
 from django.db.models import Sum, F, Max, Avg, Count
 from datetime import datetime, timedelta
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, NotFound
 from django.utils.dateparse import parse_date
 from django.contrib.auth.decorators import login_required
 from rest_framework.throttling import UserRateThrottle
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils.timezone import localtime, now
-from .tasks import upload_file_task
+from .tasks import upload_file_task, send_login_successful_email_task
 import tempfile
 import os
 from django.conf import settings
@@ -2408,10 +2408,61 @@ class CustomTokenRefreshView(TokenRefreshView):
             if not CustomUser.objects.filter(id=user_id).exists():
                 return Response({"detail": "Invalid token."}, status=401)
 
-            # If user exists, continue to refresh the token
-            return super().post(request, *args, **kwargs)
+            # Check if the provided refresh token is still valid
+            if not ActiveSession.objects.filter(user_id=user_id, token=request.data["refresh"], token_type='refresh').exists():
+                return Response({"detail": "Invalid token."}, status=401)
+            
+            # Invalidate all previous refresh tokens after refreshing
+            ActiveSession.objects.filter(user_id=user_id, token_type='refresh').delete()
+
+            # If user exists or refresh valid, continue to refresh the token       
+            response = super().post(request, *args, **kwargs)
+
+            new_refresh = response.data['refresh']
+            new_access = response.data['access']
+
+            if new_refresh:
+                ActiveSession.objects.create(user_id=user_id, token=new_refresh, token_type='refresh')
+
+            if new_access:
+                # Delete the previous access token and store the new access token
+                ActiveSession.objects.filter(user_id=user_id, token_type='access').delete()
+                ActiveSession.objects.create(user_id=user_id, token=new_access, token_type='access')
+
+            return response
+
         except TokenError as e:
             raise InvalidToken(e.args[0])
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        email = request.data['username']
+
+        # Attempt to get the user from the request
+        try:
+            user = CustomUser.objects.get(email=email)
+        except CustomUser.DoesNotExist:
+            raise NotFound(detail="User not found.")
+
+        # Retrieve and delete all previous sessions in one go
+        ActiveSession.objects.filter(user=user).delete()
+
+        # Create new refresh and access tokens for the user
+        refresh = response.data['refresh']
+        access = response.data['access']
+
+        # Store the new refresh token in the ActiveSession table
+        if refresh:
+            ActiveSession.objects.create(user=user, token=refresh, token_type='refresh')
+
+        ActiveSession.objects.create(user=user, token=access, token_type='access')
+
+        # Send email notification
+        send_login_successful_email_task.delay_on_commit(user.id, email)
+
+        return response
 
 
 class CompanyEmployeeInvitationsListView(ListAPIView):

@@ -23,7 +23,7 @@ from rest_framework_simplejwt.views import (
 from fcm_django.api.rest_framework import FCMDeviceAuthorizedViewSet
 from django.conf import settings 
 from django.conf.urls.static import static
-from myapp.views import CustomTokenRefreshView
+from myapp.views import CustomTokenRefreshView, CustomTokenObtainPairView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -34,7 +34,7 @@ urlpatterns = [
     # path("api/", include("supportticket.urls")),
     path('auth/', include('rest_framework.urls')),  # DRF browsable API login/logout
     path('social-auth/', include('allauth.urls')), # For social login (Google, Facebook, etc.)
-    path('api/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     # Only allow creation of devices by authenticated users
     path('api/devices/', FCMDeviceAuthorizedViewSet.as_view({'post': 'create'}), name='create_fcm_device'),

@@ -5,6 +5,8 @@ from django.conf import settings
 from channels.db import database_sync_to_async
 from django.utils.deprecation import MiddlewareMixin
 import logging
+from rest_framework_simplejwt.tokens import AccessToken
+from django.utils.deprecation import MiddlewareMixin
 
 logger = logging.getLogger(__name__)
 
@@ -124,3 +126,30 @@ class InfoLoggerMiddleware(MiddlewareMixin):
 
     def log_request_info(self, request):
         self.logger.info(f"Request: {request.method} {request.path}")
+
+
+class AccessTokenMiddleware(MiddlewareMixin):
+    def process_request(self, request):
+        from myapp.models import ActiveSession
+        auth_header = request.META.get('HTTP_AUTHORIZATION', None)
+        if auth_header:
+            token = auth_header.split(' ')[1]
+            try:
+                access_token = AccessToken(token)
+                user_id = access_token['user_id']
+                # Optionally, you can use a custom claim here if added
+                # session_id = access_token['session_id']
+                if not ActiveSession.objects.filter(user_id=user_id, token=token).exists():
+                    return JsonResponse({
+                        "success": False,
+                        "data": None,
+                        "errors": {"detail": "Invalid access token"},
+                        "status": 401
+                    }, status=401)
+            except Exception as e:
+                return JsonResponse({
+                    "success": False,
+                    "data": None,
+                    "errors": {"detail": "Invalid token", "error": str(e)},
+                    "status": 401
+                }, status=401)

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (CustomUser, Company, Membership, Invitation, Xp, Streak, WorkoutActivity, DailySteps, 
                      Purchase, Prize, Draw, DrawEntry, DrawWinner, League, LeagueInstance, UserLeague, Clap,
-                       UserFollowing, Feed, Gem, DrawImage, Notif)
+                       UserFollowing, Feed, Gem, DrawImage, Notif, ActiveSession)
 # Register your models here.
 
 # Customizing the display and functionality of the CustomUser model in the admin interface
@@ -208,3 +208,9 @@ class NotificationAdmin(admin.ModelAdmin):
     list_filter = ('notif_type', 'created_at')  # Add filters for notification type and creation date
     ordering = ('-created_at', 'user')  # Order by most recent notifications and then by user
     list_per_page = 20  # Pagination
+
+
+@admin.register(ActiveSession)
+class ActiveSessionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'token', 'token_type','created_at',)  # Customize what fields to display
+    search_fields = ('user__username','user__email', 'token')  # Allow searching by user or token
