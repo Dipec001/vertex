@@ -120,7 +120,8 @@ class InvitationAsEmployeeSerializer(serializers.ModelSerializer):
     last_login = serializers.SerializerMethodField()
     class Meta:
         model = Invitation
-        fields = ['id','email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by', "invited_user", "last_login"]
+        fields = ['id','email', 'first_name', 'last_name', 'status', 'date_sent', 'invited_by', "invited_user", "last_login", "invite_code"]
+        read_only_fields = ['invite_code']
     def get_last_login(self, obj):
         if obj.invited_user:
             return obj.invited_user.last_login
