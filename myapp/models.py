@@ -495,7 +495,13 @@ class ActiveSession(models.Model):
         ('refresh', 'Refresh'),
     ]
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE) 
-    token = models.CharField(max_length=255) 
-    token_type = models.CharField(choices=TOKEN_TYPES)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, db_index=True) 
+    token = models.CharField(max_length=255, db_index=True) 
+    token_type = models.CharField(choices=TOKEN_TYPES, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            # Composite index for user and token to improve query performance
+            models.Index(fields=['user', 'token']),
+        ]
