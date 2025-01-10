@@ -129,7 +129,6 @@ class InfoLoggerMiddleware(MiddlewareMixin):
 
 class AccessTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        from django.http import JsonResponse
         auth_header = request.META.get('HTTP_AUTHORIZATION', None)
         if auth_header:
             token = auth_header.split(' ')[1]
