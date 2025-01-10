@@ -262,7 +262,7 @@ class Purchase(models.Model):
 
 # Prize Model (for both global and company draws)
 class Prize(models.Model):
-    draw = models.ForeignKey('Draw', on_delete=models.CASCADE, related_name='prizes')
+    draw = models.ForeignKey('Draw', on_delete=models.CASCADE, related_name='prizes', null=True)
     name = models.CharField(max_length=255)
     description = models.TextField()
     value = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)  # Cash value or item worth

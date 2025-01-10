@@ -1049,6 +1049,9 @@ class ManualPrizeCreateSerializer(serializers.ModelSerializer):
         model = Prize
         fields = ['id', 'draw', 'name', 'description', 'value', 'quantity']
         read_only_fields = ['id']
+        extra_kwargs = {
+            'draw': {'required': False},
+        }
         
     def validate_quantity(self, value):
         if value < 1:
