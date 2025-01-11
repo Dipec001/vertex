@@ -2419,15 +2419,9 @@ class CustomTokenRefreshView(TokenRefreshView):
             response = super().post(request, *args, **kwargs)
 
             new_refresh = response.data['refresh']
-            new_access = response.data['access']
 
             if new_refresh:
                 ActiveSession.objects.create(user_id=user_id, token=new_refresh, token_type='refresh')
-
-            if new_access:
-                # Delete the previous access token and store the new access token
-                ActiveSession.objects.filter(user_id=user_id, token_type='access').delete()
-                ActiveSession.objects.create(user_id=user_id, token=new_access, token_type='access')
 
             return response
 
