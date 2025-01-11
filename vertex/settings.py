@@ -93,7 +93,7 @@ MIDDLEWARE = [
     "vertex.middleware.ErrorLoggerMiddleware",
     "vertex.middleware.InfoLoggerMiddleware",
     "vertex.middleware.CustomResponseMiddleware",
-    "vertex.middleware.AccessTokenMiddleware",
+    # "vertex.middleware.AccessTokenMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
 

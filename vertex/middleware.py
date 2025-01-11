@@ -127,27 +127,27 @@ class InfoLoggerMiddleware(MiddlewareMixin):
         self.logger.info(f"Request: {request.method} {request.path}")
 
 
-class AccessTokenMiddleware(MiddlewareMixin):
-    def process_request(self, request):
-        auth_header = request.META.get('HTTP_AUTHORIZATION', None)
-        if auth_header:
-            token = auth_header.split(' ')[1]
-            AccessToken = import_module('rest_framework_simplejwt.tokens').AccessToken
-            ActiveSession = import_module('myapp.models').ActiveSession
-            try:
-                access_token = AccessToken(token)
-                user_id = access_token['user_id']
-                if not ActiveSession.objects.filter(user_id=user_id, token=token).exists():
-                    return JsonResponse({
-                        "success": False,
-                        "data": None,
-                        "errors": {"detail": "Invalid access token"},
-                        "status": 401
-                    }, status=401)
-            except Exception as e:
-                return JsonResponse({
-                    "success": False,
-                    "data": None,
-                    "errors": {"detail": "Invalid token", "error": str(e)},
-                    "status": 401
-                }, status=401)
+# class AccessTokenMiddleware(MiddlewareMixin):
+#     def process_request(self, request):
+#         auth_header = request.META.get('HTTP_AUTHORIZATION', None)
+#         if auth_header:
+#             token = auth_header.split(' ')[1]
+#             AccessToken = import_module('rest_framework_simplejwt.tokens').AccessToken
+#             ActiveSession = import_module('myapp.models').ActiveSession
+#             try:
+#                 access_token = AccessToken(token)
+#                 user_id = access_token['user_id']
+#                 if not ActiveSession.objects.filter(user_id=user_id, token=token).exists():
+#                     return JsonResponse({
+#                         "success": False,
+#                         "data": None,
+#                         "errors": {"detail": "Invalid access token"},
+#                         "status": 401
+#                     }, status=401)
+#             except Exception as e:
+#                 return JsonResponse({
+#                     "success": False,
+#                     "data": None,
+#                     "errors": {"detail": "Invalid token", "error": str(e)},
+#                     "status": 401
+#                 }, status=401)
