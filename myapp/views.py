@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from django_filters import rest_framework
 from myapp.utils import send_user_notification, \
     get_last_day_and_first_day_of_this_month
@@ -2399,6 +2400,9 @@ class XpStatsByUser(APIView):
 
 
 class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Token refresh view for custom token.
+    """
     def post(self, request, *args, **kwargs):
         try:
             refresh = RefreshToken(request.data["refresh"])
@@ -2407,21 +2411,12 @@ class CustomTokenRefreshView(TokenRefreshView):
             # Check if user still exists
             if not CustomUser.objects.filter(id=user_id).exists():
                 return Response({"detail": "Invalid token."}, status=401)
-
-            # Check if the provided refresh token is still valid
-            if not ActiveSession.objects.filter(user_id=user_id, token=request.data["refresh"], token_type='refresh').exists():
-                return Response({"detail": "Invalid token."}, status=401)
             
-            # Invalidate all previous refresh tokens after refreshing
-            ActiveSession.objects.filter(user_id=user_id, token_type='refresh').delete()
-
             # If user exists or refresh valid, continue to refresh the token       
             response = super().post(request, *args, **kwargs)
-
-            new_refresh = response.data['refresh']
-
-            if new_refresh:
-                ActiveSession.objects.create(user_id=user_id, token=new_refresh, token_type='refresh')
+            
+            # Blacklist the old refresh token
+            refresh.blacklist()
 
             return response
 
@@ -2430,6 +2425,9 @@ class CustomTokenRefreshView(TokenRefreshView):
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Custom token obtain pair view./ Login view
+    """
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
         email = request.data['username']
@@ -2440,18 +2438,18 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         except CustomUser.DoesNotExist:
             raise NotFound(detail="User not found.")
 
-        # Retrieve and delete all previous sessions in one go
-        ActiveSession.objects.filter(user=user).delete()
+        # Retrieve the new refresh token issued in this request
+        new_refresh_token = response.data['refresh']
 
-        # Create new refresh and access tokens for the user
-        refresh = response.data['refresh']
-        # access = response.data['access']
+        # Blacklist all previous refresh tokens for the user
+        outstanding_tokens = OutstandingToken.objects.filter(user=user)
+        for token in outstanding_tokens:
+            if str(token.token) != new_refresh_token:  # Exclude the newly issued token
+                try:
+                    BlacklistedToken.objects.create(token=token)
+                except:
+                    continue
 
-        # Store the new refresh token in the ActiveSession table
-        if refresh:
-            ActiveSession.objects.create(user=user, token=refresh, token_type='refresh')
-
-        # ActiveSession.objects.create(user=user, token=access, token_type='access')
 
         # Send email notification
         send_login_successful_email_task.delay_on_commit(user.id, email)
