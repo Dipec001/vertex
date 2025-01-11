@@ -588,6 +588,7 @@ class DailyStepsSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             local_date = timestamp.date()
             try:
+                # Attempt to get or create the DailySteps instance
                 daily_steps, created = DailySteps.objects.get_or_create(
                     user=user,
                     date=local_date,
@@ -596,36 +597,54 @@ class DailyStepsSerializer(serializers.ModelSerializer):
 
                 new_xp = 0
                 if created:
-                    new_xp = round(step_count / 10, 1)
-                    daily_steps.xp = new_xp
+                    # If a new instance was created, the defaults are already saved
+                    new_xp = daily_steps.xp
                 else:
+                    # Update the existing instance if step_count is higher
                     if step_count > daily_steps.step_count:
                         step_diff = step_count - daily_steps.step_count
                         new_xp = round(step_diff / 10, 1)
                         daily_steps.step_count = step_count
                         daily_steps.xp = round(daily_steps.xp + new_xp, 1)
                         daily_steps.timestamp = max(daily_steps.timestamp, timestamp)
+                        daily_steps.save()  # Save only after all updates are made
                     else:
                         raise serializers.ValidationError(
                             f"No update was made; step count is less than or equal to the latest entry for this day, {daily_steps.step_count} steps."
                         )
+                    
+                # Update user's XP directly in the create method
+                user_xp, created_xp = Xp.objects.get_or_create(
+                    user=user,
+                    date=local_date,
+                    defaults={
+                        'timeStamp': timestamp,
+                        'totalXpToday': new_xp,
+                        'totalXpAllTime': new_xp
+                    }
+                )
 
-                daily_steps.save()
+                if not created_xp:
+                    user_xp.totalXpToday += new_xp
+                    user_xp.totalXpAllTime += new_xp
+                user_xp.save()
+
+                # Update user's league XP
                 self.update_user_leagues(user, new_xp, xp_date=timestamp)
-                self.update_user_xp(user, local_date, new_xp, timestamp)
 
-                # Query the total daily steps after updating/creating the entry
+                # Calculate total daily step count
                 total_daily_step_count = DailySteps.objects.filter(user=user).aggregate(
                     total_steps=Sum('step_count')
                 )['total_steps'] or 0
 
-                # Check milestones dynamically based on the total daily steps
+                # Check for milestones based on total daily steps
                 self.check_dynamic_milestones(user, total_daily_step_count)
 
                 return daily_steps
             except Exception as e:
                 logger.error(f"Error creating/updating DailySteps for user {user.id}: {str(e)}")
-                raise serializers.ValidationError(f"An error occurred while processing the request:{str(e)}")
+                raise serializers.ValidationError(f"An error occurred while processing the request: {str(e)}")
+
 
     def update_user_leagues(self, user, new_xp, xp_date):
         active_leagues = UserLeague.objects.filter(
@@ -649,22 +668,22 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 user_league.save()
 
 
-    def update_user_xp(self, user, date, new_xp, timestamp):
-        user_xp, created_xp = Xp.objects.get_or_create(
-            user=user,
-            date=date,
-            defaults={
-                'timeStamp': timestamp
-            }
-        )
-        print(user_xp)
-        if not created_xp and new_xp > 0:
-            user_xp.totalXpToday += new_xp
-            user_xp.totalXpAllTime += new_xp
-        elif created_xp:
-            user_xp.totalXpToday = new_xp
-            user_xp.totalXpAllTime += new_xp
-        user_xp.save()
+    # def update_user_xp(self, user, date, new_xp, timestamp):
+    #     user_xp, created_xp = Xp.objects.get_or_create(
+    #         user=user,
+    #         date=date,
+    #         defaults={
+    #             'timeStamp': timestamp
+    #         }
+    #     )
+    #     print(user_xp)
+    #     if not created_xp and new_xp > 0:
+    #         user_xp.totalXpToday += new_xp
+    #         user_xp.totalXpAllTime += new_xp
+    #     elif created_xp:
+    #         user_xp.totalXpToday = new_xp
+    #         user_xp.totalXpAllTime += new_xp
+    #     user_xp.save()
 
     def check_dynamic_milestones(self, user, total_daily_step_count, milestone_increment=10000):
         """

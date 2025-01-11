@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Feed, Gem, Notif
+from .models import Xp, Streak, Company, Draw, League, UserLeague, LeagueInstance, Feed, Gem, Notif, DailySteps
 from dateutil.relativedelta import relativedelta
 from django.db.models import Count, F
 from datetime import timedelta, datetime
