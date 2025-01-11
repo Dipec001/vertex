@@ -544,9 +544,6 @@ class AppleSignInView(APIView):
         if not apple_id:
             return Response({'error': 'Apple ID not found in token'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # if not email:
-        #     return Response({'error': 'Email not found in token'}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             # Step 3: Check if the user already exists with SocialAccount
             social_account = SocialAccount.objects.get(uid=apple_id, provider='apple')
@@ -555,6 +552,14 @@ class AppleSignInView(APIView):
             # Step 4: Existing user, return access and refresh tokens
             if user:
                 refresh = RefreshToken.for_user(user)
+
+                # Delete previous sessions
+                ActiveSession.objects.filter(user=user).delete()
+
+                # Store new tokens in ActiveSession
+                ActiveSession.objects.create(user=user, token=str(refresh), token_type='refresh')
+                ActiveSession.objects.create(user=user, token=str(refresh.access_token), token_type='access')
+                
                 return Response({
                     "access_token": str(refresh.access_token),
                     "refresh_token": str(refresh),
@@ -564,8 +569,6 @@ class AppleSignInView(APIView):
 
         except SocialAccount.DoesNotExist:
             # This is a new user, handle first-time login
-            # if email is None:
-            #     return Response({'error': 'Email is required on first sign-in'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Step 5: New User Detected, no account created yet
             existing_user = CustomUser.objects.filter(email=email).first()
