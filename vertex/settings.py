@@ -381,17 +381,17 @@ CELERY_DEFAULT_QUEUE = 'default'
 CELERY_TASK_ROUTES = {
     'myapp.tasks.process_league_promotions': {'queue': 'priority_high'},
     'myapp.tasks.process_company_league_promotions': {'queue': 'priority_high'},
-    # 'myapp.tasks.reset_gems_for_local_timezones': {'queue': 'default'},
+    'myapp.tasks.reset_gems_for_local_timezones': {'queue': 'default'},
     'myapp.tasks.send_gem_update': {'queue': 'default'},
     'myapp.tasks.send_status_update': {'queue': 'default'},
     'myapp.tasks.send_next_league_update': {'queue': 'default'},
-    # 'myapp.tasks.run_global_draw': {'queue':'default'},
-    # 'myapp.tasks.run_company_draws': {'queue':'default'},
-    # 'notifications.tasks.check_and_notify_users': {'queue': 'default'},
-    # 'notifications.tasks.notify_gem_reset': {'queue': 'default'},
-    # 'myapp.tasks.send_login_successful_email_task': {'queue': 'default'},
-    # 'myapp.tasks.send_invitation_email_task': {'queue': 'default'},
-    # 'missions.tasks.assign_daily_tasks': {'queue': 'default'},
+    'myapp.tasks.run_global_draw': {'queue':'default'},
+    'myapp.tasks.run_company_draws': {'queue':'default'},
+    'notifications.tasks.check_and_notify_users': {'queue': 'default'},
+    'notifications.tasks.notify_gem_reset': {'queue': 'default'},
+    'myapp.tasks.send_login_successful_email_task': {'queue': 'default'},
+    'myapp.tasks.send_invitation_email_task': {'queue': 'default'},
+    'missions.tasks.assign_daily_tasks': {'queue': 'default'},
 }
 
 

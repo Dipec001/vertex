@@ -19,6 +19,9 @@ __pycache__/
 *.bak
 *.backup
 
+*.dat
+*.dir
+
 # # Ignore media files
 # media/
 
