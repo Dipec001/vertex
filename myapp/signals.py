@@ -266,43 +266,51 @@ def add_to_first_league(sender, instance, **kwargs):
     """
     # print('Add to league triggered')
     user = instance.user
-    total_xp = instance.totalXpAllTime
+    # total_xp = instance.totalXpAllTime
     # print(f"Total xp for the user is {total_xp}")
     
     # Check if user's total XP qualifies them for the Pathfinder league
-    if total_xp >= 1:
-        pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
+    # if total_xp >= 1:
+    pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
 
-        if not pathfinder_league:
-            print("Error: Pathfinder league not found.")
-            return
+    if not pathfinder_league:
+        print("Error: Pathfinder league not found.")
+        return
 
-        # Check if the user is already in the Pathfinder league
-        user_league_entry = UserLeague.objects.filter(user=user, league_instance__league=pathfinder_league).first()
-        if user_league_entry:
-            return  # User is already assigned to the Pathfinder league
+    # Check if the user is already in the Pathfinder league
+    user_league_entry = UserLeague.objects.filter(user=user, league_instance__league=pathfinder_league).first()
+    if user_league_entry:
+        return  # User is already assigned to the Pathfinder league
+    
+    # Find or create a new LeagueInstance for Pathfinder League with less than max participants
+    pathfinder_instance = (
+        LeagueInstance.objects
+        .filter(league=pathfinder_league, company=None, is_active=True, league_end__gt=timezone.now())
+        .annotate(participant_count=Count('userleague'))
+        .filter(participant_count__lt=F('max_participants'))
+        .first()
+    )
+
+    if not pathfinder_instance:
+        # Calculate the next midnight UK time
+        uk_tz = pytz.timezone('Europe/London')
+        now_uk = timezone.now().astimezone(uk_tz)
+        midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Find or create a new LeagueInstance for Pathfinder League with less than max participants
-        pathfinder_instance = (
-            LeagueInstance.objects
-            .filter(league=pathfinder_league, company=None, is_active=True, league_end__gt=timezone.now())
-            .annotate(participant_count=Count('userleague'))
-            .filter(participant_count__lt=F('max_participants'))
-            .first()
+        # Convert UK midnight to UTC for storage
+        midnight_utc = midnight_uk.astimezone(pytz.utc)
+
+        # Create a new Pathfinder LeagueInstance if no open instance exists
+        pathfinder_instance = LeagueInstance.objects.create(
+            league=pathfinder_league,
+            league_start=timezone.now(),
+            league_end=midnight_utc,  # : set league end for uk midnight
+            max_participants=10
         )
 
-        if not pathfinder_instance:
-            # Create a new Pathfinder LeagueInstance if no open instance exists
-            pathfinder_instance = LeagueInstance.objects.create(
-                league=pathfinder_league,
-                league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=24),  # Example: set for a 1-week league duration
-                max_participants=10
-            )
-
-        # Add user to the Pathfinder LeagueInstance
-        UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_global=0)
-        # print(f"User {user} added to {pathfinder_instance.league.name}.")
+    # Add user to the Pathfinder LeagueInstance
+    UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_global=0)
+    # print(f"User {user} added to {pathfinder_instance.league.name}.")
 
 
 # Constants for minimum users and XP thresholds
@@ -328,73 +336,55 @@ def add_to_first_company_league(sender, instance, **kwargs):
     """
     # print('Add to Company league triggered')
     user = instance.user
-    total_xp = instance.totalXpAllTime
+    # total_xp = instance.totalXpAllTime
     company = user.company
     
     # Check if user's total XP qualifies them for the Pathfinder league
-    if total_xp >= 1:
-        pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
+    # if total_xp >= 1:
+    pathfinder_league = League.objects.filter(name="Pathfinder league", order=1).first()
 
-        if not pathfinder_league:
-            # print("Error: Pathfinder league not found.")
-            return
+    if not pathfinder_league:
+        # print("Error: Pathfinder league not found.")
+        return
 
-        # Check if the user is already assigned to a Pathfinder league for this company
-        user_league_entry = UserLeague.objects.filter(
-            user=user,
-            league_instance__league=pathfinder_league,
-            league_instance__company=company
-        ).first()
-        # print('in company league, user league entry', user_league_entry)
+    # Check if the user is already assigned to a Pathfinder league for this company
+    user_league_entry = UserLeague.objects.filter(
+        user=user,
+        league_instance__league=pathfinder_league,
+        league_instance__company=company
+    ).first()
+    # print('in company league, user league entry', user_league_entry)
 
-        if user_league_entry:
-            return  # User is already in the Pathfinder league for this company
+    if user_league_entry:
+        return  # User is already in the Pathfinder league for this company
 
-        # Find an active Pathfinder instance with room or create a new one
-        pathfinder_instance = (
-            LeagueInstance.objects
-            .filter(league=pathfinder_league, company=company, is_active=True, league_end__gt=timezone.now())
-            .annotate(participant_count=Count('userleague'))
-            .filter(participant_count__lt=F('max_participants'))
-            .first()
+    # Find an active Pathfinder instance with room or create a new one
+    pathfinder_instance = (
+        LeagueInstance.objects
+        .filter(league=pathfinder_league, company=company, is_active=True, league_end__gt=timezone.now())
+        .annotate(participant_count=Count('userleague'))
+        .filter(participant_count__lt=F('max_participants'))
+        .first()
+    )
+
+    if not pathfinder_instance:
+        # Calculate the next midnight UK time
+        uk_tz = pytz.timezone('Europe/London')
+        now_uk = timezone.now().astimezone(uk_tz)
+        midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Convert UK midnight to UTC for storage
+        midnight_utc = midnight_uk.astimezone(pytz.utc)
+
+        # Create a new Pathfinder instance if all are full or none exist
+        pathfinder_instance = LeagueInstance.objects.create(
+            league=pathfinder_league,
+            company=company,
+            league_start=timezone.now(),
+            league_end=midnight_utc,
+            max_participants=10
         )
 
-        if not pathfinder_instance:
-            # Create a new Pathfinder instance if all are full or none exist
-            pathfinder_instance = LeagueInstance.objects.create(
-                league=pathfinder_league,
-                company=company,
-                league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=24),
-                max_participants=10
-            )
-
-        # Add the user to the Pathfinder league instance
-        UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_company=0)
-        print(f"User {user} added to the {pathfinder_instance.league.name} instance for {company.name}.")
-
-
-# @receiver(post_save, sender=DailySteps)
-# def update_user_xp(sender, instance, created, **kwargs):
-#     user = instance.user
-#     date = instance.date
-#     new_xp = instance.xp
-#     timestamp = instance.timestamp
-
-#     user_xp, created_xp = Xp.objects.get_or_create(
-#         user=user,
-#         date=date,
-#         defaults={
-#             'timeStamp': timestamp,
-#             'totalXpToday': new_xp,
-#             'totalXpAllTime': new_xp
-#         }
-#     )
-
-#     if not created_xp and new_xp > 0:
-#         user_xp.totalXpToday += new_xp
-#         user_xp.totalXpAllTime += new_xp
-#     elif created_xp:
-#         user_xp.totalXpAllTime += new_xp
-
-#     user_xp.save()
+    # Add the user to the Pathfinder league instance
+    UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_company=0)
+    print(f"User {user} added to the {pathfinder_instance.league.name} instance for {company.name}.")

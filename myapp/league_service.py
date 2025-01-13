@@ -2,7 +2,10 @@ from django.db import transaction, IntegrityError
 from django.db.models import Count, F
 from .models import UserLeague, LeagueInstance, League
 from django.utils import timezone
+from datetime import timedelta
 from .utils import add_manual_gem
+import pytz
+
 
 
 
@@ -30,11 +33,18 @@ def promote_user(user, gems_obtained, current_league_instance):
             )
             
             if not next_league_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 print(f'No available league instance for next league {next_league.name}, creating...')
                 next_league_instance = LeagueInstance.objects.create(
                     league=next_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     max_participants=10
                 )
 
@@ -60,11 +70,18 @@ def promote_user(user, gems_obtained, current_league_instance):
             )
 
             if not highest_league_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 print(f'No available league instance for highest league {current_league.name}, creating...')
                 highest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     max_participants=10
                 )
 
@@ -99,11 +116,18 @@ def demote_user(user, gems_obtained, current_league_instance):
             )
 
             if not previous_league_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 print(f'No available league instance for previous league {current_league.name}, creating...')
                 previous_league_instance = LeagueInstance.objects.create(
                     league=previous_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     max_participants=10
                 )
             try:
@@ -127,11 +151,18 @@ def demote_user(user, gems_obtained, current_league_instance):
             )
 
             if not lowest_league_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 print("no lower league level instance so creating")
                 lowest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     max_participants=10
                 )
 
@@ -168,11 +199,18 @@ def retain_user(user, gems_obtained, current_league_instance):
         if retain_league_instance:
             print('Found an existing retain league instance:', retain_league_instance)
         else:
+            # Calculate the next midnight UK time
+            uk_tz = pytz.timezone('Europe/London')
+            now_uk = timezone.now().astimezone(uk_tz)
+            midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Convert UK midnight to UTC for storage
+            midnight_utc = midnight_uk.astimezone(pytz.utc)
             # Create a new league instance if none found
             retain_league_instance = LeagueInstance.objects.create(
                 league=current_league,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=24),
+                league_end=midnight_utc,
                 max_participants=10
             )
             print('Created new retain league instance:', retain_league_instance)
@@ -239,10 +277,17 @@ def promote_company_user(user,gems_obtained, current_league_instance):
             )
 
             if not next_league_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 next_league_instance = LeagueInstance.objects.create(
                     league=next_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     company=company,
                     max_participants=10
                 )
@@ -267,10 +312,17 @@ def promote_company_user(user,gems_obtained, current_league_instance):
             )
 
             if not current_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 current_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     company=company,
                     max_participants=10
                 )
@@ -309,10 +361,17 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
             )
 
             if not previous_league_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 previous_league_instance = LeagueInstance.objects.create(
                     league=previous_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     company=company,
                     max_participants=10
                 )
@@ -331,10 +390,17 @@ def demote_company_user(user,gems_obtained,  current_league_instance):
             )
 
             if not lowest_league_instance:
+                # Calculate the next midnight UK time
+                uk_tz = pytz.timezone('Europe/London')
+                now_uk = timezone.now().astimezone(uk_tz)
+                midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Convert UK midnight to UTC for storage
+                midnight_utc = midnight_uk.astimezone(pytz.utc)
                 lowest_league_instance = LeagueInstance.objects.create(
                     league=current_league,
                     league_start=timezone.now(),
-                    league_end=timezone.now() + timezone.timedelta(hours=24),
+                    league_end=midnight_utc,
                     company=company,
                     max_participants=10
                 )
@@ -370,11 +436,18 @@ def retain_company_user(user,gems_obtained,  current_league_instance):
 
         # If no active instance with space is found, create a new one
         if not retain_league_instance:
+            # Calculate the next midnight UK time
+            uk_tz = pytz.timezone('Europe/London')
+            now_uk = timezone.now().astimezone(uk_tz)
+            midnight_uk = (now_uk + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Convert UK midnight to UTC for storage
+            midnight_utc = midnight_uk.astimezone(pytz.utc)
             retain_league_instance = LeagueInstance.objects.create(
                 league=current_league,
                 company=company,
                 league_start=timezone.now(),
-                league_end=timezone.now() + timezone.timedelta(hours=24),
+                league_end=midnight_utc,
                 max_participants=10
             )
 
