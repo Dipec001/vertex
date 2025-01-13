@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 router = DefaultRouter()
 router.register(r'draws', views.ManualDrawViewSet, basename='manual-draw')
 router.register(r'prizes', views.ManualPrizeViewSet, basename='manual-prize')
+router.register(r'combined-draw-prizes', views.CombinedDrawPrizeViewSet, basename='combined-draw-prizes')
 
 def trigger_error(request):
     division_by_zero = 1 / 0
