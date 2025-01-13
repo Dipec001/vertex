@@ -48,11 +48,12 @@ class InvitationAdmin(admin.ModelAdmin):
 # Customizing the display and functionality of the Xp model in the admin interface
 @admin.register(Xp)
 class XpAdmin(admin.ModelAdmin):
-    list_display = ('user', 'totalXpToday', 'totalXpAllTime', 'gems_awarded', 'timeStamp')
-    search_fields = ('user__email', 'totalXpToday', 'totalXpAllTime')
-    list_filter = ('gems_awarded', 'timeStamp')
-    ordering = ('user', 'timeStamp')
+    list_display = ('user', 'xp_value', 'timeStamp', 'source', 'totalXpToday', 'totalXpAllTime')
+    search_fields = ('user__email', 'user__username')
+    list_filter = ('timeStamp', 'source')
+    ordering = ('-id',)  # Orders by 'id' in descending order to show the most recent first
     list_per_page = 20
+
 
 # Customizing the display and functionality of the Streak model in the admin interface
 @admin.register(Streak)

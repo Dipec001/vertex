@@ -115,7 +115,7 @@ def reset_daily_streaks():
                     logger.info(f"Streak record for {user.email} already exists for day before yesterday {day_before_yesterday_start_local.date()}")
 
                 # Get the total XP for yesterday, defaulting to 0 if no entry exists
-                daily_xp = previous_xp.totalXpToday if previous_xp else 0
+                daily_xp = previous_xp.calculate_total_xp_today() if previous_xp else 0
 
                 # Calculate the highest streak value up to today
                 highest_streak = Streak.objects.filter(user=user).aggregate(max_streak=Max('highestStreak'))['max_streak'] or 0

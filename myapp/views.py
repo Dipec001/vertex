@@ -840,11 +840,11 @@ class DailyStepsView(APIView):
 
             # Retrieve the XP for the specified date
             date = daily_steps.date
-            user_xp = Xp.objects.filter(user=request.user, date=date).first()
+            user_xp = Xp.objects.filter(user=request.user, date=date).last()
 
             # Calculate total XP across all records for the user
-            total_xp_all_time = Xp.objects.filter(user=request.user).aggregate(Sum('totalXpToday'))[
-                                    'totalXpToday__sum'] or 0
+            total_xp_all_time = Xp.objects.filter(user=request.user).aggregate(Sum('xp_value'))[
+                                    'xp_value__sum'] or 0
 
             # Prepare the response, handle the case where no XP record exists yet
             xp_data = {
@@ -984,7 +984,7 @@ class XpRecordsView(APIView):
         xp_in_range = Xp.objects.filter(
             user=request.user,
             date__range=[start_date, end_date]
-        ).values('date').annotate(total_xp=Sum('totalXpToday')).order_by('date')
+        ).values('date').annotate(total_xp=Sum('xp_value')).order_by('date')
 
         xp_data = []
 
@@ -1024,7 +1024,7 @@ class XpRecordsView(APIView):
             })
 
         # Fetch the actual total XP gained (across all time)
-        total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('totalXpToday'))['total_xp'] or 0
+        total_xp_gained = Xp.objects.filter(user=request.user).aggregate(total_xp=Sum('xp_value'))['total_xp'] or 0
 
         # Return response with the breakdown per day and total XP gained
         return Response({

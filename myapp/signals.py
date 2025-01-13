@@ -372,3 +372,29 @@ def add_to_first_company_league(sender, instance, **kwargs):
         # Add the user to the Pathfinder league instance
         UserLeague.objects.create(user=user, league_instance=pathfinder_instance, xp_company=0)
         print(f"User {user} added to the {pathfinder_instance.league.name} instance for {company.name}.")
+
+
+# @receiver(post_save, sender=DailySteps)
+# def update_user_xp(sender, instance, created, **kwargs):
+#     user = instance.user
+#     date = instance.date
+#     new_xp = instance.xp
+#     timestamp = instance.timestamp
+
+#     user_xp, created_xp = Xp.objects.get_or_create(
+#         user=user,
+#         date=date,
+#         defaults={
+#             'timeStamp': timestamp,
+#             'totalXpToday': new_xp,
+#             'totalXpAllTime': new_xp
+#         }
+#     )
+
+#     if not created_xp and new_xp > 0:
+#         user_xp.totalXpToday += new_xp
+#         user_xp.totalXpAllTime += new_xp
+#     elif created_xp:
+#         user_xp.totalXpAllTime += new_xp
+
+#     user_xp.save()

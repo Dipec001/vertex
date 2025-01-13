@@ -8,7 +8,12 @@ from django.utils.timezone import now
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
+import logging
+
+
+logger = logging.getLogger(__name__)
 # Create your models here.
+
 
 TIMEZONES = tuple(zip(pytz.all_timezones, pytz.all_timezones))
 class CustomUser(AbstractUser):
@@ -164,21 +169,32 @@ class Gem(models.Model):
 
 
 class Xp(models.Model):
+
+    SOURCE_CHOICES = [
+        ('workout', 'Workout'),
+        ('steps', 'Steps'),
+    ]
+
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='xp_records')
-    timeStamp = models.DateTimeField()  # Timestamp for when XP is earned
-    date = models.DateField()  # Explicitly store the date part
-    totalXpToday = models.FloatField(default=0.0)  # XP earned today
-    totalXpAllTime = models.FloatField(default=0.0)  # Total XP earned across all time
-    gems_awarded = models.PositiveIntegerField(default=0)  # Gems awarded based on XP today
+    xp_value = models.FloatField(default=0.0)
+    totalXpToday = models.FloatField(default=0.0)
+    totalXpAllTime = models.FloatField(default=0.0)
+    timeStamp = models.DateTimeField()
+    date = models.DateField()
+    # gems_awarded = models.PositiveIntegerField(default=0)
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES)  # Source of XP
 
     def __str__(self):
-        return f'{self.user.email} - XP: {self.totalXpToday}'
+        return f'{self.user.email} - XP: {self.xp_value} from {self.source}'
     
     class Meta:
-        unique_together = ('user', 'date')  # Ensure one entry per user per day
+        indexes = [
+            models.Index(fields=['user', 'date']),  # index for user and date for faster querying
+            models.Index(fields=['user', 'timeStamp']),  # index for user and timestamp for quicker lookups
+        ]
     
     def save(self, *args, **kwargs):
-        self.gems_awarded = int (self.totalXpToday // 250)
+        # self.gems_awarded = int (self.totalXpToday // 250)
         if not self.date:
             self.date = self.timeStamp.date()  # Set the date field based on timeStamp
         super(Xp, self).save(*args, **kwargs)
@@ -217,6 +233,13 @@ class DailySteps(models.Model):
     class Meta:
         unique_together = ('user', 'date')  # Ensure one record per user per day
 
+    def save(self, *args, **kwargs):
+        super(DailySteps, self).save(*args, **kwargs)
+        logger.info(
+            f"DailySteps saved for user {self.user.email} on {self.date}: "
+            f"Steps: {self.step_count}, XP: {self.xp}, Timestamp: {self.timestamp}"
+        )
+
 
 class WorkoutActivity(models.Model):
     ACTIVITY_TYPE = [
@@ -226,7 +249,7 @@ class WorkoutActivity(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='workout_activity')
     duration = models.IntegerField()  # Duration in minutes
     xp = models.FloatField()  # XP earned from the activity
-    activity_type = models.CharField(max_length=50)  # Type of activity: "Mindfulness" or "Movement"
+    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPE)  # Type of activity: "Mindfulness" or "Movement"
     activity_name = models.CharField(max_length=100)  # Name of the activity (e.g., Running, Yoga, Steps)
     distance = models.FloatField(null=True, blank=True, default=0.0)  # Distance for movement activities
     average_heart_rate = models.FloatField(null=True, blank=True, default=0.0)  # Average heart rate

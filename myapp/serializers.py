@@ -14,7 +14,8 @@ from django.db import transaction, IntegrityError
 from .tasks import send_invitation_email_task
 from timezone_field.rest_framework import TimeZoneSerializerField
 from datetime import datetime, timedelta, timezone
-from django.db.models import Sum, F
+from django.db.models import Sum
+from django.db import models
 from zoneinfo import ZoneInfo
 from django.utils.timezone import now
 
@@ -290,7 +291,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return False
 
     def get_weekly_xp(self, obj):
-        return self.get_weekly_data(obj, 'xp_records', 'totalXpToday')
+        return self.get_weekly_data(obj, 'xp_records', 'xp_value')
 
     def get_weekly_steps(self, obj):
         return self.get_weekly_data(obj, 'daily_steps', 'step_count')
@@ -300,7 +301,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_total_xp_all_time(self, obj):
         # Summing all XP values across all time for the user
-        total_xp = Xp.objects.filter(user=obj).aggregate(total=Sum('totalXpToday'))['total'] or 0
+        total_xp = Xp.objects.filter(user=obj).aggregate(total=Sum('xp_value'))['total'] or 0
         return total_xp
 
     def get_weekly_data(self, obj, related_field, value_field, use_timestamp=False):
@@ -612,24 +613,9 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                         raise serializers.ValidationError(
                             f"No update was made; step count is less than or equal to the latest entry for this day, {daily_steps.step_count} steps."
                         )
-                    
-                # Update user's XP directly in the create method
-                user_xp, created_xp = Xp.objects.get_or_create(
-                    user=user,
-                    date=local_date,
-                    defaults={
-                        'timeStamp': timestamp,
-                        'totalXpToday': new_xp,
-                        'totalXpAllTime': new_xp
-                    }
-                )
 
-                if not created_xp:
-                    user_xp.totalXpToday += new_xp
-                    user_xp.totalXpAllTime += new_xp
-                user_xp.save()
 
-                # Update user's league XP
+                self.update_user_xp(user, local_date, new_xp, timestamp)
                 self.update_user_leagues(user, new_xp, xp_date=timestamp)
 
                 # Calculate total daily step count
@@ -668,22 +654,31 @@ class DailyStepsSerializer(serializers.ModelSerializer):
                 user_league.save()
 
 
-    # def update_user_xp(self, user, date, new_xp, timestamp):
-    #     user_xp, created_xp = Xp.objects.get_or_create(
-    #         user=user,
-    #         date=date,
-    #         defaults={
-    #             'timeStamp': timestamp
-    #         }
-    #     )
-    #     print(user_xp)
-    #     if not created_xp and new_xp > 0:
-    #         user_xp.totalXpToday += new_xp
-    #         user_xp.totalXpAllTime += new_xp
-    #     elif created_xp:
-    #         user_xp.totalXpToday = new_xp
-    #         user_xp.totalXpAllTime += new_xp
-    #     user_xp.save()
+    def update_user_xp(self, user, date, new_xp, timestamp):
+        # Get the last XP record for the user on the given date
+        last_xp = Xp.objects.filter(user=user, date=date).order_by('-id').first()
+
+        # Calculate totalXpToday and totalXpAllTime
+        if last_xp and last_xp.date == date:
+            total_xp_today = last_xp.totalXpToday + new_xp  # Add new XP to the total XP for today
+        else:
+            total_xp_today = new_xp  # No previous XP for today, so the new XP is the total
+
+        # Update totalXpAllTime by adding the new XP to the existing total
+        last_all_time_xp = Xp.objects.filter(user=user).aggregate(total=Sum('xp_value'))['total'] or 0.0
+        total_xp_all_time = last_all_time_xp + new_xp  # Add new XP to the total XP over all time
+
+        # Create the new XP record
+        Xp.objects.create(
+            user=user,
+            xp_value=new_xp,
+            totalXpToday=total_xp_today,
+            totalXpAllTime=total_xp_all_time,
+            timeStamp=timestamp,
+            date=date,
+            source='steps'
+        )
+
 
     def check_dynamic_milestones(self, user, total_daily_step_count, milestone_increment=10000):
         """
@@ -758,6 +753,7 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         start_datetime = validated_data['start_datetime']
         end_datetime = validated_data['end_datetime']
+        date = start_datetime.date()
 
         if (WorkoutActivity.objects.filter(
             user=user,
@@ -769,9 +765,35 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
         xp_earned = self.calculate_xp(validated_data)
         validated_data['xp'] = xp_earned
         workout_activity = WorkoutActivity.objects.create(user=user, **validated_data)
-        self.update_xp(workout_activity)
+        self.update_user_xp(user, date, xp_earned, start_datetime)
         self.update_user_leagues(user, xp_earned, xp_date=start_datetime)
         return workout_activity
+
+    def update_user_xp(self, user, date, new_xp, timestamp):
+        # Get the last XP record for the user on the given date
+        last_xp = Xp.objects.filter(user=user, date=date).order_by('-id').first()
+        print(last_xp.xp_value)
+
+        # Calculate totalXpToday and totalXpAllTime
+        if last_xp and last_xp.date == date:
+            total_xp_today = last_xp.totalXpToday + new_xp  # Add new XP to the total XP for today
+        else:
+            total_xp_today = new_xp  # No previous XP for today, so the new XP is the total
+
+        # Update totalXpAllTime by adding the new XP to the existing total
+        last_all_time_xp = Xp.objects.filter(user=user).aggregate(total=Sum('xp_value'))['total'] or 0.0
+        total_xp_all_time = last_all_time_xp + new_xp  # Add new XP to the total XP over all time
+
+        # Create the new XP record
+        Xp.objects.create(
+            user=user,
+            xp_value=new_xp,
+            totalXpToday=total_xp_today,
+            totalXpAllTime=total_xp_all_time,
+            timeStamp=timestamp,
+            date=date,
+            source='workout'
+        )
 
     def calculate_xp(self, data):
         duration = data.get('duration', 0)
@@ -809,23 +831,6 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
                     movement_xp += 100 * (duration // 10)
         return movement_xp
 
-    def update_xp(self, workout_activity):
-        user = workout_activity.user
-        activity_date = workout_activity.start_datetime.date()
-        user_xp, created_xp = Xp.objects.get_or_create(
-            user=user,
-            date=activity_date,
-            defaults={
-                'totalXpToday': workout_activity.xp,
-                'totalXpAllTime': workout_activity.xp,
-                'timeStamp': workout_activity.start_datetime
-            }
-        )
-        if not created_xp:
-            user_xp.totalXpToday += workout_activity.xp
-            user_xp.totalXpAllTime += workout_activity.xp
-            user_xp.save()
-
     def update_user_leagues(self, user, new_xp, xp_date):
         active_leagues = UserLeague.objects.filter(
             user=user,
@@ -849,9 +854,22 @@ class WorkoutActivitySerializer(serializers.ModelSerializer):
 
 
 class XpSerializer(serializers.ModelSerializer):
+    total_xp_today = serializers.SerializerMethodField()
+    total_xp_all_time = serializers.SerializerMethodField()
+
     class Meta:
         model = Xp
-        fields = '__all__'  # Adjust as necessary
+        fields = ['user', 'timeStamp', 'date', 'source', 'gems_awarded', 'total_xp_today', 'total_xp_all_time']
+
+    def get_total_xp_today(self, obj):
+        user = obj.user
+        date = obj.date
+        return Xp.objects.filter(user=user, date=date).aggregate(total=models.Sum('totalXpToday'))['total'] or 0.0
+
+    def get_total_xp_all_time(self, obj):
+        user = obj.user
+        return Xp.objects.filter(user=user).aggregate(total=models.Sum('totalXpToday'))['total'] or 0.0
+
 
 class StreakSerializer(serializers.ModelSerializer):
     class Meta:
