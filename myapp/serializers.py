@@ -41,9 +41,10 @@ class CompanySerializer(serializers.ModelSerializer):
     # The number of users that installed the apps
     active_users = serializers.SerializerMethodField()
     percentage_of_install = serializers.SerializerMethodField()
+    logo = serializers.ImageField(required=False, allow_null=True)  # New field
     class Meta:
         model = Company
-        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets', 'percentage_of_install', 'active_users']
+        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets', 'percentage_of_install', 'active_users', 'email', 'phone', 'alternate_phone', 'address', 'logo']
 
     def get_open_company_support_tickets(self, obj: Company):
         return obj.ticket_set.filter(status="open", is_individual=False).count()
