@@ -26,7 +26,7 @@ from .serializers import (CompanyOwnerSignupSerializer, NormalUserSignupSerializ
                           DailyStepsSerializer, WorkoutActivitySerializer, PurchaseSerializer,
                           DrawWinnerSerializer, DrawEntrySerializer, DrawSerializer, FeedSerializer,
                           NotifSerializer, EmployeeSerializer, CompanySerializer, InvitationAsEmployeeSerializer, FileUploadSerializer, BulkInvitationResultSerializer,
-                          ManualDrawCreateSerializer, ManualPrizeCreateSerializer)
+                          ManualDrawCreateSerializer, ManualPrizeCreateSerializer, CombinedDrawPrizeSerializer)
 from .models import (CustomUser, Invitation, Company, Membership, DailySteps, Xp, WorkoutActivity,
                      Streak, Purchase, DrawWinner, DrawEntry, Draw, UserLeague, LeagueInstance, UserFollowing, Feed,
                      Clap, ActiveSession,
@@ -2504,3 +2504,50 @@ class ManualPrizeViewSet(viewsets.ModelViewSet):
     filterset_class = PrizeFilter
     search_fields = ['name', 'description']
     ordering_fields = ['value', 'quantity', 'created_at']
+
+class CombinedDrawPrizeViewSet(viewsets.ModelViewSet):
+    queryset = Draw.objects.all().prefetch_related('prizes')
+    serializer_class = CombinedDrawPrizeSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+    filter_backends = (filters.DjangoFilterBackend, SearchFilter, OrderingFilter)
+    filterset_class = DrawFilter
+    search_fields = ['draw_name']
+    ordering_fields = ['draw_date', 'created_at']
+
+    def create(self, request, *args, **kwargs):
+        try:
+            with transaction.atomic():
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                self.perform_create(serializer)
+                headers = self.get_success_headers(serializer.data)
+                return Response(
+                    serializer.data, 
+                    status=status.HTTP_201_CREATED, 
+                    headers=headers
+                )
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to create draw and prizes: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def update(self, request, *args, **kwargs):
+        try:
+            with transaction.atomic():
+                partial = kwargs.pop('partial', False)
+                instance = self.get_object()
+                serializer = self.get_serializer(
+                    instance, 
+                    data=request.data, 
+                    partial=partial
+                )
+                serializer.is_valid(raise_exception=True)
+                self.perform_update(serializer)
+                return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to update draw and prizes: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
