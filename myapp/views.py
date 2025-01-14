@@ -2486,7 +2486,7 @@ class ManualDrawViewSet(viewsets.ModelViewSet):
     filter_backends = (filters.DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_class = DrawFilter
     search_fields = ['draw_name']
-    ordering_fields = ['draw_date', 'created_at']
+    ordering_fields = ['draw_date', 'draw_name']
 
 class PrizeFilter(filters.FilterSet):
     value_min = filters.NumberFilter(field_name='value', lookup_expr='gte')
@@ -2513,7 +2513,7 @@ class CombinedDrawPrizeViewSet(viewsets.ModelViewSet):
     filter_backends = (filters.DjangoFilterBackend, SearchFilter, OrderingFilter)
     filterset_class = DrawFilter
     search_fields = ['draw_name']
-    ordering_fields = ['draw_date', 'created_at']
+    ordering_fields = ['draw_date', 'draw_name']
 
     def create(self, request, *args, **kwargs):
         try:
