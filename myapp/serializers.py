@@ -41,9 +41,10 @@ class CompanySerializer(serializers.ModelSerializer):
     # The number of users that installed the apps
     active_users = serializers.SerializerMethodField()
     percentage_of_install = serializers.SerializerMethodField()
+    logo = serializers.ImageField(required=False, allow_null=True)  # New field
     class Meta:
         model = Company
-        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets', 'percentage_of_install', 'active_users']
+        fields = ['id', 'name', 'owner', 'domain','total_employees', 'created_at', 'open_company_support_tickets', 'open_user_support_tickets', 'percentage_of_install', 'active_users', 'email', 'phone', 'alternate_phone', 'address', 'logo']
 
     def get_open_company_support_tickets(self, obj: Company):
         return obj.ticket_set.filter(status="open", is_individual=False).count()
@@ -1107,3 +1108,46 @@ class ManualPrizeCreateSerializer(serializers.ModelSerializer):
         if not value.is_active:
             raise serializers.ValidationError("Cannot add prizes to inactive draws")
         return value
+
+class CombinedDrawPrizeSerializer(ManualDrawCreateSerializer):
+    prizes = ManualPrizeCreateSerializer(many=True, required=False)
+
+    class Meta(ManualDrawCreateSerializer.Meta):
+        model = Draw
+        fields = ManualDrawCreateSerializer.Meta.fields + ['prizes']
+
+    def create(self, validated_data):
+        prizes_data = validated_data.pop('prizes', [])
+        
+        with transaction.atomic():
+            # Create draw using the parent serializer
+            draw = super().create(validated_data)
+            
+            # Create prizes for the draw
+            for prize_data in prizes_data:
+                prize_data['draw'] = draw.pk
+                prize_serializer = ManualPrizeCreateSerializer(data=prize_data)
+                prize_serializer.is_valid(raise_exception=True)
+                prize_serializer.save()
+            
+            return draw
+
+    def update(self, instance, validated_data):
+        prizes_data = validated_data.pop('prizes', [])
+        
+        with transaction.atomic():
+            # Update draw using the parent serializer
+            draw = super().update(instance, validated_data)
+            
+            if prizes_data is not None:
+                # Remove existing prizes
+                instance.prizes.all().delete()
+                
+                # Create new prizes
+                for prize_data in prizes_data:
+                    prize_data['draw'] = draw.pk
+                    prize_serializer = ManualPrizeCreateSerializer(data=prize_data)
+                    prize_serializer.is_valid(raise_exception=True)
+                    prize_serializer.save()
+            
+            return draw
