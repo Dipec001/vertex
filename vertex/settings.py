@@ -93,7 +93,6 @@ MIDDLEWARE = [
     "vertex.middleware.ErrorLoggerMiddleware",
     "vertex.middleware.InfoLoggerMiddleware",
     "vertex.middleware.CustomResponseMiddleware",
-    # "vertex.middleware.AccessTokenMiddleware",
     "allauth.account.middleware.AccountMiddleware",
 ]
 
@@ -279,7 +278,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,  # Enables blacklisting
+    'BLACKLIST_AFTER_ROTATION': False,  # Enables blacklisting
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
 

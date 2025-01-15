@@ -2414,9 +2414,6 @@ class CustomTokenRefreshView(TokenRefreshView):
             
             # If user exists or refresh valid, continue to refresh the token       
             response = super().post(request, *args, **kwargs)
-            
-            # Blacklist the old refresh token
-            refresh.blacklist()
 
             return response
 
